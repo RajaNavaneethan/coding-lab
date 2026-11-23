@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Problems · Coding Interview Lab</title>
+<link rel="stylesheet" href="styles.css">
+<script>try { var t = localStorage.getItem("cil-theme"); if (/[?&]theme=dark/.test(location.search)) t = "dark"; if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+if (/[?&]debug/.test(location.search)) window.onerror = function (m, s, l) { var d = document.documentElement; d.setAttribute("data-errors", (d.getAttribute("data-errors") || "") + " | " + m + " @" + (s || "").split("/").pop() + ":" + l); };</script>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <svg viewBox="0 0 32 32" class="logo" aria-hidden="true"><rect x="3" y="5" width="26" height="22" rx="4"/><path d="M10 12l-4 4 4 4M22 12l4 4-4 4M18 10l-4 12"/></svg>
+    <span>Coding Interview <mark>Lab</mark></span>
+  </a>
+  <nav class="tabs" aria-label="Sections">
+    <a class="tab" href="index.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 5h7a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H2zM22 5h-7a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h8z"/></svg>Learn</a>
+    <a class="tab active" href="problems.html"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="7" height="7" rx="1.5"/><rect x="14" y="4" width="7" height="7" rx="1.5"/><rect x="3" y="15" width="7" height="7" rx="1.5"/><rect x="14" y="15" width="7" height="7" rx="1.5"/></svg>Problems</a>
+    <a class="tab" href="practice.html"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>Practice</a>
+  </nav>
+  <label class="search">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+    <input id="search" type="search" placeholder="Search problems, numbers, patterns…" autocomplete="off">
+    <kbd>/</kbd>
+  </label>
+  <div class="top-actions">
+    <button id="theme" class="icon-btn" title="Toggle dark mode" aria-label="Toggle dark mode"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg></button>
+  </div>
+</header>
+
+<div class="index-layout">
+  <aside class="card index-side">
+    <div class="side-head"><span class="folder-icon" style="--fc:var(--orange)"></span><b>By pattern</b><span class="muted" id="side-total"></span></div>
+    <ol class="index-nav" id="group-nav"></ol>
+  </aside>
+  <main>
+    <section class="card index-hero">
+      <div>
+        <div class="crumb">Worked solutions</div>
+        <h1>Problems</h1>
+        <p class="muted">The 85 worked LeetCode problems, grouped by pattern. Each page walks through the idea, the C++ solution and an animated trace. Open the pattern lesson first if the idea is new.</p>
+      </div>
+      <div class="hero-actions"><span class="chip purple" id="match-count"></span></div>
+    </section>
+    <div class="filters" id="filters"></div>
+    <div id="groups"></div>
+    <p class="muted empty-note" id="empty" hidden>No problem matches that search.</p>
+  </main>
+</div>
+
+<script src="data/problems.js"></script>
+<script src="problems-page.js"></script>
+</body>
+</html>
