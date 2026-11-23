@@ -239,7 +239,7 @@ window.CIL_PATTERNS.push({
       "}",
     ],
     templateNotes: [
-      "Use <code>unsigned</code> (or <code>uint32_t</code>) for bit work. Right-shifting a negative <code>int</code> copies the sign bit, and <code>1 &lt;&lt; 31</code> on an <code>int</code> is undefined.",
+      "Use <code>unsigned</code> (or <code>uint32_t</code>) for bit work. Right-shifting a negative <code>int</code> copies the sign bit. <code>1 &lt;&lt; 31</code> on an <code>int</code> gives a negative number and <code>1 &lt;&lt; 32</code> is undefined; use <code>1u</code> or <code>1ULL</code>.",
       "<code>x &amp; (x - 1)</code> removes the lowest 1. Looping on it counts 1-bits in O(number of ones) and tests powers of two in O(1).",
       "<code>x &amp; -x</code> keeps only the lowest 1. With unsigned values write it as <code>x &amp; (~x + 1)</code> to avoid a sign warning.",
       "Subset masks: bit i of <code>mask</code> says whether item i is in. The outer loop runs 2^n times, so keep n small.",
@@ -252,7 +252,7 @@ window.CIL_PATTERNS.push({
     ],
     mistakes: [
       "Shifting signed ints: <code>x &gt;&gt; 1</code> on a negative <code>int</code> never reaches 0, so a <code>while (x)</code> loop spins forever. Use <code>uint32_t</code>.",
-      "Writing <code>1 &lt;&lt; 31</code> or <code>1 &lt;&lt; 32</code> on an <code>int</code>. The first overflows and the second is undefined; use <code>1u</code> or <code>1ULL</code>.",
+      "Writing <code>1 &lt;&lt; 31</code> or <code>1 &lt;&lt; 32</code> on an <code>int</code>. The first gives a negative number and the second is undefined; use <code>1u</code> or <code>1ULL</code>.",
       "Missing brackets: <code>x &amp; 1 == 0</code> parses as <code>x &amp; (1 == 0)</code>. Write <code>(x &amp; 1) == 0</code>.",
       "Using XOR cancel when the others appear three times (LC 137). XOR only cancels even counts; count each bit mod 3 instead.",
       "Forgetting the carry loop in LC 371 must stop when the carry is 0, and that the carry should be shifted as unsigned.",
@@ -298,13 +298,13 @@ window.CIL_PATTERNS.push({
 
   drills: [
     { prompt: "An array holds the numbers 0 to n with exactly one missing. Find the missing number using O(1) extra space.",
-      answer: "bit-manipulation", distractors: ["math-design", "binary-search", "prefix-sum-hashing"],
+      answer: "bit-manipulation", distractors: ["sliding-window", "binary-search", "prefix-sum-hashing"],
       why: "XOR every index 0..n with every value; each present number cancels with its index and the missing one is left. (The sum formula also works.)" },
     { prompt: "Return true if a given integer is a power of two. Do it in constant time.",
-      answer: "bit-manipulation", distractors: ["math-design", "binary-search", "greedy"],
+      answer: "bit-manipulation", distractors: ["two-pointers", "binary-search", "greedy"],
       why: "A power of two has exactly one 1-bit, so n > 0 and n & (n - 1) == 0." },
     { prompt: "For every number from 0 to n, return how many 1s are in its binary form.",
-      answer: "bit-manipulation", distractors: ["dp-1d", "math-design", "prefix-sum-hashing"],
+      answer: "bit-manipulation", distractors: ["sliding-window", "math-design", "prefix-sum-hashing"],
       why: "i & (i - 1) drops one bit from i, so ans[i] = ans[i & (i - 1)] + 1. The binary form is the whole question." },
     { prompt: "Add two integers without using the + or - operators.",
       answer: "bit-manipulation", distractors: ["math-design", "two-pointers", "dp-1d"],
@@ -313,7 +313,7 @@ window.CIL_PATTERNS.push({
       answer: "bit-manipulation", distractors: ["prefix-sum-hashing", "math-design", "heaps"],
       why: "Count how many numbers have each bit set; the counts that are not a multiple of 3 are the bits of the answer." },
     { prompt: "Two strings differ only by one extra letter added somewhere in the second one. Return that letter.",
-      answer: "bit-manipulation", distractors: ["sliding-window", "prefix-sum-hashing", "two-pointers"],
+      answer: "bit-manipulation", distractors: ["sliding-window", "binary-search", "two-pointers"],
       why: "XOR every character of both strings; matching letters cancel in pairs and the added one is left." },
   ],
 

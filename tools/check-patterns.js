@@ -344,6 +344,7 @@ function checkPattern(p, file) {
       d.code.forEach((l, i) => { if (/\t/.test(l)) err(`${dw}: code line ${i + 1} has a tab (use spaces)`); if (/&lt;|&gt;|&amp;/.test(l)) err(`${dw}: code line ${i + 1} is HTML-escaped; write raw C++`); });
       if (!Array.isArray(d.fields) || !d.fields.length) { err(`${dw}: fields missing`); return; }
       d.fields.forEach((f) => {
+        if (f.hint !== undefined && !nonEmpty(f.hint)) err(`${dw}: field ${f.key} hint must be a non-empty string`);
         if (!nonEmpty(f.key) || !nonEmpty(f.label) || !FIELDS.TYPES.includes(f.type) || !isStr(f.value)) err(`${dw}: field ${JSON.stringify(f)} needs key, label, a known type and a string value`);
       });
       if (typeof d.run !== "function") { err(`${dw}: run must be a function`); return; }
@@ -402,7 +403,7 @@ function checkPattern(p, file) {
     arr("followups", 3, 4, tuple(2), "[question, answer]");
     if (Array.isArray(e.template)) e.template.forEach((l, i) => { if (/&lt;|&gt;|&amp;/.test(l)) err(`explain.template line ${i + 1} is HTML-escaped`); });
     if (!nonEmpty(e.sayIt)) err("explain.sayIt missing");
-    else { const n = words(e.sayIt); if (n < 120 || n > 185) err(`explain.sayIt is ${n} words; aim for 130-170`); }
+    else { const n = words(e.sayIt); if (n < 130 || n > 170) err(`explain.sayIt is ${n} words; it must be 130-170`); }
     if (!isObj(e.rubric) || !Array.isArray(e.rubric.strong) || !Array.isArray(e.rubric.weak) || e.rubric.strong.length !== 3 || e.rubric.weak.length !== 3) err("explain.rubric needs exactly 3 strong and 3 weak points");
   }
 

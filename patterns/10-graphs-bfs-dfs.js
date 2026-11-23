@@ -137,7 +137,7 @@ window.CIL_PATTERNS.push({
         frame({
           line: 23, title: `Return ${count}`,
           t: R * C === 0 ? "The grid is empty, so there are <b>0</b> islands." : `The scan reached the last cell. There ${count === 1 ? "is" : "are"} <b>${count}</b> island${count === 1 ? "" : "s"}.`,
-          tip: "O(R·C) time: each cell is scanned once and pushed at most once. The queue and the sunk marks need O(R·C) space in the worst case.",
+          tip: "O(R·C) time: each cell is scanned once and pushed at most once. Sinking cells in place needs no visited array. The BFS queue holds O(min(R, C)) cells, while a recursive DFS can need O(R·C) stack on one big island.",
           vars: { count: count },
           views: views({ gm: Object.fromEntries(Object.keys(island).map((key) => [key, "done"])) }),
         });
@@ -157,7 +157,7 @@ window.CIL_PATTERNS.push({
       id: "course-schedule",
       title: "Course Schedule",
       lc: 207,
-      problem: "There are <code>numCourses</code> courses. A pair <code>[a, b]</code> means you must take <code>b</code> before <code>a</code>. Return whether you can finish them all. <code>numCourses = 2</code>, <code>[[1,0]]</code> gives <code>true</code>; <code>[[1,0],[0,1]]</code> gives <code>false</code>.",
+      problem: "There are <code>numCourses</code> courses. A pair <code>[a, b]</code> means you must take <code>b</code> before <code>a</code>. Return whether you can finish them all. LeetCode's examples: <code>numCourses = 2</code>, <code>[[1,0]]</code> gives <code>true</code>; <code>[[1,0],[0,1]]</code> gives <code>false</code>. The demo starts on a bigger example of our own, <code>numCourses = 4</code>, <code>[[1,0],[2,0],[3,1],[3,2]]</code> (true), so the queue holds more than one course.",
       code: [
         "bool canFinish(int numCourses, vector<vector<int>>& prerequisites) {",
         "    vector<vector<int>> adj(numCourses);",
@@ -180,8 +180,8 @@ window.CIL_PATTERNS.push({
         "}",
       ],
       fields: [
-        { key: "numCourses", label: "numCourses", type: "int", value: "2" },
-        { key: "prerequisites", label: "prerequisites [a, b]", type: "tuples", value: "1,0" },
+        { key: "numCourses", label: "numCourses", type: "int", value: "4" },
+        { key: "prerequisites", label: "prerequisites [a, b]", type: "tuples", value: "1,0;2,0;3,1;3,2" },
       ],
       run(input, rec) {
         const n = input.numCourses, pre = input.prerequisites;
@@ -287,7 +287,9 @@ window.CIL_PATTERNS.push({
           line: 18, title: ok ? "All taken: true" : `Stuck: false`,
           t: ok ? `All ${n} courses were taken, so a valid order exists: <b>true</b>.`
             : `Only ${takenCount} of ${n} courses were taken. Course${stuck.length > 1 ? "s" : ""} ${stuck.join(", ")} never reached in-degree 0, because they sit on or behind a cycle: <b>false</b>.`,
-          tip: "O(V + E) time and space: each course is queued once and each arrow is followed once.",
+          tip: ok
+            ? "O(V + E) time and space. A cycle would leave <code>taken &lt; numCourses</code>: the courses on it wait for each other and never reach in-degree 0. Try <code>prerequisites = 1,0;0,1</code>."
+            : "O(V + E) time and space. The courses on a cycle wait for each other, so their counts never reach 0 and <code>taken &lt; numCourses</code>.",
           vars: { taken: takenCount, numCourses: n, result: ok },
           views: views({ gm: Object.fromEntries(stuck.map((k) => [k, "bad"])), am: Object.fromEntries(stuck.map((k) => [k, "bad"])) }),
         });

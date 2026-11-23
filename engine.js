@@ -47,18 +47,24 @@
   function record(demo, texts) {
     const F = root.CIL_FIELDS;
     const parsed = F.parseAll(demo.fields || [], texts || {});
-    const out = { frames: [], truncated: 0, error: null, answer: undefined, threw: null, parseErrors: parsed.errors };
+    // finalAppended: the run went past the cap and the last frame it passed to rec.frame is shown
+    // after the first 40, so the trace still ends on the real final step.
+    const out = { frames: [], truncated: 0, error: null, answer: undefined, threw: null, parseErrors: parsed.errors, finalAppended: false };
     if (Object.keys(parsed.errors).length) return out;
-    let extra = 0;
+    let extra = 0, lastExtra = null;
     const rec = {
-      frame(f) { if (out.frames.length < MAX_FRAMES) out.frames.push(f); else extra++; },
+      frame(f) { if (out.frames.length < MAX_FRAMES) out.frames.push(f); else { extra++; lastExtra = f; } },
       truncated(n) { out.truncated = Math.max(1, Math.round(+n) || 1); },
       full() { return out.frames.length >= MAX_FRAMES; },
       error(msg) { if (!out.error) out.error = String(msg); },
     };
     try { out.answer = demo.run(parsed.values, rec); } catch (e) { out.threw = e; }
-    if (!out.truncated && extra) out.truncated = extra;
     out.frames = out.frames.filter((f) => f && typeof f === "object");
+    if (lastExtra && typeof lastExtra === "object" && !out.threw) {
+      out.frames.push(lastExtra);
+      out.finalAppended = true;
+      out.truncated = extra - 1;                    // exact: every frame past the cap except the one shown
+    } else if (!out.truncated && extra) out.truncated = extra;
     return out;
   }
 
@@ -113,6 +119,8 @@
         (v.colLabels || []).forEach((x) => { s.colLab = Math.max(s.colLab, show(x).length); });
       }
       if (v.type === "intervals") (v.items || []).forEach((it, i) => { s.lanes = Math.max(s.lanes, (Number.isInteger(it.lane) ? it.lane : i) + 1); });
+      if (v.type === "intervals" && typeof v.cursor === "number") s.hasCursor = true;
+      if (v.type === "graph" && Object.values(v.badges || {}).some((b) => b !== undefined && b !== null && b !== "")) s.hasBadges = true;
       if (v.type === "calc" && v.label) s.maxText = Math.max(s.maxText, 1);
     }));
     return S;
@@ -126,10 +134,29 @@
   const newL = () => ({ items: [], anchors: {}, w: 0, h: 0 });
   const put = (l, it) => (l.items.push(it), it);
   const anchor = (l, k, it, text) => { l.anchors[String(k)] = { x: it.geo.x, y: it.geo.y, w: it.geo.w, h: it.geo.h, text, ek: it.key }; };
+  // View titles are upper-case 11px with .09em spacing: about 7.7 units a character. A long title
+  // wraps at word breaks (up to 3 lines, then an ellipsis), and the view is at least as wide as its
+  // title, so the stage never clips one.
+  const TITLE_CW = 7.7, TITLE_CHARS = 64, TITLE_LH = 14;
+  function wrapTitle(t) {
+    const lines = [];
+    let cur = "";
+    String(t).split(/\s+/).filter(Boolean).forEach((w) => {
+      while (w.length > TITLE_CHARS) { if (cur) { lines.push(cur); cur = ""; } lines.push(w.slice(0, TITLE_CHARS - 1) + "…"); w = ""; }
+      if (!w) return;
+      if (cur && cur.length + 1 + w.length > TITLE_CHARS) { lines.push(cur); cur = w; } else cur = cur ? cur + " " + w : w;
+    });
+    if (cur) lines.push(cur);
+    if (lines.length > 3) { lines.length = 3; lines[2] = lines[2].slice(0, TITLE_CHARS - 1).replace(/\s*\S*$/, "") + " …"; }
+    return lines.length ? lines : [String(t)];
+  }
   function title(l, v, text) {
     const t = text !== undefined ? text : v.label;
-    if (t) put(l, { key: "title", p: "label", geo: { x: 0, y: 10 }, text: t, cls: "view-title", anchor: "start" });
-    return t ? TITLE : 4;
+    if (t === undefined || t === null || t === "") return 4;
+    const lines = wrapTitle(t);
+    put(l, { key: "title", p: "label", geo: { x: 0, y: 10 }, text: lines.join(" "), lines: lines.length > 1 ? lines : undefined, cls: "view-title", anchor: "start" });
+    l.titleW = Math.max(...lines.map((x) => x.length)) * TITLE_CW + 4;
+    return TITLE + TITLE_LH * (lines.length - 1);
   }
   const ptrClass = (s, name) => "p" + (Math.max(0, s.ptrNames.indexOf(name)) % 5);
 
@@ -159,10 +186,11 @@
     if (s.hasDir) {
       if (v.dir === "ltr" || v.dir === "rtl") {
         const a = x0 + 4, b = x0 + rowW - 4, rtl = v.dir === "rtl";
-        put(l, { key: "dir", p: "edge", geo: { x1: rtl ? b : a, y1: y + 9, cx: (a + b) / 2, cy: y + 9, x2: rtl ? a : b, y2: y + 9 }, arrow: true, cls: "sweep" });
-        put(l, { key: "dirl", p: "label", geo: { x: (a + b) / 2, y: y - 4 }, text: rtl ? "sweep right to left" : "sweep left to right", cls: "sweep-label" });
+        // Own row under the title: the label, then the arrow under it.
+        put(l, { key: "dirl", p: "label", geo: { x: (a + b) / 2, y: y + 4 }, text: rtl ? "sweep right to left" : "sweep left to right", cls: "sweep-label" });
+        put(l, { key: "dir", p: "edge", geo: { x1: rtl ? b : a, y1: y + 17, cx: (a + b) / 2, cy: y + 17, x2: rtl ? a : b, y2: y + 17 }, arrow: true, cls: "sweep" });
       }
-      y += 24;
+      y += 30;
     }
     y += s.rangeRows * 22;
     const top = y;
@@ -241,7 +269,7 @@
       anchor(l, i, tile, show(it));
     });
     const tl = l.items.find((it) => it.key === "title");          // the name rides just above the top item
-    if (tl) tl.geo.y = Math.max(10, base - Math.max(n, 1) * (bh + gap) - 6);
+    if (tl) tl.geo.y = Math.max(10, base - Math.max(n, 1) * (bh + gap) - 6 - TITLE_LH * ((tl.lines || [1]).length - 1));
     if (n) put(l, { key: "top", p: "label", geo: { x: bw + 10, y: base - n * (bh + gap) + gap + bh / 2 }, text: call ? "← running" : "← top", cls: "side-note", anchor: "start" });
     else put(l, { key: "empty", p: "label", geo: { x: bw / 2, y: base - bh / 2 - 2 }, text: "empty", cls: "empty-note" });
     l.w = bw + 86;
@@ -450,7 +478,7 @@
     const allXY = n && nodes.every((nd) => typeof nd.x === "number" && typeof nd.y === "number");
     const r = Math.max(20, tw(s.maxText, 13) / 2 + 10), W = Math.max(420, Math.min(640, 150 + n * 60));
     const H = allXY || s.maxCount > 4 ? 300 : s.maxCount <= 2 ? 110 : 230;
-    const y0 = title(l, v);
+    const y0 = title(l, v) + (s.hasBadges ? 10 : 0);              // room for badges over the top nodes
     const at = {};
     nodes.forEach((nd, i) => {
       let cx, cy;
@@ -485,7 +513,7 @@
     });
     Object.entries(v.badges || {}).forEach(([id, text]) => {
       const p = at[String(id)];
-      if (p && text !== undefined && text !== null && text !== "") put(l, { key: "bd:" + id, p: "pill", geo: { x: p.cx + r * 0.9, y: p.cy - r - 6 }, text: show(text), cls: "badge" });
+      if (p && text !== undefined && text !== null && text !== "") put(l, { key: "bd:" + id, p: "pill", geo: { x: p.cx + r * 0.9, y: p.cy - r - 11 }, text: show(text), cls: "badge" });   // clears the circle
     });
     const tagY = nodeTags(l, v, s, (id) => (at[id] ? { x: at[id].cx - r, y: at[id].cy - r, w: 2 * r, h: 2 * r } : null));
     if (!n) put(l, { key: "empty", p: "label", geo: { x: 40, y: y0 + 20 }, text: "empty graph", cls: "empty-note" });
@@ -528,7 +556,7 @@
     const l = newL();
     const ax = Array.isArray(v.axis) ? v.axis : [0, 10];
     const mn = num(ax[0], 0), mx = num(ax[1], mn + 10), span = mx - mn || 1, W = 640, sc = W / span, LH = 32;
-    const y0 = title(l, v) + 8;
+    const y0 = title(l, v) + 8 + (s.hasCursor ? 26 : 0);      // the cursor pill gets its own band under the title
     const ay = y0 + s.lanes * LH + 4;
     const X = (t) => (t - mn) * sc;
     (v.items || []).forEach((it, i) => {
@@ -548,8 +576,8 @@
     }
     if (typeof v.cursor === "number") {
       const cx = Math.max(-4, Math.min(W + 4, X(v.cursor)));
-      put(l, { key: "cur", p: "line", geo: { x1: cx, y1: y0 - 12, x2: cx, y2: ay }, cls: "cursor" });
-      put(l, { key: "curl", p: "pill", geo: { x: cx, y: y0 - 14 }, text: "x = " + show(v.cursor), cls: "cursor-tag" });
+      put(l, { key: "cur", p: "line", geo: { x1: cx, y1: y0 - 8, x2: cx, y2: ay }, cls: "cursor" });
+      put(l, { key: "curl", p: "pill", geo: { x: cx, y: y0 - 18 }, text: "x = " + show(v.cursor), cls: "cursor-tag" });
     }
     l.w = W + 30;
     l.h = ay + 24;
@@ -599,8 +627,34 @@
       l.w = 300; l.h = 24; l.error = true;
       return l;
     }
-    return fn(v, s);
+    const l = fn(v, s);
+    if (l.titleW) l.w = Math.max(l.w, l.titleW);
+    return l;
   }
+
+  // Vertical extent of what a view really draws in one frame, in its own units.
+  function extentOf(L) {
+    let top = Infinity, bottom = -Infinity;
+    const span = (a, b) => { top = Math.min(top, a); bottom = Math.max(bottom, b); };
+    L.items.forEach((it) => {
+      const g = it.geo;
+      switch (it.p) {
+        case "tile": case "row": case "calc": case "rect": if (g.h > 0) span(g.y, g.y + g.h); break;
+        case "label": span(g.y - 8, g.y + 8 + TITLE_LH * ((it.lines || [1]).length - 1)); break;
+        case "pill": span(g.y - 10, g.y + 10); break;
+        case "pointer": span(g.y, g.y + 25); break;
+        case "bracket": span(g.y - 14, g.y + 7); break;
+        case "edge": { const m = (g.y1 + 2 * g.cy + g.y2) / 4; span(Math.min(g.y1, g.y2, m), Math.max(g.y1, g.y2, m)); break; }
+        case "line": span(Math.min(g.y1, g.y2), Math.max(g.y1, g.y2)); break;
+        default: break;
+      }
+    });
+    if (!isFinite(top)) return { top: 0, bottom: L.h };
+    return { top: Math.max(0, top - 2), bottom: Math.min(L.h, bottom + 4) };
+  }
+  // Containers whose drawn height follows their item count. Each frame packs them by what they
+  // really draw, so an empty heap or a short stack does not leave a tall blank band.
+  const PACKED = new Set(["stack", "callstack", "heap"]);
 
   // Lays out every frame of a run. Each view id gets one fixed slot (its largest size over the
   // run), so nothing jumps between frames. Rows stack the views (consecutive calc cards share a
@@ -648,17 +702,35 @@
       ids.forEach((id) => { slot[id] = { x, y, s: sc, w: size[id].w * sc, h: size[id].h * sc }; x += (size[id].w + HGAP) * sc; });
       y += rh + VGAP;
     });
-    const H = Math.round(Math.max(120, y - VGAP + PAD));
+    // Per-frame slots: same x, scale and width as the run slot; rows are packed from the top by
+    // the height each view needs in that frame. Only PACKED containers change height between
+    // frames, so other views move only when a heap or stack above them grows or shrinks.
+    let H = 120;
+    const frameSlots = per.map((vs) => {
+      const here = {}, fs = {};
+      vs.forEach((L) => { here[L.id] = PACKED.has(L.type) ? extentOf(L) : { top: 0, bottom: size[L.id].h }; });
+      let fy = PAD;
+      fitted.forEach(({ ids, sc }) => {
+        const present = ids.filter((id) => here[id]);
+        if (!present.length) return;
+        const top = Math.min(...present.map((id) => here[id].top)), bottom = Math.max(...present.map((id) => here[id].bottom));
+        present.forEach((id) => { fs[id] = Object.assign({}, slot[id], { y: fy - top * sc, h: (here[id].bottom - here[id].top) * sc }); });
+        fy += (bottom - top) * sc + VGAP;
+      });
+      H = Math.max(H, Math.round(fy - VGAP + PAD));
+      return fs;
+    });
     const used = new Set();
     frames.forEach((f) => {
       (f.views || []).forEach((v) => {
         if (!v) return;
         [v.marks, v.edgeMarks].forEach((m) => m && typeof m === "object" && Object.values(m).forEach((x) => mk(x) && used.add(x)));
         (v.ranges || []).forEach((r) => r && r.from <= r.to && used.add(mk(r.mark) || "good"));
+        if (v.type === "grid" && (v.arrows || []).some(Array.isArray)) used.add("in");     // dependency arrows draw in the `in` colour
       });
       (f.moves || []).forEach((m) => m && used.add(mk(m.mark) || "new"));
     });
-    return { frames: per.map((vs) => vs.map((L) => Object.assign(L, { slot: slot[L.id] }))), W, H, slot,
+    return { frames: per.map((vs, fi) => vs.map((L) => Object.assign(L, { slot: frameSlots[fi][L.id] || slot[L.id] }))), W, H, slot,
       marks: MARKS.filter((m) => used.has(m)), errors, stats: S };
   }
 
@@ -811,8 +883,19 @@
     label: {
       layer: 2,
       build(e) { e.t = sv("text", {}, e.g); },
-      apply(e, q) { e.t.setAttribute("x", f1(q.x)); e.t.setAttribute("y", f1(q.y)); },
-      paint(e, it) { e.g.setAttribute("class", cls("lbl", it)); e.t.textContent = it.text; e.t.setAttribute("text-anchor", it.anchor || "middle"); },
+      apply(e, q) {
+        e.t.setAttribute("x", f1(q.x)); e.t.setAttribute("y", f1(q.y));
+        for (const ts of e.t.children) ts.setAttribute("x", f1(q.x));
+      },
+      paint(e, it) {
+        e.g.setAttribute("class", cls("lbl", it));
+        e.t.textContent = "";
+        if (it.lines) {                                   // a wrapped view title: one tspan a line
+          const x = f1((e.cur || it.geo).x);
+          it.lines.forEach((s, i) => { const ts = sv("tspan", { x, dy: i ? 14 : 0 }, e.t); ts.textContent = s; });
+        } else e.t.textContent = it.text;
+        e.t.setAttribute("text-anchor", it.anchor || "middle");
+      },
     },
     pill: {
       layer: 2,
@@ -874,7 +957,17 @@
     ints: "2,7,11,15 or [2, 7, 11, 15]", strings: 'eat,tea,"tan" or ["eat","tea"]', intGrid: "rows split by ; e.g. 1,1,0;0,1,1",
     charGrid: "rows split by ; e.g. ABCE;SFCS", tuples: "1,3;2,6;8,10 or [[1,3],[2,6]]", ops: "put(1,1) get(1) put(3,3)",
   };
-  const strip = (h) => String(h || "").replace(/<[^>]*>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").replace(/&quot;/g, '"');
+  // Frame titles are shown as plain text, never as markup. An inert <template> parses the HTML
+  // (scripts do not run and images do not load inside it), and textContent also decodes the
+  // entities that patterns write with esc(). Use the result only with textContent or esc().
+  const titleTpl = document.createElement("template");
+  function plain(h) {
+    if (h === undefined || h === null || h === "") return "";
+    titleTpl.innerHTML = String(h);
+    const t = titleTpl.content.textContent.replace(/\s+/g, " ").trim();
+    titleTpl.innerHTML = "";
+    return t;
+  }
 
   function template(stageOnly) {
     return `
@@ -904,7 +997,7 @@
           <div class="try-head"><b>${ICON.edit}TRY YOUR OWN INPUT</b><span class="chip try-custom" hidden>your input</span></div>
           <div class="try-fields"></div>
           <div class="try-msg" hidden></div>
-          <div class="try-actions"><button class="btn primary b-run">Run this input</button><button class="btn b-reset">Reset to the example</button><span class="muted try-note">Enter runs it. Keep inputs small: the trace shows the first 40 steps.</span></div>
+          <div class="try-actions"><button class="btn primary b-run">Run this input</button><button class="btn b-reset">Reset to the example</button><span class="muted try-note">Enter runs it. Keep inputs small: a long run shows its first 40 steps and its last one.</span></div>
         </div>
       </div>
       <div class="trace-side">
@@ -944,7 +1037,7 @@
     fields.forEach((f) => { defaults[f.key] = f.value; });
     const storeKey = opts.patternId ? `${opts.patternId}/${demo.id}` : null;
 
-    let run = null, lay = null, cur = -1, autoplay = false, autoTimer = 0, busyUntil = 0, texts = defaults, layers = {}, flightLayer = null;
+    let run = null, lay = null, cur = -1, autoplay = false, autoTimer = 0, busyUntil = 0, texts = defaults, layers = {}, viewG = {}, flightLayer = null;
     let raf = 0, uidSeq = 0, destroyed = false;
     const els = new Map(), dying = new Map(), tweens = new Set(), flights = new Set();
     let uidState = {};
@@ -993,6 +1086,20 @@
     }
 
     // ---------- stage ----------
+    // A view's place on the stage (CSS transform on the SVG group, so it can glide when a heap or
+    // stack above it changes height between frames).
+    const viewTransform = (sl) => `translate(${f1(sl.x)}px, ${f1(sl.y)}px) scale(${sl.s.toFixed(4)})`;
+    function placeViews(L, D) {
+      L.forEach((vl) => {
+        const g = viewG[vl.id];
+        if (!g || !vl.slot) return;
+        const tr = viewTransform(vl.slot);
+        if (g.lastTr === tr) return;
+        g.style.transition = D && g.lastTr ? `transform ${Math.round(D)}ms cubic-bezier(.65, 0, .35, 1)` : "none";
+        g.style.transform = tr;
+        g.lastTr = tr;
+      });
+    }
     function clearStage() {
       tweens.clear(); killFlights();
       els.forEach((e) => clearTimeout(e.drawTimer));
@@ -1009,9 +1116,11 @@
         const mm = sv("marker", { id: `${uid}-ar-${m}`, viewBox: "0 0 10 10", refX: 7.5, refY: 5, markerWidth: 5, markerHeight: 5, orient: "auto-start-reverse", markerUnits: "strokeWidth" }, defs);
         sv("path", { d: "M0,1 L9,5 L0,9 z", class: "ar ar-" + m }, mm);
       });
-      layers = {};
+      layers = {}; viewG = {};
       Object.entries(lay.slot).forEach(([id, sl]) => {
-        const g = sv("g", { class: "view", transform: `translate(${f1(sl.x)},${f1(sl.y)}) scale(${sl.s.toFixed(4)})`, "data-view": id }, ui.stage);
+        const g = sv("g", { class: "view", "data-view": id }, ui.stage);
+        g.style.transform = viewTransform(sl);
+        viewG[id] = g;
         layers[id] = [sv("g", { class: "l-back" }, g), sv("g", { class: "l-mid" }, g), sv("g", { class: "l-front" }, g)];
       });
       flightLayer = sv("g", { class: "flights" }, ui.stage);
@@ -1066,6 +1175,7 @@
       killFlights();
       const animate = !reduce && mode !== "instant", D = animate ? 520 / speed() : 0;
       const uids = resolveUids(fi), L = lay.frames[fi];
+      placeViews(L, D);
       const moves = animate && mode === "anim" ? movesOf(fi, uids) : [];
       const targets = new Map(moves.map((mv) => [mv.key, mv]));
       const seen = new Set();
@@ -1183,21 +1293,37 @@
 
     // ---------- chrome: variables, code, caption, timeline ----------
     function buildCode() {
-      const lines = highlight(Array.isArray(demo.code) ? demo.code : []);
+      const raw = Array.isArray(demo.code) ? demo.code : [], lines = highlight(raw);
+      // A long line wraps; --hang indents its continuation rows 4 columns past the line's own
+      // leading spaces, so a wrapped row reads as a continuation (styles.css .code-body .src).
       ui.codeBody.innerHTML = `<div class="code-hl" hidden></div>` + lines.map((h, i) =>
-        `<div class="code-line"><span class="ln">${i + 1}</span><span class="src">${h || " "}</span></div>`).join("");
+        `<div class="code-line"><span class="ln">${i + 1}</span><span class="src" style="--hang:${String(raw[i]).match(/^ */)[0].length + 4}">${
+          // never wrap inside -> or ::, and keep a comment's // on the row of its first word
+          (h || " ").replace(/-&gt;|::/g, (m) => `<span class="nb">${m}</span>`).replace(/\/\/ (?=\S)/g, "//\u00a0")}</span></div>`).join("");
+    }
+    let hlRange = null;
+    function placeHl() {
+      const rows = ui.codeBody.querySelectorAll(".code-line"), hl = ui.codeBody.querySelector(".code-hl");
+      if (!hlRange || !rows.length) { hl.hidden = true; return; }
+      const ra = rows[hlRange[0] - 1], rb = rows[hlRange[1] - 1];
+      hl.hidden = false;
+      hl.style.top = ra.offsetTop + "px";
+      hl.style.height = rb.offsetTop + rb.offsetHeight - ra.offsetTop + "px";      // the whole wrapped line
+    }
+    function clearCode() {
+      ui.codeBody.querySelectorAll(".code-line.cur").forEach((r) => r.classList.remove("cur"));
+      hlRange = null; placeHl(); ui.codeWhere.textContent = "";
     }
     function paintCode(f) {
-      const rows = ui.codeBody.querySelectorAll(".code-line"), hl = ui.codeBody.querySelector(".code-hl");
+      const rows = ui.codeBody.querySelectorAll(".code-line");
       const ln = (Array.isArray(f.line) ? f.line : [f.line]).map((x) => parseInt(x, 10)).filter((x) => x >= 1 && x <= rows.length);
       rows.forEach((r) => r.classList.remove("cur"));
-      if (!ln.length) { hl.hidden = true; ui.codeWhere.textContent = ""; return; }
+      if (!ln.length) { clearCode(); return; }
       const a = Math.min(...ln), b = Math.max(...ln);
       for (let k = a; k <= b; k++) rows[k - 1].classList.add("cur");
       const ra = rows[a - 1], rb = rows[b - 1];
-      hl.hidden = false;
-      hl.style.top = ra.offsetTop + "px";
-      hl.style.height = rb.offsetTop + rb.offsetHeight - ra.offsetTop + "px";
+      hlRange = [a, b];
+      placeHl();
       ui.codeWhere.textContent = a === b ? `line ${a}` : `lines ${a}-${b}`;
       const body = ui.codeBody, top = ra.offsetTop, bottom = rb.offsetTop + rb.offsetHeight;
       if (top < body.scrollTop + 6 || bottom > body.scrollTop + body.clientHeight - 6) {
@@ -1212,20 +1338,35 @@
         return `<div class="metric${changed ? " changed fresh" : added ? " added fresh" : ""}"><span>${esc(k)}</span><b>${esc(show(v[k]))}</b></div>`;
       }).join("");
     }
+    const steps = (n) => `${n} more step${n === 1 ? "" : "s"}`;
     function buildTimeline() {
-      const fr = run.frames;
-      ui.timeline.innerHTML = fr.map((f, i) =>
-        `<li><button data-step="${i}" title="${esc(strip(f.title))}">${i + 1}</button><span class="tl-label">${f.title || ""}</span></li>`).join("");
-      ui.tlMore.hidden = !run.truncated;
-      ui.tlMore.textContent = run.truncated ? `… and ${run.truncated} more step${run.truncated === 1 ? "" : "s"} not shown. The trace keeps the first ${MAX_FRAMES}.` : "";
+      const fr = run.frames, gapAt = run.finalAppended && run.truncated ? fr.length - 1 : -1;
+      ui.timeline.innerHTML = fr.map((f, i) => {
+        const t = esc(plain(f.title));
+        const gap = i === gapAt ? `<li class="tl-gap"><span class="tl-dots">…</span><span class="tl-label">… and ${steps(run.truncated)} not shown</span></li>` : "";
+        return `${gap}<li class="tl-step"><button data-step="${i}" title="${t}">${i + 1}</button><span class="tl-label">${t}</span></li>`;
+      }).join("");
+      ui.tlMore.hidden = !run.truncated || gapAt >= 0;
+      ui.tlMore.textContent = run.truncated && gapAt < 0 ? `… and ${steps(run.truncated)} not shown. The trace keeps the first ${MAX_FRAMES}.` : "";
+      fadeTimeline();
+    }
+    // Fade whichever edge of the timeline has more steps scrolled out of view, so a label cut by
+    // the edge reads as "more this way" instead of a word cut in half.
+    function fadeTimeline() {
+      const ol = ui.timeline, max = ol.scrollWidth - ol.clientWidth;
+      ol.classList.toggle("fade-l", ol.scrollLeft > 2);
+      ol.classList.toggle("fade-r", max > 2 && ol.scrollLeft < max - 2);
     }
     function paintTimeline(i) {
-      [...ui.timeline.children].forEach((li, k) => { li.className = k < i ? "past" : k === i ? "current" : ""; });
-      const li = ui.timeline.children[i], ol = ui.timeline;
+      const items = ui.timeline.querySelectorAll("li.tl-step"), gap = ui.timeline.querySelector("li.tl-gap");
+      items.forEach((li, k) => { li.className = "tl-step" + (k < i ? " past" : k === i ? " current" : ""); });
+      if (gap) gap.className = "tl-gap" + (i === items.length - 1 ? " past" : "");
+      const li = items[i], ol = ui.timeline;
       if (li) {
         const x = li.offsetLeft - ol.clientWidth / 2 + li.offsetWidth / 2;
         if (ol.scrollTo) ol.scrollTo({ left: Math.max(0, x), behavior: reduce ? "auto" : "smooth" }); else ol.scrollLeft = x;
       }
+      fadeTimeline();
       ui.tlCount.textContent = `Step ${i + 1} of ${count()}${run.truncated ? ` (+${run.truncated} not shown)` : ""}`;
     }
     function paintAnswer(i) {
@@ -1234,7 +1375,9 @@
       if (last && run.error) html += `<div class="answer-chip bad"><span class="key-label">INPUT REJECTED</span><b>${esc(run.error)}</b></div>`;
       else if (last && run.threw) html += `<div class="answer-chip bad"><span class="key-label">TRACE ERROR</span><b>${esc(run.threw.message || run.threw)}</b></div>`;
       else if (last) html += `<div class="answer-chip"><span class="key-label">ANSWER</span><b>${esc(showAnswer(run.answer))}</b></div>`;
-      if (last && run.truncated) html += `<p class="more-note">… and ${run.truncated} more step${run.truncated === 1 ? "" : "s"} not shown. The answer comes from the full run.</p>`;
+      if (last && run.truncated) html += run.finalAppended
+        ? `<p class="more-note">${run.truncated} step${run.truncated === 1 ? "" : "s"} between step ${MAX_FRAMES} and this last one ${run.truncated === 1 ? "is" : "are"} not shown. The answer comes from the full run.</p>`
+        : `<p class="more-note">… and ${steps(run.truncated)} not shown. The answer comes from the full run.</p>`;
       ui.answer.innerHTML = html;
       ui.answer.hidden = !html;
     }
@@ -1243,13 +1386,14 @@
       ui.stepCount.textContent = `STEP ${i + 1} / ${n}`;
       const ln = Array.isArray(f.line) ? f.line : [f.line];
       ui.linePill.textContent = ln.length > 1 && ln[0] !== ln[1] ? `LINES ${ln[0]}-${ln[1]}` : `LINE ${ln[0]}`;
-      ui.title.innerHTML = f.title || "";
+      ui.linePill.hidden = false;
+      ui.title.textContent = plain(f.title);                // text only: a title never injects markup
       ui.caption.innerHTML = f.t || "";
       ui.tip.hidden = !f.tip;
       if (f.tip) { ui.tipText.innerHTML = f.tip; restartClass(ui.tip, "show"); }
       paintAnswer(i);
       ui.prev.disabled = i === 0;
-      if (i < n - 1) { ui.next.disabled = false; ui.next.innerHTML = `<span class="next-label">Next: ${strip(run.frames[i + 1].title) ? esc(strip(run.frames[i + 1].title)) : "step " + (i + 2)}</span> <span>→</span>`; }
+      if (i < n - 1) { ui.next.disabled = false; const nt = plain(run.frames[i + 1].title); ui.next.innerHTML = `<span class="next-label">Next: ${nt ? esc(nt) : "step " + (i + 2)}</span> <span>→</span>`; }
       else if (opts.onEnd) { ui.next.disabled = false; ui.next.innerHTML = `Finish <span>✓</span>`; }
       else { ui.next.disabled = true; ui.next.innerHTML = `End of trace`; }
       paintVars(i);
@@ -1315,7 +1459,7 @@
         <div class="try-row">
           <label for="${uid}-f${i}">${esc(f.label || f.key)}</label>
           <div><input id="${uid}-f${i}" data-key="${esc(f.key)}" type="text" spellcheck="false" autocomplete="off">
-          <div class="try-hint">${esc(HINT[f.type] || f.type)}</div><div class="try-error" hidden></div></div>
+          <div class="try-hint">${esc(typeof f.hint === "string" && f.hint ? f.hint : HINT[f.type] || f.type)}</div><div class="try-error" hidden></div></div>
         </div>`).join("");
       ui.tryFields.querySelectorAll("input").forEach((inp) => {
         inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); runInput(); } });
@@ -1340,6 +1484,14 @@
     function runInput() {
       const t = readInputs(), r = record(demo, t);
       if (Object.keys(r.parseErrors).length) { showFieldErrors(r.parseErrors); setTryMsg("Fix the marked field, then run again. The trace below is unchanged.", true); return; }
+      // The input parses but the algorithm rejects it (or the run fails) before any step: keep the
+      // current trace whole and say why once, under the form, like a parse error.
+      if (!r.frames.length && (r.error || r.threw)) {
+        showFieldErrors(null);
+        const why = String(r.error || r.threw.message || r.threw).trim();
+        setTryMsg(`${r.error ? "This input is not valid" : "The trace failed on this input"}: ${why}${/[.!?]$/.test(why) ? "" : "."} The trace below is unchanged.`, true);
+        return;
+      }
       writeStored(t);
       load(r, t, 0);
     }
@@ -1362,13 +1514,19 @@
       ui.msg.hidden = !msg;
       ui.msg.textContent = msg;
       ui.msg.classList.toggle("bad", !!msg);
-      setTryMsg(r.error ? `The algorithm rejected this input: ${r.error}` : r.threw ? `The trace failed on this input: ${r.threw.message || r.threw}` : "", !!(r.error || r.threw));
+      // Each message is said once: a run that stopped before any step (or threw) is explained on
+      // the stage; a rejection after some steps is explained under the form.
+      const onStage = !!(r.threw || (r.error && !r.frames.length));
+      setTryMsg(!onStage && r.error ? `The algorithm rejected this input: ${r.error}` : "", true);
       container.querySelector(".trace").classList.toggle("empty", !r.frames.length);
       if (r.frames.length) goto(start || 0, "anim");
       else {
-        ui.vars.innerHTML = ""; ui.timeline.innerHTML = ""; ui.stepCount.textContent = "NO STEPS"; ui.linePill.textContent = "";
+        // Nothing to show: clear every piece of the old trace, so no stale line or count is left.
+        ui.vars.innerHTML = ""; ui.timeline.innerHTML = ""; ui.tlMore.hidden = true; ui.tlCount.textContent = "";
+        ui.stepCount.textContent = "NO STEPS"; ui.linePill.textContent = ""; ui.linePill.hidden = true;
         ui.title.textContent = ""; ui.caption.textContent = ""; ui.tip.hidden = true; ui.answer.hidden = true;
         ui.prev.disabled = true; ui.next.disabled = true; ui.next.textContent = "No steps";
+        clearCode();
       }
     }
 
@@ -1379,6 +1537,10 @@
     ui.next.onclick = () => { setAutoplay(false, true); next(); };
     ui.speed.onchange = () => scheduleAuto();
     ui.timeline.onclick = (e) => { const b = e.target.closest("button[data-step]"); if (b) { setAutoplay(false, true); goto(+b.dataset.step); } };
+    ui.timeline.addEventListener("scroll", fadeTimeline, { passive: true });
+    // Wrapped code lines change height when the panel width changes: keep the highlight on them.
+    const resizer = typeof ResizeObserver === "function" ? new ResizeObserver(() => { placeHl(); fadeTimeline(); }) : null;
+    if (resizer) { resizer.observe(ui.codeBody); resizer.observe(ui.timeline); }
     ui.run.onclick = () => runInput();
     ui.reset.onclick = () => { writeStored(null); load(record(demo, defaults), defaults, 0); };
     function onKey(e) {
@@ -1409,6 +1571,7 @@
       rerun(t) { const tt = Object.assign({}, defaults, t || {}), r = record(demo, tt); load(r, tt, 0); return r; },
       destroy() {
         destroyed = true; clearTimeout(autoTimer); killFlights(); tweens.clear();
+        if (resizer) resizer.disconnect();
         if (raf) raf();
         document.removeEventListener("keydown", onKey);
         container.innerHTML = "";

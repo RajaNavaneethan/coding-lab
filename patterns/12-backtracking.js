@@ -173,7 +173,8 @@ window.CIL_PATTERNS.push({
         const usedCol = new Array(n).fill(false), usedDiag = new Array(2 * n).fill(false), usedAnti = new Array(2 * n).fill(false);
         const stack = [];
         const k = (r, c) => `${r},${c}`;
-        // Which queens attack cell (r, c), and why.
+        // Which queens attack cell (r, c), and why, in line 8's check order: column, diagonal, anti-diagonal.
+        const ORDER = { column: 0, diagonal: 1, "anti-diagonal": 2 };
         const attackers = (r, c) => {
           const out = [];
           for (let i = 0; i < r; i++) {
@@ -183,7 +184,7 @@ window.CIL_PATTERNS.push({
             else if (i - qc === r - c) out.push([i, qc, "diagonal"]);
             else if (i + qc === r + c) out.push([i, qc, "anti-diagonal"]);
           }
-          return out;
+          return out.sort((a, b) => ORDER[a[2]] - ORDER[b[2]] || a[0] - b[0]);
         };
 
         const views = (o) => {
@@ -399,7 +400,7 @@ window.CIL_PATTERNS.push({
       answer: "backtracking", distractors: ["dp-knapsack", "prefix-sum-hashing", "greedy"],
       why: "It asks to list the combinations, not count them. Recurse with the same index to allow reuse and stop once the sum passes the target." },
     { prompt: "Given a grid of letters and a word, say whether the word can be traced through adjacent cells without using a cell twice.",
-      answer: "backtracking", distractors: ["graphs-bfs-dfs", "tries", "dp-2d"],
+      answer: "backtracking", distractors: ["sliding-window", "heaps", "dp-2d"],
       why: "Try each start cell, mark it used, explore the four neighbours for the next letter, and unmark it when the branch fails." },
     { prompt: "Given a string, split it into pieces so that every piece reads the same forwards and backwards. Return every such split.",
       answer: "backtracking", distractors: ["dp-2d", "sliding-window", "two-pointers"],

@@ -218,8 +218,8 @@ window.CIL_PATTERNS.push({
             const w = st.length ? i - st[st.length - 1] - 1 : i;
             const L = i - w;
             const nt = st.length ? st[st.length - 1] : -1;
-            const leftTxt = nt < 0 ? "The stack is now empty: no bar on its left is shorter, so the rectangle reaches index 0."
-              : (h[nt] < h[top] ? `The new top, bar ${nt} (<code>h = ${h[nt]}</code>), is the nearest shorter bar on its left.`
+            const leftTxt = nt < 0 ? "The stack is now empty: every bar on its left is taller, so the rectangle reaches index 0."
+              : (h[nt] < h[top] ? `The new top, bar ${nt} (<code>h = ${h[nt]}</code>), is the nearest bar to the left that is not taller.`
                 : `The new top, bar ${nt}, has the same height. This width is too small, but bar ${nt} is measured later with the full width.`);
             frame({
               line: [8, 9], title: `Pop ${top}, width ${w}`,

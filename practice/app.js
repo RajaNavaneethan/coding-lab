@@ -226,24 +226,27 @@
     return out;
   }
   const cardState = (st, x) => (st[x.pid] && st[x.pid][x.c.id]) || null;
+  // A card never graded yet starts in box 1 and is due now, so "Got it" moves it up one box, to 2.
+  const boxOf = (st, x) => (cardState(st, x) ? cardState(st, x).box : 1);
   function buildQueue() {
     const st = flashState(), now = Date.now();
     const cards = deck().filter((x) => fc.all || !cardState(st, x) || cardState(st, x).due <= now);
-    fc.queue = shuffle(cards).sort((a, b) => ((cardState(st, a) || { box: 0 }).box - (cardState(st, b) || { box: 0 }).box));
+    fc.queue = shuffle(cards).sort((a, b) => boxOf(st, a) - boxOf(st, b));
     fc.flipped = false;
   }
   function renderFlashcards(rebuild) {
     if (!loadedIds.length) { view().innerHTML = noPatterns("Complexity flashcards"); return; }
     if (rebuild !== false) buildQueue();
     const st = flashState(), now = Date.now(), all = deck();
-    const boxes = [0, 1, 2, 3, 4, 5].map((b) => all.filter((x) => (cardState(st, x) ? cardState(st, x).box : 0) === b).length);
+    const boxes = [1, 2, 3, 4, 5].map((b) => all.filter((x) => boxOf(st, x) === b).length);
+    const fresh = all.filter((x) => !cardState(st, x)).length;
     const due = all.filter((x) => !cardState(st, x) || cardState(st, x).due <= now).length;
     const card = fc.queue[0];
     const cs = card ? cardState(st, card) : null;
     let body;
     if (card) {
       body = `<div class="flashcard${fc.flipped ? " back" : ""}" id="fc-card" tabindex="0" role="button" aria-label="Flip the card">
-          <div class="tag">${esc(titleOf(card.pid))} · ${cs ? "box " + cs.box : "new card"}</div>
+          <div class="tag">${esc(titleOf(card.pid))} · box ${cs ? cs.box : "1 · new card"}</div>
           ${fc.flipped ? `<div class="hint" style="margin:0 0 8px">${card.c.front}</div>` : ""}<div class="face">${fc.flipped ? card.c.back : card.c.front}</div>
           <div class="hint">${fc.flipped ? "Did you have it?" : "Answer in your head, then click or press Space to flip"}</div></div>
         <div class="drill-actions" style="justify-content:center">${fc.flipped ? `<button class="btn" id="fc-again">↺ Again</button><button class="btn primary" id="fc-got">✓ Got it</button>` : `<button class="btn primary" id="fc-flip">Flip</button>`}</div>`;
@@ -255,16 +258,16 @@
     view().innerHTML = `
       <h2>Complexity flashcards</h2>
       <div class="tool-bar">${patternSelect("fc-filter", fc.filter, "All loaded patterns")}<span class="chip amber">${due} due now</span><span class="chip">${fc.queue.length} left in this round</span></div>
-      <div class="box-strip">${["new", 1, 2, 3, 4, 5].map((b, i) => `<span class="chip${cs && cs.box === b ? " cur" : ""}" title="${i ? `box ${b}: seen again after ${WAIT[b] / DAY || 0} day(s)` : "not seen yet"}">${i ? "box " + b : "new"} · ${boxes[i]}</span>`).join("")}</div>
+      <div class="box-strip">${[1, 2, 3, 4, 5].map((b, i) => `<span class="chip${card && boxOf(st, card) === b ? " cur" : ""}" title="${b === 1 ? `box 1: due now${fresh ? `, ${fresh} of them not seen yet` : ""}` : `box ${b}: seen again after ${WAIT[b] / DAY} day(s)`}">box ${b} · ${boxes[i]}${b === 1 && fresh ? ` (${fresh} new)` : ""}</span>`).join("")}</div>
       ${body}
-      <p class="muted" style="text-align:center;font-size:11.5px">Got it moves a card up one box (due again after 1, 3, 7, 14 days). Again sends it back to box 1 and to the end of this round.</p>`;
+      <p class="muted" style="text-align:center;font-size:11.5px">New cards start in box 1. Got it moves a card up one box (due again after 1, 3, 7, 14 days). Again sends it back to box 1 and to the end of this round.</p>`;
     $("fc-filter").onchange = (e) => { fc.filter = e.target.value; fc.all = false; renderFlashcards(); };
     const flip = () => { fc.flipped = !fc.flipped; renderFlashcards(false); };
     if ($("fc-card")) { $("fc-card").onclick = flip; $("fc-card").focus({ preventScroll: true }); }
     if ($("fc-flip")) $("fc-flip").onclick = flip;
     if ($("fc-all")) $("fc-all").onclick = () => { fc.all = true; renderFlashcards(); };
     const grade = (ok) => {
-      const s = flashState(), cur = cardState(s, card) || { box: 0, due: 0 };
+      const s = flashState(), cur = cardState(s, card) || { box: 1, due: 0 };
       const box = ok ? Math.min(5, Math.max(1, cur.box) + 1) : 1;
       (s[card.pid] = s[card.pid] || {})[card.c.id] = { box, due: Date.now() + (ok ? WAIT[box] : 0) };
       save("cil-flash", s);

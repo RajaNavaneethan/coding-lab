@@ -75,7 +75,7 @@ window.CIL_PATTERNS.push({
               dp[i][j] = dp[i - 1][j - 1] + 1;
               filled[i][j] = true;
               frame({
-                line: 7, title: `dp[${i}][${j}] = ${dp[i][j]}: match ${ca}`,
+                line: 7, title: `dp[${i}][${j}] = ${dp[i][j]}: match ${esc(ca)}`,
                 t: `${q(ca)} = ${q(cb)}. Both prefixes end in the same letter, so it can close a common subsequence: take the diagonal <code>dp[${i - 1}][${j - 1}] = ${dp[i - 1][j - 1]}</code> and add 1. <code>dp[${i}][${j}] = ${dp[i][j]}</code>.`,
                 tip: matchTip ? undefined : "On a match, using the letter is always safe: the best answer without both letters is the diagonal, and this letter extends it by one.",
                 vars: { i: i, j: j, "text1[i-1]": ca, "text2[j-1]": cb, "dp[i][j]": dp[i][j] },
@@ -173,7 +173,7 @@ window.CIL_PATTERNS.push({
           return [
             { id: "w1", type: "string", label: "word1 (rows)", value: a, marks: o.am || {} },
             { id: "w2", type: "string", label: "word2 (columns)", value: b, marks: o.bm || {} },
-            { id: "dp", type: "grid", label: "dp[i][j] = edits to turn word1[0..i) into word2[0..j)",
+            { id: "dp", type: "grid", label: "dp[i][j] = edits, word1[0..i) → word2[0..j)",
               cells: dp.map((row, i) => row.map((v, j) => (filled[i][j] ? v : ""))),
               rowLabels: ["∅"].concat(a.split("")), colLabels: ["∅"].concat(b.split("")),
               marks: gm, arrows: o.arrows || [] },
@@ -284,16 +284,19 @@ window.CIL_PATTERNS.push({
       "You must list every alignment or path. Use backtracking.",
     ],
     template: [
-      "// Two-string DP: dp[i][j] covers a[0..i) and b[0..j).",
+      "// Two-string DP: dp[i][j] answers the question for a[0..i) and b[0..j).",
+      "// Fill in the four rules. LCS: base 0, match diag + 1, else max(up, left).",
+      "// Edit distance: base i or j, match diag, else 1 + min(diag, up, left).",
       "int twoStringDP(const string& a, const string& b) {",
       "    int m = a.size(), n = b.size();",
       "    vector<vector<int>> dp(m + 1, vector<int>(n + 1, 0));",
-      "    for (int i = 0; i <= m; i++) dp[i][0] = i;   // base column",
-      "    for (int j = 0; j <= n; j++) dp[0][j] = j;   // base row",
+      "    for (int i = 0; i <= m; i++) dp[i][0] = baseCol(i);  // b is empty",
+      "    for (int j = 0; j <= n; j++) dp[0][j] = baseRow(j);  // a is empty",
       "    for (int i = 1; i <= m; i++)",
       "        for (int j = 1; j <= n; j++) {",
-      "            if (a[i - 1] == b[j - 1]) dp[i][j] = dp[i - 1][j - 1];",
-      "            else dp[i][j] = 1 + min({dp[i - 1][j - 1], dp[i - 1][j], dp[i][j - 1]});",
+      "            int diag = dp[i - 1][j - 1], up = dp[i - 1][j], left = dp[i][j - 1];",
+      "            if (a[i - 1] == b[j - 1]) dp[i][j] = onMatch(diag, up, left);",
+      "            else dp[i][j] = onMismatch(diag, up, left);",
       "        }",
       "    return dp[m][n];",
       "}",
@@ -332,7 +335,7 @@ window.CIL_PATTERNS.push({
       ["Unique Paths in an r × c grid", "O(r · c)", "O(c)", "Each cell adds the cell above and the cell to the left."],
       ["Longest Palindromic Substring, expand around centres", "O(n²)", "O(1)", "2n - 1 centres, each expands up to n. Beats the O(n²)-space table in memory."],
     ],
-    sayIt: "When I compare two strings, or walk a grid moving only right and down, the state needs two indexes, so I use a 2D table. For two strings I let dp of i and j be the answer for the first i letters of one and the first j letters of the other, with an extra row and column for the empty prefix. Then I look at the last letters. In longest common subsequence, if they match I take the diagonal plus one; if not, I drop one letter or the other and keep the larger of the cell above and the cell to the left. Edit distance is the same table: a match copies the diagonal, and a mismatch is one plus the cheapest of replace, delete and insert, which are the diagonal, up and left. I fill row by row so every neighbour is ready and return the bottom-right cell. That is O of m times n time, and since each row reads only the row above, I can cut space to one row.",
+    sayIt: "When I compare two strings, or walk a grid moving only right and down, the state needs two indexes, so I use a 2D table. For two strings I let dp of i and j be the answer for the first i letters of one and the first j letters of the other, plus a row and column for the empty prefix. Then I look at the last letters. In longest common subsequence, if they match I take the diagonal plus one; if not, I drop a letter from one side and keep the larger of up and left. Edit distance is the same table: a match copies the diagonal, and a mismatch is one plus the cheapest of replace, delete and insert, which are the diagonal, up and left. I fill row by row so every neighbour is ready and return the bottom-right cell. That is O of m times n time, and since each row reads only the row above, I can cut space to one row.",
     followups: [
       ["How would you print the actual LCS, not just its length?", "Keep the full table and walk back from the bottom-right: on a match take the letter and go diagonally, otherwise move to the larger of up and left. Reverse the letters at the end."],
       ["How do you get edit distance down to O(n) space?", "Keep one row. Before overwriting dp[j], save it as the next diagonal; dp[j] still holds the value from the row above and dp[j-1] is the new left value."],
@@ -367,7 +370,7 @@ window.CIL_PATTERNS.push({
 
   drills: [
     { prompt: "A robot starts at the top-left of an m by n grid and moves only right or down. How many different routes reach the bottom-right?",
-      answer: "dp-2d", distractors: ["math-design", "backtracking", "graphs-bfs-dfs"],
+      answer: "dp-2d", distractors: ["heaps", "backtracking", "graphs-bfs-dfs"],
       why: "Each cell's count is the count from above plus the count from the left, filled row by row." },
     { prompt: "Return the length of the longest sequence of letters that appears, in order, in both of two strings.",
       answer: "dp-2d", distractors: ["two-pointers", "sliding-window", "dp-1d"],
@@ -376,13 +379,13 @@ window.CIL_PATTERNS.push({
       answer: "dp-2d", distractors: ["greedy", "two-pointers", "backtracking"],
       why: "Each cell covers two prefixes. A mismatch costs one plus the cheapest of the three neighbouring cells." },
     { prompt: "Given a string, return its longest substring that reads the same forwards and backwards.",
-      answer: "dp-2d", distractors: ["sliding-window", "two-pointers", "stacks-monotonic"],
+      answer: "dp-2d", distractors: ["sliding-window", "heaps", "stacks-monotonic"],
       why: "pal[i][j] is true when the end letters match and pal[i+1][j-1] is true. Expanding around each centre does the same work with less space." },
     { prompt: "Match a string against a pattern where '.' matches any one letter and '*' means zero or more of the letter before it.",
-      answer: "dp-2d", distractors: ["backtracking", "tries", "greedy"],
+      answer: "dp-2d", distractors: ["sliding-window", "tries", "greedy"],
       why: "dp[i][j] says whether the first i letters match the first j pattern characters. A star either skips its pair or eats one more letter." },
     { prompt: "Each cell of a grid has a cost. Moving only right or down, find the cheapest route from the top-left to the bottom-right.",
-      answer: "dp-2d", distractors: ["shortest-path-union-find", "greedy", "graphs-bfs-dfs"],
+      answer: "dp-2d", distractors: ["binary-search", "greedy", "graphs-bfs-dfs"],
       why: "With only right and down moves there are no cycles, so each cell is its cost plus the cheaper of the cell above and the cell to the left." },
   ],
 

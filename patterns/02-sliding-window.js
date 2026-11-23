@@ -232,7 +232,7 @@ window.CIL_PATTERNS.push({
           const hit = inT && H(c) === need.get(c);
           if (hit) formed++;
           frame({
-            line: [9, 11], title: hit ? `Take ${c}: count met` : `Take ${c}`,
+            line: [9, 11], title: hit ? `Take ${esc(c)}: count met` : `Take ${esc(c)}`,
             t: !inT
               ? `${q(c)} at index ${r} is not in <code>t</code>. The window grows, but <code>formed</code> stays ${formed}.`
               : hit
@@ -268,7 +268,7 @@ window.CIL_PATTERNS.push({
             if (broke && !breakTip) { tip = "Removing a needed character drops <code>formed</code> below <code>required</code>. The window is no longer valid, so the <code>while</code> stops and <code>r</code> moves on."; breakTip = true; }
             else if (inT2 && !broke && !extraTip) { tip = "The window had an extra copy of this character, so dropping one keeps it valid and the shrink continues."; extraTip = true; }
             frame({
-              line: pre ? [13, 17] : [14, 17], title: broke ? `Drop ${lch}: now invalid` : `Drop ${lch}: still valid`,
+              line: pre ? [13, 17] : [14, 17], title: broke ? `Drop ${esc(lch)}: now invalid` : `Drop ${esc(lch)}: still valid`,
               t: pre + (!inT2
                 ? `${q(lch)} at index ${old} is not needed. Drop it: <code>l = ${l}</code>, and the window stays valid.`
                 : broke
@@ -285,7 +285,7 @@ window.CIL_PATTERNS.push({
         const ans = bestLen === Infinity ? "" : s.substr(bestL, bestLen);
         const rr = r; r = null;
         frame({
-          line: 20, title: ans ? `Return "${ans.length > 16 ? ans.slice(0, 13) + "..." : ans}"` : "No window: return \"\"",
+          line: 20, title: ans ? `Return "${esc(ans.length > 16 ? ans.slice(0, 13) + "..." : ans)}"` : "No window: return \"\"",
           t: ans
             ? `<code>r</code> reached the end. The shortest valid window was <code>s[${bestL}..${bestL + bestLen - 1}]</code> = <b>"${esc(ans)}"</b>, length ${bestLen}.`
             : `<code>r</code> reached the end of <code>s</code> (index ${rr - 1}) and the window never covered all of <code>t</code>. Return <code>""</code>.`,
@@ -374,7 +374,7 @@ window.CIL_PATTERNS.push({
       ["Window with a monotonic deque (LC 239)", "O(n)", "O(k)", "Each index is pushed once and popped at most once."],
       ["Brute force over every start and end", "O(n²) or O(n³)", "O(k)", "Shown only to explain what the window saves."],
     ],
-    sayIt: "When I see a question about the longest or shortest contiguous substring or subarray that satisfies some rule, I think sliding window. I keep two indexes, l and r, for the current stretch, plus a small summary of what is inside it, usually a hash map of counts or a running sum. I move r forward one step at a time and add the new element to the summary. If that breaks the rule, I move l forward and remove elements until the rule holds again. For a longest-window question I record the length after the window is valid again; for a shortest-window question I record it while it is still valid, just before shrinking. The reason this is fast is that l and r both only move forward, so each element is added once and removed once. That makes it O(n) time, and the space is whatever the summary needs, often bounded by the alphabet size. The one thing I check first is that the rule is one-way: with negative numbers it is not, and I would switch to prefix sums.",
+    sayIt: "When I see a question about the longest or shortest contiguous substring or subarray that satisfies some rule, I think sliding window. I keep two indexes, l and r, for the current stretch, plus a small summary of what is inside it, usually a hash map of counts or a running sum. I move r forward one step at a time and add the new element to the summary. If that breaks the rule, I move l forward and remove elements until the rule holds again. For a longest-window question I record the length after the window is valid again; for a shortest-window question I record it while it is still valid, just before shrinking. The reason this is fast is that l and r both only move forward, so each element is added once and removed once. That is O(n) time, plus space for the summary. First I check the rule is one-way: with negative numbers it is not, so I would use prefix sums.",
     followups: [
       ["Why is the nested while loop still O(n)?", "Because l only ever increases and stops at r. Across the whole run it moves at most n times, so the inner loop's total work is n, shared across all steps."],
       ["What if the string can contain any Unicode character?", "Keep the hash map instead of a 128-size array. Space becomes O(distinct characters in the window)."],
@@ -415,7 +415,7 @@ window.CIL_PATTERNS.push({
       answer: "sliding-window", distractors: ["prefix-sum-hashing", "binary-search", "greedy"],
       why: "Positive numbers mean the sum only grows when the stretch grows, so you can shrink from the left while the sum is still big enough and record the shortest." },
     { prompt: "Given an array and a number k, return the maximum of every block of k consecutive numbers.",
-      answer: "sliding-window", distractors: ["heaps", "stacks-monotonic", "two-pointers"],
+      answer: "sliding-window", distractors: ["prefix-sum-hashing", "binary-search", "two-pointers"],
       why: "Every block of k consecutive elements is a fixed-size window. A monotonic deque inside the window gives each maximum in O(1)." },
     { prompt: "Given strings s and p, return every index in s where some rearrangement of p starts.",
       answer: "sliding-window", distractors: ["prefix-sum-hashing", "backtracking", "tries"],
@@ -424,7 +424,7 @@ window.CIL_PATTERNS.push({
       answer: "sliding-window", distractors: ["greedy", "dp-1d", "bit-manipulation"],
       why: "Restate it as the longest contiguous stretch with at most k zeros. Count zeros in the window and shrink while there are more than k." },
     { prompt: "Given the price of a stock on each day, return the best profit from buying on one day and selling on a later day.",
-      answer: "sliding-window", distractors: ["greedy", "dp-1d", "two-pointers"],
+      answer: "sliding-window", distractors: ["binary-search", "intervals", "bit-manipulation"],
       why: "Keep l at the cheapest day so far and move r forward. When prices[r] is lower than prices[l], the window restarts at r." },
   ],
 

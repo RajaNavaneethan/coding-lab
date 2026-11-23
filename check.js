@@ -99,7 +99,8 @@ const want = CP.PATTERN_IDS.map((id, i) => `patterns/${String(i + 1).padStart(2,
 });
 ["index.html", "problems.html", "practice.html", "styles.css", "engine.js", "app.js", "problems-page.js", "practice/app.js", "fields.js", "README.md"]
   .forEach((f) => { if (!fs.existsSync(path.join(ROOT, f))) err(`${f} is missing`); });
-[...files, ...fs.readdirSync(ROOT)].forEach((f) => { if (/[A-Z]/.test(f) && !/^README\.md$/.test(f)) err(`file name ${f} has capital letters (GitHub Pages is case-sensitive)`); });
+// Dotfiles (.DS_Store from Finder, .gitignore, .work) are not served pages; skip them.
+[...files, ...fs.readdirSync(ROOT)].forEach((f) => { if (!f.startsWith(".") && /[A-Z]/.test(f) && !/^README\.md$/.test(f)) err(`file name ${f} has capital letters (GitHub Pages is case-sensitive)`); });
 
 // ---------- report ----------
 lines.forEach((l) => console.log(l));

@@ -152,7 +152,8 @@ button.chip:hover, a.chip:hover { transform: translate(-1px, -1px); box-shadow: 
 .crumb b { color: var(--ink); font-weight: 500; }
 h1 { font-size: 28px; line-height: 1.2; margin: 4px 0 2px; letter-spacing: -.01em; }
 #summary { margin: 0 0 8px; font-size: 12.5px; max-width: 760px; }
-.chips { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; padding-top: 22px; }
+.lesson-top > div:first-child { min-width: 0; }
+.chips { display: flex; gap: 8px; flex-wrap: nowrap; flex: none; justify-content: flex-end; padding-top: 22px; }
 .tag-row { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 2px; }
 .tag { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 0 7px; background: var(--card-2); }
 .view-tabs { display: flex; gap: 8px; margin: 14px 0 12px; align-items: center; flex-wrap: wrap; }
@@ -171,12 +172,20 @@ h1 { font-size: 28px; line-height: 1.2; margin: 4px 0 2px; letter-spacing: -.01e
 .soon-card { padding: 30px; text-align: center; }
 
 /* ---------- Trace widget (engine.js) ---------- */
-.trace { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 14px; align-items: start; }
+/* The side column grows with the window (about 460px at 1400px) so most C++ lines fit unwrapped. */
+.trace { display: grid; grid-template-columns: minmax(0, 1fr) clamp(360px, 33vw, 480px); gap: 14px; align-items: start; }
 .trace-main { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .trace-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; position: sticky; top: 72px; }
 .trace.stage-only { grid-template-columns: 1fr; }
 .trace.stage-only .trace-side, .trace.stage-only .try-card, .trace.stage-only .trace-timeline, .trace.stage-only .stage-buttons { display: none; }
-@media (max-width: 1180px) { .trace { grid-template-columns: 1fr; } .trace-side { position: static; } }
+/* One column: stage, timeline, step card and code, then "Try your own input" last, so the
+   caption and Next button stay next to the picture. */
+@media (max-width: 1180px) {
+  .trace { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .trace-main { display: contents; }
+  .trace-main > *, .trace-side { min-width: 0; }
+  .stage-wrap { order: 1; } .trace-timeline { order: 2; } .trace-side { order: 3; position: static; } .try-card { order: 4; }
+}
 
 .stage-wrap {
   position: relative; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background-color: var(--card);
@@ -355,6 +364,15 @@ h1 { font-size: 28px; line-height: 1.2; margin: 4px 0 2px; letter-spacing: -.01e
 .timeline .tl-label code { font-size: 10px; padding: 0 2px; }
 .timeline li.current .tl-label { color: var(--ink); font-weight: 700; }
 .timeline-more { margin-top: 6px; font-size: 11.5px; color: var(--muted); font-style: italic; }
+/* "… and N more steps not shown" sits in the timeline just before the appended last step */
+.timeline li.tl-gap::before { background: repeating-linear-gradient(90deg, var(--line) 0 4px, transparent 4px 8px); }
+.timeline li.tl-gap.past::before { background: repeating-linear-gradient(90deg, var(--res) 0 4px, transparent 4px 8px); }
+.timeline .tl-dots { position: relative; z-index: 1; display: inline-grid; place-items: center; width: 27px; height: 27px; border-radius: 50%; border: 1.5px dashed var(--muted); background: var(--card); color: var(--muted); font-size: 12px; }
+.timeline li.tl-gap .tl-label { font-style: italic; }
+/* edges with steps scrolled out of view fade instead of cutting a label mid-word */
+.timeline.fade-l { -webkit-mask-image: linear-gradient(to right, transparent 0, #000 44px); mask-image: linear-gradient(to right, transparent 0, #000 44px); }
+.timeline.fade-r { -webkit-mask-image: linear-gradient(to left, transparent 0, #000 44px); mask-image: linear-gradient(to left, transparent 0, #000 44px); }
+.timeline.fade-l.fade-r { -webkit-mask-image: linear-gradient(to right, transparent 0, #000 44px, #000 calc(100% - 44px), transparent 100%); mask-image: linear-gradient(to right, transparent 0, #000 44px, #000 calc(100% - 44px), transparent 100%); }
 
 /* ---------- Step card ---------- */
 .step-card { background: var(--card); border: 1.5px solid var(--ink); box-shadow: 3px 3px 0 var(--shadow); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; }
@@ -388,11 +406,17 @@ h1 { font-size: 28px; line-height: 1.2; margin: 4px 0 2px; letter-spacing: -.01e
 .code-head span { display: inline-flex; align-items: center; gap: 6px; }
 .code-head svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; }
 .code-where { font-weight: 700; color: var(--orange-ink); }
-.code-body { position: relative; overflow: auto; max-height: 430px; padding: 6px 0; font-size: 12px; line-height: 20px; }
+.code-body { position: relative; overflow-x: hidden; overflow-y: auto; max-height: 430px; padding: 6px 0; font-size: 12px; line-height: 20px; }
 .code-hl { position: absolute; left: 0; right: 0; background: var(--code-line); border-left: 3px solid var(--m-hot); transition: top .32s cubic-bezier(.3, 1.3, .5, 1), height .32s; z-index: 0; }
 .code-line { position: relative; z-index: 1; display: flex; white-space: pre; min-width: max-content; }
 .code-line .ln { width: 34px; flex: none; text-align: right; padding-right: 10px; color: var(--muted); font-size: 10.5px; user-select: none; }
 .code-line .src { padding-right: 14px; }
+/* Trace panel: long lines wrap with a hanging indent (--hang = leading spaces + 4, set per line by
+   engine.js), so a continuation row starts past the line's own indent and the number stays on
+   the first row. No horizontal scroll. */
+.code-body .code-line { white-space: pre-wrap; min-width: 0; }
+.code-body .code-line .nb { white-space: nowrap; }
+.code-body .code-line .src { flex: 1; min-width: 0; overflow-wrap: anywhere; padding-left: calc(var(--hang, 4) * 1ch); text-indent: calc(var(--hang, 4) * -1ch); }
 .code-line.cur .ln { color: var(--orange-ink); font-weight: 800; }
 .tk-kw { color: var(--code-kw); font-weight: 700; } .tk-type { color: var(--code-type); } .tk-num { color: var(--code-num); }
 .tk-str { color: var(--code-str); } .tk-com { color: var(--code-com); font-style: italic; } .tk-fn { color: var(--code-fn); }
@@ -547,7 +571,7 @@ textarea.notes:focus { outline: none; border-color: var(--ink); }
   .layout, .index-layout { grid-template-columns: 1fr; }
   #sidebar, .index-side { position: static; max-height: 45vh; }
   .lesson-top { flex-direction: column; }
-  .chips { padding-top: 0; justify-content: flex-start; }
+  .chips { padding-top: 0; justify-content: flex-start; flex-wrap: wrap; }
   .search { display: none; }
   .quiz-opts, .rubric-cols { grid-template-columns: 1fr; }
   .tabs .tab { padding: 5px 8px; }

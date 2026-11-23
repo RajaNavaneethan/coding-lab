@@ -13,7 +13,7 @@ window.CIL_PATTERNS.push({
       id: "alien-dictionary",
       title: "Alien Dictionary",
       lc: 269,
-      problem: "A list of words is sorted by an unknown alphabet. Return the letters in an order that fits it, or <code>\"\"</code> if no order can (a cycle, or a longer word before its own prefix). <code>[\"wrt\",\"wrf\",\"er\",\"ett\",\"rftt\"]</code> gives <code>\"wertf\"</code>. This version uses <code>map</code> and <code>set</code> so the order of ties is alphabetical and the trace is repeatable.",
+      problem: "A list of words is sorted by an unknown alphabet. Return the letters in an order that fits it, or <code>\"\"</code> if no order can (a cycle, or a longer word before its own prefix). <code>[\"wrt\",\"wrf\",\"er\",\"ett\",\"rftt\"]</code> gives <code>\"wertf\"</code>. This version uses <code>map</code> and <code>set</code> so the order of ties is alphabetical and the trace is repeatable. LeetCode accepts any valid order.",
       code: [
         "string alienOrder(vector<string>& words) {",
         "    map<char, set<char>> adj;",
@@ -118,7 +118,7 @@ window.CIL_PATTERNS.push({
           const fresh = !adj.get(x).has(y);
           if (fresh) { adj.get(x).add(y); indeg.set(y, indeg.get(y) + 1); edges.push([x, y]); }
           frame({
-            line: 15, title: fresh ? `Edge ${x} → ${y}` : `Edge ${x} → ${y} (again)`,
+            line: 15, title: fresh ? `Edge ${esc(x)} → ${esc(y)}` : `Edge ${esc(x)} → ${esc(y)} (again)`,
             t: `${qt(a)} vs ${qt(b)}: the first difference is at index ${j}, <code>${esc(x)}</code> vs <code>${esc(y)}</code>. So <code>${esc(x)}</code> comes before <code>${esc(y)}</code>. ${fresh ? `Add the edge and raise <code>indeg[${esc(y)}]</code> to ${indeg.get(y)}.` : "That edge is already there, so the set refuses it and indeg does not change."}`,
             tip: fresh && !edgeTip ? "The set matters: counting the same edge twice would leave indeg too high, and the letter would never reach the queue." : undefined,
             vars: { i: i, j: j, "a[j]": x, "b[j]": y },
@@ -152,7 +152,7 @@ window.CIL_PATTERNS.push({
           for (const nb of freed) dm[nb] = "good";
           for (const nb of lowered) dm[nb] = "in";
           frame({
-            line: [21, 23], title: `Take ${c}`,
+            line: [21, 23], title: `Take ${esc(c)}`,
             t: `Pop <code>${esc(c)}</code> and append it: <code>order = "${esc(order)}"</code>. ${nbrs(c).length ? `Its edges go to ${nbrs(c).map((z) => `<code>${esc(z)}</code>`).join(", ")}; each loses one prerequisite.${freed.length ? ` ${freed.map((z) => `<code>${esc(z)}</code>`).join(", ")} now ${freed.length === 1 ? "has" : "have"} indeg 0 and join${freed.length === 1 ? "s" : ""} the queue.` : ""}` : "It has no outgoing edges."}`,
             vars: { c: c, order: `"${order}"`, "q.size()": q.length },
             views: views({ nodeMarks: Object.assign({ [c]: "good" }, Object.fromEntries(freed.map((z) => [z, "hot"]))), edgeMarks: em, degMarks: dm }),
@@ -162,7 +162,7 @@ window.CIL_PATTERNS.push({
 
         const ok = order.length === indeg.size;
         frame({
-          line: 25, title: ok ? `Return "${order}"`.slice(0, 32) : "Cycle: return \"\"",
+          line: 25, title: ok ? esc(`Return "${order}"`.slice(0, 32)) : "Cycle: return \"\"",
           t: ok
             ? `All ${indeg.size} letters came out, so the rules have no cycle. Return <b>"${esc(order)}"</b>.`
             : `Only ${order.length} of ${indeg.size} letters came out. The rest wait on each other in a cycle, so no alphabet fits. Return <b>""</b>.`,
@@ -369,7 +369,7 @@ window.CIL_PATTERNS.push({
       ["Sliding Puzzle (state BFS)", "O(S · m)", "O(S)", "S = 6! = 720 board states, m moves per state."],
       ["Word Break II (memo)", "O(n · 2^n) worst case", "O(n · 2^n)", "The output itself can be exponential; memo keeps each suffix solved once."],
     ],
-    sayIt: "For a hard problem I first ask which two known patterns it joins. In Alien Dictionary the sorted words hide a graph. Only adjacent words give information, and only at their first different letter, so each pair adds at most one edge from the earlier letter to the later one. If one word is a prefix of the word before it, the input is invalid and I return an empty string. Then I run Kahn's algorithm: queue every letter with indegree zero, pop one, append it, and lower the indegree of its neighbours. If not every letter comes out, there is a cycle. That is linear in the total length of the words. In Burst Balloons, I pad the array with ones and let dp of l and r be the best coins for balloons l to r. The key is to pick the balloon burst last: its neighbours are then fixed, and the two sides are independent. I fill the table by length, which gives O(n cubed) time and O(n squared) space.",
+    sayIt: "For a hard problem I first ask which two known patterns it joins. In Alien Dictionary the sorted words hide a graph. Only adjacent words give information, and only at their first different letter, so each pair adds at most one edge from the earlier letter to the later one. If one word is a prefix of the word before it, the input is invalid and I return an empty string. Then I run Kahn's algorithm: queue every letter with indegree zero, pop one, append it, and lower the indegree of its neighbours. If not every letter comes out, there is a cycle. That is linear in the total input length. In Burst Balloons, I pad the array with ones and let dp of l and r be the best coins for balloons l to r. The key is the balloon burst last: its neighbours are then fixed, and the two sides are independent. I fill the table by length, which gives O(n cubed) time and O(n squared) space.",
     followups: [
       ["How would you return every valid alien order, not just one?", "Backtrack over Kahn: at each step try every letter with indegree 0, recurse, then undo. The count can be exponential, so say so first."],
       ["Can Alien Dictionary use DFS instead of Kahn?", "Yes: DFS with three colours (unvisited, visiting, done). A back edge to a visiting node is a cycle; reverse the finish order to get the answer."],
@@ -404,22 +404,22 @@ window.CIL_PATTERNS.push({
 
   drills: [
     { prompt: "Words from an unknown language are given in sorted order. Work out an ordering of its letters that matches, or say none exists.",
-      answer: "advanced", distractors: ["graphs-bfs-dfs", "tries", "greedy"],
+      answer: "advanced", distractors: ["tries", "greedy", "sliding-window"],
       why: "A hidden graph: adjacent words give one before-after rule each. Topologically sort the letters and watch for cycles and the prefix trap." },
     { prompt: "Each balloon pays the product of its value and its two current neighbours when burst. Return the most you can collect by bursting them all.",
-      answer: "advanced", distractors: ["dp-1d", "greedy", "backtracking"],
+      answer: "advanced", distractors: ["dp-1d", "greedy", "heaps"],
       why: "Interval DP: let k be the last balloon burst in [l, r], so its neighbours are fixed and the two sides split cleanly. O(n³)." },
     { prompt: "A 2 by 3 board holds tiles 1 to 5 and one gap. Return the fewest slides to reach the solved board, or -1.",
-      answer: "advanced", distractors: ["graphs-bfs-dfs", "backtracking", "dp-2d"],
+      answer: "advanced", distractors: ["greedy", "two-pointers", "dp-2d"],
       why: "BFS where each node is a whole board encoded as a string; only 720 states exist." },
     { prompt: "Fill a k by k grid with the numbers 1 to k so that given pairs must appear above or below each other and given pairs must appear left or right of each other.",
-      answer: "advanced", distractors: ["graphs-bfs-dfs", "backtracking", "greedy"],
+      answer: "advanced", distractors: ["greedy", "binary-search", "sliding-window"],
       why: "Two independent topological sorts, one for rows and one for columns, then place each number at its row and column rank." },
     { prompt: "Given a string and a dictionary, return every sentence you can make by splitting the string into dictionary words.",
-      answer: "advanced", distractors: ["backtracking", "tries", "dp-1d"],
+      answer: "advanced", distractors: ["greedy", "sliding-window", "two-pointers"],
       why: "Backtracking over split points joined with memoisation of each suffix, so repeated suffixes are solved once." },
     { prompt: "Choose the order to multiply a chain of matrices so that the total number of scalar multiplications is smallest.",
-      answer: "advanced", distractors: ["dp-2d", "greedy", "dp-knapsack"],
+      answer: "advanced", distractors: ["greedy", "heaps", "bit-manipulation"],
       why: "Interval DP over the chain: dp[l][r] tries every split point k for the last multiplication." },
   ],
 

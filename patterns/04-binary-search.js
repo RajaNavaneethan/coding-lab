@@ -410,7 +410,7 @@ window.CIL_PATTERNS.push({
       answer: "binary-search", distractors: ["greedy", "stacks-monotonic", "two-pointers"],
       why: "Compare the middle with the right end: if it is bigger, the drop is to the right. Halve until one index remains." },
     { prompt: "Given a non-negative integer x, return the integer part of its square root without using a library square root.",
-      answer: "binary-search", distractors: ["math-design", "bit-manipulation", "greedy"],
+      answer: "binary-search", distractors: ["dp-1d", "bit-manipulation", "greedy"],
       why: "Find the largest k with k * k <= x. The test flips once across 0..x, so binary search it." },
   ],
 

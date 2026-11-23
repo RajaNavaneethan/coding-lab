@@ -50,7 +50,7 @@ window.CIL_PATTERNS.push({
         "    }",
         "};",
       ],
-      fields: [{ key: "ops", label: "operations", type: "ops", value: "insert(\"apple\") search(\"apple\") search(\"app\") startsWith(\"app\") insert(\"app\") search(\"app\")" }],
+      fields: [{ key: "ops", label: "operations", type: "ops", value: "insert(\"apple\") search(\"apple\") search(\"app\") startsWith(\"app\") insert(\"app\") search(\"app\")", hint: "insert(\"app\") search(\"app\") startsWith(\"ap\")" }],
       run(input, rec) {
         const ops = input.ops;
         const esc = (x) => String(x).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
@@ -65,8 +65,8 @@ window.CIL_PATTERNS.push({
         const order = ["^"];
         const out = ops.map(() => "");
         const labels = ops.map((op) => `${op.name}(${op.args.map((a) => `"${a}"`).join(",")})`);
-        let shown = 0, hidden = 0;
-        const frame = (f) => { if (shown < 40) { rec.frame(f); shown++; } else hidden++; };
+        let shown = 0, hidden = 0, lastLine = 1;
+        const frame = (f) => { lastLine = f.line; if (shown < 40) { rec.frame(f); shown++; } else hidden++; };
         let word = "";
 
         const views = (k, o) => {
@@ -208,7 +208,7 @@ window.CIL_PATTERNS.push({
 
         word = "";
         frame({
-          line: 34, title: "All operations done",
+          line: lastLine, title: "All operations done",
           t: `Results: <b>[${out.map(show).join(", ")}]</b>. The trie has ${order.length} nodes. Every operation cost O(L) for a word of length L.`,
           tip: "Space is O(total letters × 26) for the child arrays. A hash map per node saves space when the alphabet is large.",
           vars: { nodes: order.length },
@@ -278,7 +278,7 @@ window.CIL_PATTERNS.push({
         const out = [];
         const calls = [];          // active successful dfs calls: {r, c, prefix}
         let shown = 0, hidden = 0;
-        const frame = (f) => { if (shown < 40) { rec.frame(f); shown++; } else hidden++; };
+        const frame = (f) => { f.layout = "cols"; if (shown < 40) { rec.frame(f); shown++; } else hidden++; };
         const views = (o) => {
           o = o || {};
           const gm = {};
@@ -502,7 +502,7 @@ window.CIL_PATTERNS.push({
       answer: "tries", distractors: ["prefix-sum-hashing", "two-pointers", "greedy"],
       why: "Shortest stored prefix of each word: walk the trie along the word and stop at the first node with the end flag." },
     { prompt: "Given an array of non-negative integers, return the largest value of a XOR b over all pairs.",
-      answer: "tries", distractors: ["bit-manipulation", "greedy", "two-pointers"],
+      answer: "tries", distractors: ["sliding-window", "dp-1d", "two-pointers"],
       why: "Insert each number's bits from the top into a binary trie, then for each number greedily follow the opposite bit." },
     { prompt: "Build a dictionary that supports adding a word, checking whether a word was added, and checking whether any added word begins with a given string.",
       answer: "tries", distractors: ["prefix-sum-hashing", "binary-search", "math-design"],

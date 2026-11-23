@@ -58,7 +58,9 @@ window.CIL_PATTERNS.push({
               pointers: { prev: prev === null ? null : id(prev), curr: curr === null ? null : id(curr), next: next === null ? null : id(next) },
               marks: marks },
             { id: "rev", type: "calc", label: "reversed so far (from prev)", value: chain(prev) },
-            { id: "rest", type: "calc", label: "still to do (from curr)", value: chain(curr) },
+            o.fromNext
+              ? { id: "rest", type: "calc", label: "still to do (from next)", value: chain(next) }
+              : { id: "rest", type: "calc", label: "still to do (from curr)", value: chain(curr) },
           ];
         };
 
@@ -89,7 +91,7 @@ window.CIL_PATTERNS.push({
             t: `Point node ${vals[curr]} back at ${prev === null ? "<code>null</code>. It becomes the tail of the reversed list" : `node ${vals[prev]}`}. Its old arrow to ${next === null ? "null" : vals[next]} is gone, but <code>next</code> still holds it.`,
             tip: flipTip ? undefined : "This is the only line that changes the list. Every other line just moves a pointer variable.",
             vars: { prev: prev === null ? "null" : vals[prev], curr: vals[curr], next: next === null ? "null" : vals[next] },
-            views: views({ marks: Object.assign(next !== null ? { [id(next)]: "in" } : {}, { [id(curr)]: "new" }) }),
+            views: views({ fromNext: true, marks: Object.assign(next !== null ? { [id(next)]: "in" } : {}, { [id(curr)]: "new" }) }),
             moves: prev !== null ? [{ from: ["list", id(curr)], to: ["list", id(prev)], label: "next" }] : undefined,
           });
           flipTip = true;
@@ -172,8 +174,8 @@ window.CIL_PATTERNS.push({
           const ok = (op.name === "get" && op.args.length === 1) || (op.name === "put" && op.args.length === 2);
           if (!ok || !op.args.every((a) => Number.isInteger(a))) { rec.error(`"${op.name}(${op.args.join(",")})" is not get(key) or put(key, value) with whole numbers.`); return null; }
         }
-        let total = 0;
-        const frame = (f) => { total++; rec.frame(f); };
+        let total = 0, lastLine = 6;
+        const frame = (f) => { total++; lastLine = f.line; rec.frame(f); };
         let order = [];                        // [key, value], index 0 = front = most recent
         const results = [], shown = [], everPut = new Set();
         let opText = "-";
@@ -284,7 +286,7 @@ window.CIL_PATTERNS.push({
 
         opText = "done";
         frame({
-          line: 1, title: "All ops done",
+          line: lastLine, title: "All ops done",
           t: `Results: <b>[${shown.join(", ")}]</b>. Each get and put did one map lookup and a constant number of pointer changes.`,
           tip: "O(1) time per op, O(capacity) space for the list and the map.",
           vars: { cap: cap, size: order.length },
@@ -411,10 +413,10 @@ window.CIL_PATTERNS.push({
       answer: "linked-lists", distractors: ["two-pointers", "stacks-monotonic", "backtracking"],
       why: "Pointer rewiring with prev, curr and a saved next. O(n) time, O(1) space." },
     { prompt: "Given the heads of two sorted linked lists, combine them into one sorted list by splicing the nodes together.",
-      answer: "linked-lists", distractors: ["two-pointers", "heaps", "greedy"],
+      answer: "linked-lists", distractors: ["binary-search", "heaps", "dp-1d"],
       why: "A dummy head and a tail pointer: append the smaller front node each step, then attach the leftover list." },
     { prompt: "Given a linked list, return the node where a cycle begins, or null if there is none, using O(1) memory.",
-      answer: "linked-lists", distractors: ["graphs-bfs-dfs", "prefix-sum-hashing", "two-pointers"],
+      answer: "linked-lists", distractors: ["graphs-bfs-dfs", "prefix-sum-hashing", "binary-search"],
       why: "Fast and slow pointers meet inside the loop; then one pointer from the head and one from the meeting point meet at the start." },
     { prompt: "Design a key-value store with a fixed size where get and put both run in constant time and the least recently used key is dropped when it is full.",
       answer: "linked-lists", distractors: ["heaps", "math-design", "prefix-sum-hashing"],
@@ -423,7 +425,7 @@ window.CIL_PATTERNS.push({
       answer: "linked-lists", distractors: ["backtracking", "stacks-monotonic", "two-pointers"],
       why: "Reverse each group of k with save-flip-slide, then reconnect the group's new head and tail, using a dummy before the first group." },
     { prompt: "Given a linked list, remove the n-th node from the end in one pass.",
-      answer: "linked-lists", distractors: ["two-pointers", "sliding-window", "stacks-monotonic"],
+      answer: "linked-lists", distractors: ["heaps", "binary-search", "stacks-monotonic"],
       why: "Move a lead pointer n steps ahead from a dummy head, then move both until the lead hits the end; the trailing pointer sits before the node to remove." },
   ],
 

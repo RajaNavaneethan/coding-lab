@@ -273,7 +273,7 @@ window.CIL_PATTERNS.push({
       ["Longest Increasing Subsequence", "O(n²) or O(n log n)", "O(n)", "Each i looks at every j < i, or binary search on tails."],
       ["Recursion without memo", "O(2^n)", "O(n)", "The same subproblems are solved again and again."],
     ],
-    sayIt: "When I see a question asking for the most, the fewest, or the number of ways over a sequence or an amount, and a brute force recursion would solve the same smaller case many times, I think 1D dynamic programming. I start by saying what one cell means, for example dp of i is the most money from the first i plus one houses. Then I write the recurrence by looking at the last choice. For House Robber the last house is either skipped, which gives dp of i minus one, or robbed, which gives dp of i minus two plus its money. For Coin Change I try every coin as the last coin and take one plus the answer for what is left. I set the base cases, fill the array from left to right so every cell I read is ready, and return the last cell. That is usually O of n times the number of choices. If I only read the last one or two cells, I keep them in variables for constant space.",
+    sayIt: "When a question asks for the most, the fewest, or the number of ways over a sequence or an amount, and a brute force recursion would solve the same smaller case many times, I think 1D dynamic programming. I first say what one cell means, for example dp of i is the most money from the first i plus one houses. Then I write the recurrence from the last choice. For House Robber the last house is either skipped, which gives dp of i minus one, or robbed, which gives dp of i minus two plus its money. For Coin Change I try every coin as the last coin and take one plus the answer for what is left. I set the base cases, fill left to right so every cell I read is ready, and return the last cell. That is usually O of n times the number of choices. If I only read the last one or two cells, I keep them in variables for constant space.",
     followups: [
       ["How would you make House Robber O(1) space?", "Keep prev2 and prev1 for dp[i-2] and dp[i-1]. Each step computes cur = max(prev1, prev2 + x), then shifts them."],
       ["What if the houses are in a circle (LC 213)?", "Run the same DP twice: once without the last house and once without the first, and take the larger answer."],
@@ -302,13 +302,13 @@ window.CIL_PATTERNS.push({
       ["amount + 1 is faster to compare", "INT_MAX is not allowed in a vector", "So dp[0] can be 0", "dp[i - c] + 1 on INT_MAX would overflow"],
       3, "No real answer uses more than amount coins, so amount + 1 already means impossible, and adding 1 to it is safe."],
     ["Which problem is a poor fit for 1D DP?",
-      ["Count the longest common subsequence of two strings", "Number of ways to climb n stairs with steps of 1 or 2", "Whether a string can be split into dictionary words", "Fewest perfect squares that sum to n"],
+      ["Find the length of the longest common subsequence of two strings", "Number of ways to climb n stairs with steps of 1 or 2", "Whether a string can be split into dictionary words", "Fewest perfect squares that sum to n"],
       0, "Two strings need a state with two positions, so the table is 2D. The others have one index or amount as the state."],
   ],
 
   drills: [
     { prompt: "You can climb 1 or 2 steps at a time. How many different ways are there to reach step n?",
-      answer: "dp-1d", distractors: ["math-design", "backtracking", "greedy"],
+      answer: "dp-1d", distractors: ["binary-search", "backtracking", "greedy"],
       why: "The last move was 1 or 2 steps, so ways(n) = ways(n-1) + ways(n-2). One index, two earlier answers." },
     { prompt: "Given a string and a dictionary, can the string be cut into pieces that are all dictionary words?",
       answer: "dp-1d", distractors: ["tries", "backtracking", "sliding-window"],
@@ -317,7 +317,7 @@ window.CIL_PATTERNS.push({
       answer: "dp-1d", distractors: ["two-pointers", "dp-2d", "stacks-monotonic"],
       why: "dp[i] is the longest increasing run ending at i, built from every earlier j with a smaller value (or binary search on tails for O(n log n))." },
     { prompt: "Given coin values and an amount, return the fewest coins that make the amount, or -1.",
-      answer: "dp-1d", distractors: ["greedy", "dp-knapsack", "backtracking"],
+      answer: "dp-1d", distractors: ["greedy", "two-pointers", "backtracking"],
       why: "dp[a] = 1 + min over coins of dp[a - c]. One amount is the whole state; greedy fails on some coin sets." },
     { prompt: "Houses in a row hold money and you cannot take from two neighbours. What is the most you can take?",
       answer: "dp-1d", distractors: ["greedy", "two-pointers", "heaps"],
@@ -331,7 +331,7 @@ window.CIL_PATTERNS.push({
     { id: "d1-robber", front: "House Robber (LC 198): time and space?", back: "O(n) time. O(n) space with an array, O(1) with two rolling variables." },
     { id: "d1-coins", front: "Coin Change (LC 322): time and space?", back: "O(amount · k) time for k coins, O(amount) space." },
     { id: "d1-lis", front: "Longest Increasing Subsequence (LC 300): time and space?", back: "O(n²) with plain DP, O(n log n) with a tails array and binary search. O(n) space." },
-    { id: "d1-wordbreak", front: "Word Break (LC 139): time and space?", back: "O(n² · L) time with substring checks of length up to L in a hash set, or O(n · maxWordLen) checks. O(n) space for dp." },
+    { id: "d1-wordbreak", front: "Word Break (LC 139): time and space?", back: "O(n³) time when every split point j is tried and each substring is hashed for the set lookup. Limiting j to the last L positions (L = longest word) gives O(n · L²). O(n) space for dp." },
     { id: "d1-stairs", front: "Climbing Stairs (LC 70): time and space?", back: "O(n) time and O(1) space with two variables: it is the Fibonacci recurrence." },
   ],
 

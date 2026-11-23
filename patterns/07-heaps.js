@@ -32,7 +32,7 @@ window.CIL_PATTERNS.push({
         "    }",
         "};",
       ],
-      fields: [{ key: "ops", label: "operations", type: "ops", value: "addNum(5) addNum(15) addNum(1) findMedian() addNum(3) findMedian()" }],
+      fields: [{ key: "ops", label: "operations", type: "ops", value: "addNum(5) addNum(15) addNum(1) findMedian() addNum(3) findMedian()", hint: "addNum(5) addNum(15) findMedian()" }],
       run(input, rec) {
         const ops = input.ops;
         const esc = (x) => String(x).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
@@ -89,8 +89,8 @@ window.CIL_PATTERNS.push({
         const hi = mkHeap((x, y) => x < y);
         const out = ops.map(() => "");
         const labels = ops.map((op) => `${op.name}(${op.args.join(",")})`);
-        let shown = 0, hidden = 0;
-        const frame = (f) => { if (shown < 40) { rec.frame(f); shown++; } else hidden++; };
+        let shown = 0, hidden = 0, lastLine = [2, 3];
+        const frame = (f) => { lastLine = f.line; if (shown < 40) { rec.frame(f); shown++; } else hidden++; };
         const fmt = (x) => String(x);
 
         const views = (k, o) => {
@@ -101,8 +101,8 @@ window.CIL_PATTERNS.push({
           return [
             { id: "ops", type: "array", label: "operations", values: labels.slice(),
               pointers: k === null ? {} : { op: k }, marks: Object.assign(om, o.opsMarks || {}) },
-            { id: "lo", type: "heap", kind: "max", label: "lo: max-heap, lower half", values: lo.a.slice(), marks: o.loMarks || {} },
-            { id: "hi", type: "heap", kind: "min", label: "hi: min-heap, upper half", values: hi.a.slice(), marks: o.hiMarks || {} },
+            { id: "lo", type: "heap", kind: "max", label: "lo: lower half", values: lo.a.slice(), marks: o.loMarks || {} },
+            { id: "hi", type: "heap", kind: "min", label: "hi: upper half", values: hi.a.slice(), marks: o.hiMarks || {} },
             { id: "out", type: "array", label: "returned", values: out.slice(), marks: o.outMarks || {} },
           ];
         };
@@ -230,7 +230,7 @@ window.CIL_PATTERNS.push({
         }
 
         frame({
-          line: 16, title: "All operations done",
+          line: lastLine, title: "All operations done",
           t: `Results: <b>[${out.map((x) => (x === null ? "null" : esc(fmt(x)))).join(", ")}]</b>. Each <code>addNum</code> did at most two heap pushes and one pop, so it cost O(log n); each <code>findMedian</code> cost O(1).`,
           tip: "Space is O(n): every number stays in one of the two heaps.",
           vars: sizes(),
@@ -316,7 +316,7 @@ window.CIL_PATTERNS.push({
           Object.assign(nm, o.nm || {});
           return [
             { id: "nums", type: "array", label: "nums", values: nums.slice(), pointers: i === null ? {} : { x: i }, marks: nm },
-            { id: "pq", type: "heap", kind: "min", label: `pq: min-heap, at most k = ${k}`, values: a.slice(), marks: o.hm || {} },
+            { id: "pq", type: "heap", kind: "min", label: `pq: at most k = ${k}`, values: a.slice(), marks: o.hm || {} },
             { id: "ans", type: "calc", label: "pq.top()", value: a.length ? a[0] : "-" },
           ];
         };

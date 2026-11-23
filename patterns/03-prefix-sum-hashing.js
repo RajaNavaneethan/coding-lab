@@ -86,7 +86,7 @@ window.CIL_PATTERNS.push({
               line: [6, 7], title: `Found ${hits} earlier cut${hits > 1 ? "s" : ""}`,
               t: `Look up <code>${want}</code>: seen <b>${hits}</b> time${hits > 1 ? "s" : ""}. Each earlier prefix with total ${want} is a start point, and the stretch after it sums to ${running} - ${want} = ${k}. <code>ans</code> becomes ${ans}.`,
               tip: firstHit ? "We add the whole count, not 1. Two earlier prefixes with the same total give two different subarrays ending here." : undefined,
-              vars: { i: i, running: running, "running - k": want, "count[need]": hits, ans: ans },
+              vars: { i: i, running: running, "running - k": want, "count[running - k]": hits, ans: ans },
               views: views({ ranges: ranges, mapMarks: { [want]: "good" }, iMark: "good" }),
               moves: [{ from: ["count", want], to: ["ans", 0], label: "+" + hits }],
             });

@@ -320,7 +320,7 @@ window.CIL_PATTERNS.push({
       ["Euclid's gcd", "O(log min(a, b))", "O(1) iterative", "The remainder at least halves every two steps."],
       ["Design Twitter feed (LC 355)", "O(f log f) per getNewsFeed", "O(users + tweets)", "Merge the latest tweets of f followees with a heap, take 10."],
     ],
-    sayIt: "For number problems I first look at the size limits. If the exponent or the value can be near two to the thirty-one, a linear loop is too slow, so I look for a logarithmic method. For Pow(x, n) I use fast power. I copy n into a long long, because negating INT_MIN in an int overflows. If n is negative I replace x with one over x and make n positive. Then I walk the bits of n: whenever the low bit is 1, I multiply the answer by the current power, and every step I square the power and shift n right. That is O(log n) time and O(1) space. For digit problems like Reverse Integer I pop the last digit with mod 10 and push it with times 10 plus d. Because I may not use 64-bit values, I check against INT_MAX over 10 before the multiply, with the tie broken by the last digit, 7 or minus 8. I test zero, negatives, INT_MIN and INT_MAX before I say I am done.",
+    sayIt: "For number problems I first look at the size limits. If the exponent or the value can be near two to the thirty-one, a linear loop is too slow, so I want a logarithmic method. For Pow(x, n) I use fast power. I copy n into a long long, because negating INT_MIN in an int overflows. If n is negative I replace x with one over x and make n positive. Then I walk the bits of n: whenever the low bit is 1, I multiply the answer by the current power, and every step I square the power and shift n right. That is O(log n) time and O(1) space. For digit problems like Reverse Integer I pop the last digit with mod 10 and push it with times 10 plus d. Since 64-bit values are not allowed, I check against INT_MAX over 10 before the multiply, with the tie broken by the last digit, 7 or minus 8. I test zero, negatives, INT_MIN and INT_MAX before I finish.",
     followups: [
       ["Can you write Pow(x, n) recursively?", "half = pow(x, n / 2); return n even ? half * half : half * half * x. It is O(log n) time but uses O(log n) stack; the loop version is O(1) space."],
       ["How do you compute a^b mod m when b is a huge number given as digits (LC 372)?", "Process b's digits left to right: result = result^10 · a^digit, all mod m, using fast power for each piece."],
@@ -364,14 +364,14 @@ window.CIL_PATTERNS.push({
       answer: "math-design", distractors: ["two-pointers", "stacks-monotonic", "bit-manipulation"],
       why: "Reverse the second half of the digits arithmetically and compare it with the first half." },
     { prompt: "Build a small social network class: post a message, follow and unfollow, and fetch the 10 newest messages from you and everyone you follow.",
-      answer: "math-design", distractors: ["heaps", "linked-lists", "graphs-bfs-dfs"],
+      answer: "math-design", distractors: ["sliding-window", "linked-lists", "graphs-bfs-dfs"],
       why: "A design question: per-user tweet lists with timestamps plus follow sets, and a heap to merge the newest items on read." },
     { prompt: "Count the prime numbers smaller than n, for n up to five million.",
       answer: "math-design", distractors: ["dp-1d", "binary-search", "bit-manipulation"],
       why: "A sieve of Eratosthenes marks multiples of each prime from p², giving O(n log log n)." },
-    { prompt: "Compute the integer square root of a non-negative number without using any built-in power or root function.",
-      answer: "math-design", distractors: ["binary-search", "bit-manipulation", "greedy"],
-      why: "A number question with overflow traps: Newton's method or a search on mid with mid ≤ x / mid to avoid squaring overflow." },
+    { prompt: "Return how many zeros the decimal form of n! ends with, for n up to ten thousand, without computing n! itself.",
+      answer: "math-design", distractors: ["dp-1d", "bit-manipulation", "sliding-window"],
+      why: "Each trailing zero is a factor 10 = 2 × 5, and 2s are always more plentiful, so count the 5s: n / 5 + n / 25 + n / 125 + ..., which is O(log n)." },
   ],
 
   flashcards: [
