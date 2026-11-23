@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 300 - Longest Increasing Subsequence</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#dp-1d">Pattern lesson</a><span>Pattern 13: Dynamic Programming - 1D</span></div>
+
+<h1>Longest Increasing Subsequence</h1>
+<p class="sub">LeetCode 300 &middot; Medium &middot; Pattern: 1-D DP (ending-at-i) &amp; patience sort &middot; O(n<sup>2</sup>) or O(n log n) time, O(n) space</p>
+
+<div class="box">
+  <b>Problem.</b> Given <code>nums</code>, return the length of the longest <b>strictly increasing</b> subsequence
+  (elements keep their order, but need not be adjacent).
+  <br><code>[10,9,2,5,3,7,101,18] &rarr; 4</code> (one LIS is [2,3,7,101])
+  &nbsp;&nbsp; <code>[0,1,0,3,2,3] &rarr; 4</code>
+  &nbsp;&nbsp; <code>[7,7,7,7,7] &rarr; 1</code>
+  <br>Link: <a href="https://leetcode.com/problems/longest-increasing-subsequence/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Define <code>dp[i]</code> as the length of the longest strictly increasing subsequence that <b>ends exactly at index
+<code>i</code></b>. The last two elements of any such subsequence are <code>nums[j]</code> and <code>nums[i]</code> for
+some <code>j &lt; i</code> with <code>nums[j] &lt; nums[i]</code>. Chop <code>nums[i]</code> off and the rest is an LIS
+ending at <code>j</code>. So:</p>
+
+<div class="eq">dp[i] = 1 + max { dp[j] : j &lt; i and nums[j] &lt; nums[i] }</div>
+
+<p>Base: <code>dp[i] = 1</code> for every <code>i</code> (the subsequence that contains just <code>nums[i]</code>). The
+final answer is <code>max(dp)</code>, <b>not</b> <code>dp[n&minus;1]</code>: the LIS may end at any index.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Anchor the subsequence at its last element. For each ending position, look back at every smaller value
+  and extend its best run by one. The LIS is the longest run found anywhere.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>Two nested loops: fill <code>dp[i]</code> in order, scanning all <code>j &lt; i</code>. Each cell only reads cells
+to its left, so left-to-right order is enough. There is a sharper O(n log n) method using "patience sorting"; it is in
+Section 4 below.</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<h3>O(n<sup>2</sup>) DP trace</h3>
+
+<p>The top row is <code>nums</code>. The row below is <code>dp</code>. The yellow cell is <code>dp[i]</code> being
+filled. Blue cells are the <code>j &lt; i</code> values that are strictly smaller (candidates). The purple cell is the
+winner (the <code>j</code> whose <code>dp[j] + 1</code> wins). Grey cells are not filled yet.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>cell being filled (<code>dp[i]</code>)</span>
+  <span><i style="background:var(--win)"></i>candidate <code>j</code> with <code>nums[j] &lt; nums[i]</code></span>
+  <span><i style="background:#e9d5ff;border-color:#7c3aed"></i>winning <code>j</code></span>
+  <span><i style="background:#f8fafc;border:1px solid #cbd5e1"></i>not filled yet</span>
+</div>
+
+<div id="trace-dp"></div>
+<div id="answer-dp" class="box good"></div>
+
+<h3>O(n log n) tails trace</h3>
+
+<p>Scan <code>nums</code> left to right, keep a side array <code>tails</code>. For each new <code>x</code>, run
+<code>lower_bound(tails, x)</code>. If the result is past the end, <b>append</b> <code>x</code> (we have grown the
+longest run by one). Otherwise, <b>replace</b> the element at that position with <code>x</code> (we have found a
+smaller possible tail for a run of that length). The LIS length is <code>tails.size()</code>.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>current <code>x</code> / written slot</span>
+  <span><i style="background:var(--gone)"></i>value being overwritten</span>
+  <span><i style="background:var(--keep)"></i>appended (new slot)</span>
+</div>
+
+<div id="trace-tails"></div>
+<div id="answer-tails" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<p>Main approach, O(n<sup>2</sup>) DP:</p>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">int</span> lengthOfLIS(<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; nums) {
+        <span class="t">int</span> n = nums.size();
+        <span class="k">if</span> (n == <span class="n">0</span>) <span class="k">return</span> <span class="n">0</span>;
+        <span class="t">vector</span>&lt;<span class="t">int</span>&gt; dp(n, <span class="n">1</span>);          <span class="c">// every element is its own LIS of length 1</span>
+        <span class="t">int</span> best = <span class="n">1</span>;
+        <span class="k">for</span> (<span class="t">int</span> i = <span class="n">1</span>; i &lt; n; i++) {
+            <span class="k">for</span> (<span class="t">int</span> j = <span class="n">0</span>; j &lt; i; j++) {
+                <span class="k">if</span> (nums[j] &lt; nums[i])
+                    dp[i] = max(dp[i], dp[j] + <span class="n">1</span>);
+            }
+            best = max(best, dp[i]);
+        }
+        <span class="k">return</span> best;
+    }
+};</pre>
+
+<p><b>Complexity:</b> two nested loops, O(n<sup>2</sup>) time. O(n) space for <code>dp</code>.</p>
+
+<h3>Alternative: O(n log n) patience sort with <code>tails</code> + <code>lower_bound</code></h3>
+
+<pre><span class="t">int</span> lengthOfLIS(<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; nums) {
+    <span class="t">vector</span>&lt;<span class="t">int</span>&gt; tails;                  <span class="c">// tails[k] = smallest tail of any IS of length k+1 seen so far</span>
+    <span class="k">for</span> (<span class="t">int</span> x : nums) {
+        <span class="k">auto</span> it = lower_bound(tails.begin(), tails.end(), x);
+        <span class="k">if</span> (it == tails.end()) tails.push_back(x);   <span class="c">// x is larger than every tail: grow the LIS</span>
+        <span class="k">else</span> *it = x;                              <span class="c">// shrink an existing tail; same length, better future prospects</span>
+    }
+    <span class="k">return</span> (<span class="t">int</span>)tails.size();
+}</pre>
+
+<p><b>Complexity:</b> each element costs one binary search over a vector of size &le; n, so O(n log n) time, O(n) space.
+Prefer this version when <code>n</code> is large (10<sup>4</sup> or more).</p>
+
+<h3>Why <code>tails</code> is not itself an LIS</h3>
+
+<p>The tails array is <b>not</b> an actual increasing subsequence of <code>nums</code>. It records the smallest achievable
+tail for each possible run length, and those tails may come from <b>different</b> subsequences.</p>
+
+<p>Example: <code>nums = [3, 4, 1]</code>.</p>
+
+<ul>
+  <li>After 3: <code>tails = [3]</code>. Backing subsequence <code>[3]</code>.</li>
+  <li>After 4: <code>tails = [3, 4]</code>. Backing <code>[3, 4]</code>.</li>
+  <li>After 1: <code>lower_bound([3,4], 1) = 0</code>, replace. <code>tails = [1, 4]</code>.
+    Now <code>tails[0] = 1</code> is backed by the length-1 subsequence <code>[1]</code>, and <code>tails[1] = 4</code>
+    is still backed by <code>[3, 4]</code>.</li>
+</ul>
+
+<p>The final <code>tails = [1, 4]</code> is <b>not</b> a subsequence of <code>[3, 4, 1]</code>, because 1 occurs after 4
+in the array. The <b>length</b> (2) is correct; the array contents are a mix of records, not a path. If an interviewer
+asks for the LIS itself, reconstruct it from a <code>parent[]</code> array during the O(n<sup>2</sup>) DP, not from
+<code>tails</code>.</p>
+
+<h2>5. The part interviewers ask about: strict vs non-strict, and the <code>tails</code> invariant</h2>
+
+<p>The invariant: after processing a prefix of <code>nums</code>, <code>tails[k]</code> is the <b>minimum possible last
+value</b> over all strictly increasing subsequences of length <code>k + 1</code> drawn from that prefix. Smaller tails
+are strictly better: anything that could extend a run ending at the old tail can also extend the smaller new one, and
+the smaller tail may admit extensions the old one would reject.</p>
+
+<p>Strict vs non-strict. <code>lower_bound</code> finds the first position with value <code>&ge; x</code>, which keeps
+the sequence <b>strictly</b> increasing (LC 300). If the problem allows equal (longest non-decreasing), use
+<code>upper_bound</code> instead. Mixing them up changes the answer on inputs with duplicates:</p>
+
+<table>
+  <tr><th>Input</th><th><code>lower_bound</code> (strict)</th><th><code>upper_bound</code> (non-decreasing)</th></tr>
+  <tr><td><code>[7,7,7,7]</code></td><td>1</td><td>4</td></tr>
+  <tr><td><code>[1,3,3,5]</code></td><td>3 (one 3)</td><td>4 (keeps both 3s)</td></tr>
+</table>
+
+<div class="box insight">
+  <b>Proof sketch of correctness (O(n log n)).</b> By induction on the prefix. The length never falls, since the only
+  shrink is a replace (same length). It can only grow by appending <code>x</code>, which happens when <code>x</code>
+  exceeds every current tail, meaning we have a strictly longer increasing subsequence. For optimality: suppose the
+  real LIS so far has length <code>L</code> with last element <code>v</code>. Then our algorithm maintains a tails
+  array of length <code>L</code> with <code>tails[L&minus;1] &le; v</code>, by the "smaller tails are better" invariant.
+  So <code>tails.size()</code> equals the LIS length at every step.
+</div>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Returning <code>dp[n&minus;1]</code>.</b> The LIS may not end at the last element. Track a running
+    <code>best</code> (or take <code>max(dp)</code> at the end). <code>[1, 2, 3, 0]</code> is the classic trap: the
+    answer is 3, but <code>dp[3] = 1</code>.</li>
+    <li><b>Using <code>upper_bound</code> for strict LIS.</b> You will count duplicates. On <code>[7, 7, 7]</code>
+    <code>upper_bound</code> gives 3; the correct strict answer is 1.</li>
+    <li><b>Treating <code>tails</code> as the LIS.</b> It is not. Only its length is meaningful. If you need the
+    actual sequence, use the DP version with a <code>parent[]</code> array.</li>
+    <li><b>Empty input.</b> Return 0. Both approaches handle this: the DP loop never runs and <code>best</code> stays
+    at its starting value (initialise it to 0 for <code>n = 0</code>), and <code>tails</code> stays empty.</li>
+    <li><b>Negative or very large values.</b> No special care in C++: <code>vector&lt;int&gt;</code> stores anything
+    that fits in <code>int</code> and <code>lower_bound</code> only compares.</li>
+    <li><b>Confusing with longest <i>contiguous</i> increasing subarray</b> (LC 674). That one is a greedy O(n) scan;
+    this one is DP because elements need not be adjacent.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I define <code>dp[i]</code> as the length of the longest strictly increasing subsequence ending at index
+  <code>i</code>. For each <code>i</code> I scan <code>j &lt; i</code>, and whenever <code>nums[j] &lt; nums[i]</code>
+  I try <code>dp[j] + 1</code>. Answer is <code>max(dp)</code>. That is O(n<sup>2</sup>). For larger <code>n</code>
+  I use the patience-sort trick: keep a <code>tails</code> array where <code>tails[k]</code> is the smallest tail of
+  any length-<code>k+1</code> increasing subsequence seen so far. For each <code>x</code> I <code>lower_bound</code>
+  it; if it is past the end I append, otherwise I overwrite. The LIS length is <code>tails.size()</code>, which is
+  O(n log n). Note the final <code>tails</code> is <b>not</b> the LIS, just the right length."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 673 Number of LIS</td><td>Same DP, but keep a parallel <code>count[i]</code> alongside <code>dp[i]</code>.</td></tr>
+  <tr><td>LC 354 Russian Doll Envelopes</td><td>Sort by width asc, height desc, then LIS on heights. The desc tie-break stops same-width envelopes from stacking.</td></tr>
+  <tr><td>LC 1143 Longest Common Subsequence</td><td>Same "ending at i" shape, but 2-D over two strings instead of 1-D over indices.</td></tr>
+  <tr><td>LC 646 Longest Pair Chain</td><td>Sort pairs by first; then LIS on seconds (or greedy by second).</td></tr>
+  <tr><td>LC 1626 Best Team With No Conflicts</td><td>Weighted LIS: sort by age, then maximise sum of scores with a monotone constraint.</td></tr>
+</table>
+
+<script>
+/* Idea diagram: nums = [3, 1, 8, 2, 5], computing dp[4] = 1 + max(dp[j] for j<4 with nums[j]<5) = 1 + dp[3] = 1 + 2 = 3. */
+(function () {
+  const W = 760, H = 260;
+  const nums = [3, 1, 8, 2, 5];
+  const dp   = [1, 1, 2, 2, 3];
+  const X0 = 60, DX = 100, CW = 70, CH = 44;
+  let s = '';
+
+  // nums row
+  nums.forEach((v, i) => {
+    const x = X0 + i * DX;
+    s += `<rect x="${x}" y="20" width="${CW}" height="${CH}" rx="6" fill="#f8fafc" stroke="#475569" stroke-width="2"/>`;
+    s += `<text x="${x + CW / 2}" y="${20 + CH / 2 + 6}" text-anchor="middle" font-size="18" font-weight="700">${v}</text>`;
+    s += `<text x="${x + CW / 2}" y="${12}" text-anchor="middle" font-size="11" fill="#616e7c">nums[${i}]</text>`;
+  });
+
+  // dp row
+  dp.forEach((v, i) => {
+    const x = X0 + i * DX;
+    let fill = '#ffffff', stroke = '#475569';
+    // j<4 candidates with nums[j]<5: j=0 (3), j=1 (1), j=3 (2). j=2 (8) is not <5.
+    if (i === 0 || i === 1) { fill = '#dbeafe'; stroke = '#3b82f6'; }
+    if (i === 3) { fill = '#e9d5ff'; stroke = '#7c3aed'; }
+    if (i === 4) { fill = '#fde68a'; stroke = '#d97706'; }
+    s += `<rect x="${x}" y="140" width="${CW}" height="${CH}" rx="6" fill="${fill}" stroke="${stroke}" stroke-width="2"/>`;
+    s += `<text x="${x + CW / 2}" y="${140 + CH / 2 + 6}" text-anchor="middle" font-size="18" font-weight="700">${v}</text>`;
+    s += `<text x="${x + CW / 2}" y="${135}" text-anchor="middle" font-size="11" fill="#616e7c">dp[${i}]</text>`;
+  });
+
+  // arrows from each candidate j to i=4
+  const tx = X0 + 4 * DX + CW / 2;
+  const cands = [{ j: 0, dy: 220 }, { j: 1, dy: 210 }, { j: 3, dy: 195 }];
+  cands.forEach(({ j, dy }, k) => {
+    const sx = X0 + j * DX + CW / 2;
+    const off = (k - 1) * 4;
+    s += `<path d="M${sx},${140 + CH} C${sx},${dy + 10} ${tx + off - 6},${dy + 10} ${tx + off - 2},${140 + CH}" fill="none" stroke="${j === 3 ? '#7c3aed' : '#3b82f6'}" stroke-width="2" marker-end="url(#ar300)"/>`;
+  });
+  s += `<text x="${X0 + 2.5 * DX}" y="245" text-anchor="middle" font-size="12" fill="#1f2933">try dp[0], dp[1], dp[3] &rarr; max is dp[3]=2, so dp[4] = 1 + 2 = <tspan fill="#d97706" font-weight="700">3</tspan></text>`;
+  s = `<defs><marker id="ar300" markerWidth="10" markerHeight="10" refX="7" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3b82f6"/></marker></defs>` + s;
+  document.getElementById('idea').innerHTML =
+    `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${H}">${s}</svg>` +
+    `<div class="caption">dp[4] looks back at every j with nums[j] &lt; 5 (0, 1, 3) and extends the best one. j=2 is skipped because nums[2]=8 is not smaller.</div>`;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Init', lines: ['dp[i] = 1 for all i', 'best = 1'], color: 'green' },
+  { title: '2. Fill left to right', lines: ['for i = 1..n-1', 'for j = 0..i-1', 'if nums[j] < nums[i]:', 'dp[i] = max(dp[i], dp[j]+1)'], color: 'yellow' },
+  { title: '3. Track best', lines: ['best = max(best, dp[i])'], color: 'blue' },
+  { title: '4. Answer', lines: ['return best'], color: 'blue' },
+]);
+
+/* O(n^2) DP interactive trace. */
+VIZ.controls('trace-dp', [{ id: 'nums', label: 'nums =', value: '[10,9,2,5,3,7,101,18]', size: 26 }], v => {
+  let nums;
+  try { nums = VIZ.parse.arr(v.nums); }
+  catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  if (!Array.isArray(nums) || nums.some(x => typeof x !== 'number'))
+    return '<div class="box trap">Expected an array of numbers.</div>';
+  const n = nums.length;
+  if (n === 0) { document.getElementById('answer-dp').innerHTML = '<b>Answer: 0</b> (empty input).'; return ''; }
+  if (n > 12) return '<div class="box trap">Pick at most 12 numbers to keep the trace readable.</div>';
+
+  const dp = new Array(n).fill(1);
+  const steps = [];
+  // step for i=0 (base)
+  steps.push({ i: 0, cands: [], win: null, note: `Base: <code>dp[0] = 1</code> (any element is its own LIS of length 1).` });
+  for (let i = 1; i < n; i++) {
+    const cands = [];
+    let win = null;
+    for (let j = 0; j < i; j++) {
+      if (nums[j] < nums[i]) {
+        cands.push(j);
+        if (dp[j] + 1 > dp[i]) { dp[i] = dp[j] + 1; win = j; }
+      }
+    }
+    const parts = cands.length
+      ? cands.map(j => `dp[${j}]+1 = ${dp[j] + 1 - (j === win ? 0 : 0)}`).join(', ')
+      : '';
+    const note = cands.length === 0
+      ? `No <code>j &lt; ${i}</code> has <code>nums[j] &lt; ${nums[i]}</code>. <code>dp[${i}]</code> stays at 1.`
+      : `Candidates: ${cands.map(j => `j=${j} (nums[${j}]=${nums[j]}, dp[${j}]+1=${dp[j] - (j === win ? 1 : 0) + 1})`).join(', ')}. Winner: <b>j=${win}</b>. <code>dp[${i}] = ${dp[i]}</code>.`;
+    steps.push({ i, cands, win, note });
+  }
+
+  const MAX = 12;
+  const show = steps.length <= MAX ? steps : steps.slice(0, MAX);
+  let html = '';
+  show.forEach((st, k) => {
+    // snapshot of dp up to and including st.i
+    const snap = (() => {
+      const t = new Array(n).fill(1);
+      for (let x = 1; x <= st.i; x++) {
+        for (let j = 0; j < x; j++) if (nums[j] < nums[x]) t[x] = Math.max(t[x], t[j] + 1);
+      }
+      return t;
+    })();
+    const valsNums = nums.map(x => String(x));
+    const valsDp = snap.map((x, idx) => idx <= st.i ? String(x) : '.');
+
+    const stripNums = VIZ.strip(valsNums, {
+      cls: ix => {
+        if (ix === st.i) return 'new';
+        if (st.cands.includes(ix)) return ix === st.win ? 'hit' : 'in';
+        return '';
+      },
+      labels: nums.map((_, i) => i),
+    });
+    const stripDp = VIZ.strip(valsDp, {
+      cls: ix => {
+        if (ix === st.i) return 'new';
+        if (ix === st.win) return 'hit';
+        if (st.cands.includes(ix)) return 'in';
+        if (ix > st.i) return 'dim';
+        return '';
+      },
+      labels: nums.map((_, i) => `dp[${i}]`), index: true,
+    });
+    const vis = `<div style="font-size:12px;color:#616e7c;margin:4px 0 2px">nums</div>${stripNums}<div style="font-size:12px;color:#616e7c;margin:8px 0 2px">dp</div>${stripDp}`;
+    html += VIZ.step(`Step ${k + 1}: fill dp[${st.i}] (nums[${st.i}]=${nums[st.i]})`, vis, st.note);
+  });
+  if (steps.length > MAX) html += `<p class="caption">... ${steps.length - MAX} more cells, same pattern.</p>`;
+
+  const ans = Math.max(...dp);
+  document.getElementById('answer-dp').innerHTML =
+    `<b>Answer for nums = [${nums.join(',')}]: ${ans}</b> &middot; max over the final dp row.`;
+  return html;
+}, 'Change nums. The dp array is filled left to right; each cell scans every earlier index.');
+
+/* O(n log n) tails interactive trace. */
+VIZ.controls('trace-tails', [{ id: 'nums', label: 'nums =', value: '[10,9,2,5,3,7,101,18]', size: 26 }], v => {
+  let nums;
+  try { nums = VIZ.parse.arr(v.nums); }
+  catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  if (!Array.isArray(nums) || nums.some(x => typeof x !== 'number'))
+    return '<div class="box trap">Expected an array of numbers.</div>';
+  const n = nums.length;
+  if (n === 0) { document.getElementById('answer-tails').innerHTML = '<b>Answer: 0</b> (empty input).'; return ''; }
+  if (n > 15) return '<div class="box trap">Pick at most 15 numbers to keep the trace readable.</div>';
+
+  function lb(arr, x) {
+    let lo = 0, hi = arr.length;
+    while (lo < hi) {
+      const m = (lo + hi) >> 1;
+      if (arr[m] < x) lo = m + 1; else hi = m;
+    }
+    return lo;
+  }
+
+  const tails = [];
+  let html = '';
+  for (let step = 0; step < n; step++) {
+    const x = nums[step];
+    const before = tails.slice();
+    const pos = lb(tails, x);
+    let action, oldVal = null;
+    if (pos === tails.length) { action = 'append'; tails.push(x); }
+    else { action = 'replace'; oldVal = tails[pos]; tails[pos] = x; }
+
+    // nums strip with current x highlighted
+    const stripNums = VIZ.strip(nums.map(String), {
+      cls: ix => ix === step ? 'new' : (ix < step ? 'in' : 'dim'),
+      labels: nums.map((_, i) => i),
+    });
+
+    // tails strip after the operation; highlight the written slot
+    const tailsAfter = tails.map(String);
+    const stripTails = VIZ.strip(tailsAfter.length ? tailsAfter : ['(empty)'], {
+      cls: ix => {
+        if (tailsAfter.length === 0) return 'dim';
+        if (ix === pos) return action === 'append' ? 'keep' : 'new';
+        return '';
+      },
+      labels: tailsAfter.length ? tailsAfter.map((_, i) => i) : [''],
+      index: tailsAfter.length > 0,
+    });
+
+    const note = action === 'append'
+      ? `<code>lower_bound(tails, ${x}) = end</code>, so <b>append</b>. <code>tails</code> grows from <code>[${before.join(',')}]</code> to <code>[${tails.join(',')}]</code>. LIS length so far: <b>${tails.length}</b>.`
+      : `<code>lower_bound(tails, ${x}) = ${pos}</code> (position of value <code>${oldVal}</code>). <b>Replace</b>: <code>tails[${pos}]</code> goes from <code>${oldVal}</code> to <code>${x}</code>. Length unchanged at ${tails.length}; now a length-${pos + 1} run can end at a smaller value.`;
+
+    const vis = `<div style="font-size:12px;color:#616e7c;margin:4px 0 2px">nums (current <code>x = ${x}</code>)</div>${stripNums}<div style="font-size:12px;color:#616e7c;margin:8px 0 2px">tails after this step</div>${stripTails}`;
+    html += VIZ.step(`Step ${step + 1}: x = ${x} &rarr; ${action}`, vis, note);
+  }
+
+  document.getElementById('answer-tails').innerHTML =
+    `<b>Answer for nums = [${nums.join(',')}]: ${tails.length}</b> &middot; final <code>tails = [${tails.join(',')}]</code>. ` +
+    `Remember: this array is <b>not</b> an actual LIS of nums, only its length is.`;
+  return html;
+}, 'Change nums. Each step shows the lower_bound result and whether we appended or overwrote.');
+</script>
+
+</body>
+</html>

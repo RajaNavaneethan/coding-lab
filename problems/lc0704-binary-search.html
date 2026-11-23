@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 704 - Binary Search</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#binary-search">Pattern lesson</a><span>Pattern 4: Binary Search</span></div>
+
+<h1>Binary Search</h1>
+<p class="sub">LeetCode 704 &middot; Easy &middot; Pattern: classic binary search on a sorted array &middot; O(log n) time, O(1) space</p>
+
+<div class="box">
+  <b>Problem.</b> <code>nums</code> is sorted in ascending order with distinct values. Return the index of
+  <code>target</code>, or <code>-1</code> if it is not there.
+  <br><code>nums = [-1,0,3,5,9,12], target = 9 &rarr; 4</code> &nbsp;&nbsp; <code>target = 2 &rarr; -1</code>
+  <br>Link: <a href="https://leetcode.com/problems/binary-search/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>The array is sorted. Pick the middle element. One comparison with <code>target</code> tells you which half the
+answer must be in, so you can throw the other half away. Repeat on what is left. Every step cuts the search range in
+half, so after <code>log<sub>2</sub> n</code> steps the range has shrunk to one cell.</p>
+
+<p>Track the range with two indices, <code>lo</code> and <code>hi</code>. The answer, if it exists, is in the closed
+interval <code>[lo, hi]</code>. Pick <code>mid = lo + (hi - lo) / 2</code> (not <code>(lo + hi) / 2</code>, which can
+overflow). Compare, keep the half that could still contain <code>target</code>, strike through the other.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Shrink the search interval <code>[lo, hi]</code>. On each step, if <code>nums[mid]</code> is too small
+  move <code>lo = mid + 1</code>, if it is too big move <code>hi = mid - 1</code>, if equal return <code>mid</code>. Stop
+  when <code>lo &gt; hi</code>: the interval is empty, so the target is not there.
+</div>
+
+<h3>Why <code>mid + 1</code> and <code>mid - 1</code> matter</h3>
+
+<p>If you set <code>lo = mid</code> or <code>hi = mid</code> on a mismatch, the two-cell interval <code>[lo, lo+1]</code>
+can loop forever: <code>mid</code> rounds down to <code>lo</code>, and <code>lo = mid</code> leaves the interval
+unchanged. Writing <code>mid + 1</code> / <code>mid - 1</code> excludes the already-tested index, so the interval
+strictly shrinks every iteration.</p>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Each strip shows the full array. Grey cells are already discarded. Blue cells are the current window
+<code>[lo, hi]</code>. The yellow cell is <code>mid</code>. The red struck-through cells are the half we drop on
+this step.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>mid (just tested)</span>
+  <span><i style="background:var(--win)"></i>still in the window</span>
+  <span><i style="background:var(--gone)"></i>dropped on this step</span>
+  <span><i style="background:#f8fafc;border-color:#cbd5e1"></i>dropped earlier</span>
+  <span><i style="background:var(--keep)"></i>found</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">int</span> search(<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; nums, <span class="t">int</span> target) {
+        <span class="t">int</span> lo = <span class="n">0</span>, hi = (<span class="t">int</span>)nums.size() - <span class="n">1</span>;
+        <span class="k">while</span> (lo &lt;= hi) {
+            <span class="t">int</span> mid = lo + (hi - lo) / <span class="n">2</span>;      <span class="c">// avoid lo + hi overflow</span>
+            <span class="k">if</span> (nums[mid] == target) <span class="k">return</span> mid;
+            <span class="k">if</span> (nums[mid] &lt; target) lo = mid + <span class="n">1</span>;
+            <span class="k">else</span>                     hi = mid - <span class="n">1</span>;
+        }
+        <span class="k">return</span> -<span class="n">1</span>;
+    }
+};</pre>
+
+<p><b>Complexity:</b> each iteration halves the interval, so at most <code>&lceil;log<sub>2</sub> n&rceil;</code>
+iterations. O(log n) time, O(1) space.</p>
+
+<h2>5. The part interviewers ask about: closed vs half-open intervals</h2>
+
+<div class="box insight">
+  The template above uses the <b>closed interval</b> <code>[lo, hi]</code>. Three details are tied together:
+  the loop condition is <code>lo &lt;= hi</code>, the updates are <code>mid &plusmn; 1</code>, and
+  <code>hi</code> starts at <code>n - 1</code>. If you ever change one, change all three.
+  <br><br>
+  Alternative: half-open interval <code>[lo, hi)</code>. Then <code>hi = n</code>, the loop is
+  <code>while (lo &lt; hi)</code>, the mismatch updates are <code>lo = mid + 1</code> and <code>hi = mid</code>.
+  Pick one and stick with it. Mixing a <code>&lt;=</code> loop with <code>hi = mid</code> is the classic infinite loop.
+</div>
+
+<p>A second detail: <code>mid = (lo + hi) / 2</code> can overflow when both are near <code>INT_MAX</code>. Writing
+<code>lo + (hi - lo) / 2</code> stays safe because <code>hi - lo</code> is at most <code>n</code>.</p>
+
+<p>Variants that come up right after this problem:</p>
+<ul>
+  <li><b>Lower bound.</b> First index where <code>nums[i] &ge; target</code>. Return <code>lo</code> after the loop
+      instead of <code>-1</code>. Uses the half-open template.</li>
+  <li><b>Upper bound.</b> First index where <code>nums[i] &gt; target</code>. Same template, change <code>&ge;</code>
+      to <code>&gt;</code>. Count of a value = <code>upper - lower</code>.</li>
+</ul>
+
+<pre><span class="c">// lower_bound: first i with nums[i] &ge; target</span>
+<span class="t">int</span> lo = <span class="n">0</span>, hi = (<span class="t">int</span>)nums.size();
+<span class="k">while</span> (lo &lt; hi) {
+    <span class="t">int</span> mid = lo + (hi - lo) / <span class="n">2</span>;
+    <span class="k">if</span> (nums[mid] &lt; target) lo = mid + <span class="n">1</span>;
+    <span class="k">else</span> hi = mid;
+}
+<span class="k">return</span> lo;    <span class="c">// 0 .. n</span></pre>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b><code>mid = (lo + hi) / 2</code> overflow.</b> For LC 704 the bounds are small, but write the safe form
+        every time. Interviewers watch for it.</li>
+    <li><b><code>hi = mid</code> inside a <code>lo &lt;= hi</code> loop.</b> Infinite loop when the window is two
+        cells. Mix carefully.</li>
+    <li><b>Empty array.</b> <code>hi = -1</code>, the loop never runs, return <code>-1</code>. The template handles it.</li>
+    <li><b>Target smaller than all / larger than all.</b> <code>[1,2,3], target = 0</code> or <code>4</code>: the
+        interval walks off one end, then <code>lo &gt; hi</code> and we return <code>-1</code>.</li>
+    <li><b>Duplicates.</b> LC 704 says distinct, but if duplicates are allowed, <code>search</code> finds <i>some</i>
+        occurrence, not the first. Use lower_bound if you want the first.</li>
+    <li><b>Returning <code>lo</code> or <code>hi</code> at the end.</b> For "find exact index or -1" that is wrong.
+        Those values are the insertion point, not a match.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "The array is sorted, so I keep two indices <code>lo</code> and <code>hi</code> for the closed interval that could
+  still hold the target. Each step I pick the middle, compare, and throw away the half the target cannot be in. I use
+  <code>lo + (hi - lo) / 2</code> to avoid overflow, and <code>mid + 1</code> / <code>mid - 1</code> on the updates so
+  the interval strictly shrinks. The loop runs <code>log n</code> times and I return <code>mid</code> on a hit or
+  <code>-1</code> when the interval is empty."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 35 Search Insert Position</td><td>Lower bound: return <code>lo</code> instead of <code>-1</code>.</td></tr>
+  <tr><td>LC 34 First and Last Position</td><td>Two binary searches: lower_bound and upper_bound.</td></tr>
+  <tr><td>LC 33 Search in Rotated Sorted Array</td><td>Same shape, but you must figure out which half is sorted first.</td></tr>
+  <tr><td>LC 153 Find Minimum in Rotated Sorted Array</td><td>Binary search for the pivot instead of a target.</td></tr>
+  <tr><td>LC 875 Koko Eating Bananas</td><td>Binary search on the answer, not on the array.</td></tr>
+</table>
+
+<script>
+/* Idea diagram: one worked step on [-1,0,3,5,9,12], target 9. */
+(function () {
+  const a = [-1,0,3,5,9,12];
+  const dropped = new Set([0,1,2]);
+  const html =
+    '<p>Step 1: window <code>[0..5]</code>, <code>mid = 2</code>, <code>nums[2] = 3 &lt; 9</code>, drop the left half.</p>' +
+    VIZ.strip(a, {
+      cls: i => i === 2 ? 'new' : (i < 2 ? 'gone' : 'in'),
+      ptrs: { 0: 'lo', 2: 'mid', 5: 'hi' },
+    }) +
+    '<p>Step 2: window <code>[3..5]</code>, <code>mid = 4</code>, <code>nums[4] = 9</code>. Found at index <b>4</b>.</p>' +
+    VIZ.strip(a, {
+      cls: i => i === 4 ? 'keep' : (dropped.has(i) || i === 5 ? (i === 5 ? 'in' : 'gone') : (i === 3 ? 'in' : 'gone')),
+      ptrs: { 3: 'lo', 4: 'mid', 5: 'hi' },
+    });
+  document.getElementById('idea').innerHTML = html;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Mid', lines: ['mid = lo + (hi-lo)/2'], color: 'yellow' },
+  { title: '2. Compare', lines: ['nums[mid] == target: return', 'nums[mid] < target: lo = mid+1', 'else: hi = mid-1'], color: 'blue' },
+  { title: '3. Stop', lines: ['when lo > hi', 'return -1'], color: 'red' },
+], { loop: 'while lo <= hi' });
+
+/* Interactive trace */
+VIZ.controls('trace', [
+  { id: 'nums', label: 'nums =', value: '[-1,0,3,5,9,12]', size: 22 },
+  { id: 'target', label: 'target =', value: '9', size: 4 },
+], v => {
+  let nums, target;
+  try { nums = VIZ.parse.arr(v.nums); target = VIZ.parse.int(v.target); }
+  catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  if (!Array.isArray(nums)) return '<div class="box trap">nums must be an array.</div>';
+  if (nums.length > 32) return '<div class="box trap">Pick at most 32 numbers to keep the trace readable.</div>';
+  for (let i = 1; i < nums.length; i++) {
+    if (nums[i-1] > nums[i]) return '<div class="box trap">nums must be sorted in ascending order.</div>';
+  }
+
+  const steps = [];
+  let lo = 0, hi = nums.length - 1, found = -1;
+  const droppedBefore = new Set();
+  while (lo <= hi) {
+    const mid = lo + ((hi - lo) >> 1);
+    const val = nums[mid];
+    const cmp = val === target ? 'eq' : (val < target ? 'lt' : 'gt');
+    let nextLo = lo, nextHi = hi, dropL = -1, dropR = -1;
+    if (cmp === 'eq') { found = mid; }
+    else if (cmp === 'lt') { dropL = lo; dropR = mid; nextLo = mid + 1; }
+    else { dropL = mid; dropR = hi; nextHi = mid - 1; }
+    steps.push({ lo, hi, mid, val, cmp, dropL, dropR, droppedBefore: new Set(droppedBefore) });
+    if (cmp === 'eq') break;
+    for (let i = dropL; i <= dropR; i++) droppedBefore.add(i);
+    lo = nextLo; hi = nextHi;
+  }
+  if (!steps.length) {
+    steps.push({ empty: true });
+  }
+
+  const MAX = 25;
+  const show = steps.slice(0, MAX);
+  let html = '';
+  show.forEach((st, k) => {
+    if (st.empty) {
+      html += VIZ.step('Empty array', '<div class="caption">(nothing to search)</div>', 'Return <b>-1</b>.', true);
+      return;
+    }
+    const cls = i => {
+      if (st.cmp === 'eq' && i === st.mid) return 'keep';
+      if (i >= st.dropL && i <= st.dropR && st.dropL !== -1) return i === st.mid ? 'new' : 'gone';
+      if (st.droppedBefore.has(i)) return 'dim';
+      if (i === st.mid) return 'new';
+      if (i >= st.lo && i <= st.hi) return 'in';
+      return 'dim';
+    };
+    const ptrs = {};
+    if (st.lo === st.hi && st.lo === st.mid) ptrs[st.lo] = ['lo','mid','hi'];
+    else {
+      ptrs[st.lo] = st.lo === st.mid ? ['lo','mid'] : 'lo';
+      ptrs[st.hi] = st.hi === st.mid ? ['mid','hi'] : 'hi';
+      if (st.mid !== st.lo && st.mid !== st.hi) ptrs[st.mid] = 'mid';
+    }
+    const fig = VIZ.strip(nums, { cls, ptrs });
+    let text;
+    if (st.cmp === 'eq') {
+      text = `<code>mid = ${st.mid}</code>, <code>nums[${st.mid}] = ${st.val} = ${target}</code>. <span class="ok">Found at index ${st.mid}.</span>`;
+    } else if (st.cmp === 'lt') {
+      text = `<code>mid = ${st.mid}</code>, <code>nums[${st.mid}] = ${st.val} &lt; ${target}</code>. Drop the left half <code>[${st.dropL}..${st.dropR}]</code>, move <code>lo = ${st.mid + 1}</code>.`;
+    } else {
+      text = `<code>mid = ${st.mid}</code>, <code>nums[${st.mid}] = ${st.val} &gt; ${target}</code>. Drop the right half <code>[${st.dropL}..${st.dropR}]</code>, move <code>hi = ${st.mid - 1}</code>.`;
+    }
+    html += VIZ.step(`Step ${k + 1}: window [${st.lo}..${st.hi}]`, fig, text, true);
+  });
+  if (steps.length > MAX) html += `<p class="caption">... ${steps.length - MAX} more steps, same pattern.</p>`;
+
+  const last = steps[steps.length - 1];
+  const ans = found;
+  if (ans === -1 && !(last && last.empty)) {
+    const emptyCls = i => 'dim';
+    html += VIZ.step('Interval empty', VIZ.strip(nums, { cls: emptyCls }),
+      '<code>lo &gt; hi</code>. The target is not in the array. Return <b>-1</b>.', true);
+  }
+  document.getElementById('answer').innerHTML = `<b>Answer for nums = [${nums.join(',')}], target = ${target}: ${ans}</b>`;
+  return html;
+}, 'nums must be sorted ascending.');
+</script>
+</body>
+</html>

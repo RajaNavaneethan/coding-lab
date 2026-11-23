@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 121 - Best Time to Buy and Sell Stock</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#sliding-window">Pattern lesson</a><span>Pattern 2: Sliding Window</span></div>
+
+<h1>Best Time to Buy and Sell Stock</h1>
+<p class="sub">LeetCode 121 &middot; Easy &middot; Pattern: one pass, running minimum &middot; O(n) time, O(1) space</p>
+
+<div class="box">
+  <b>Problem.</b> <code>prices[i]</code> is the stock price on day <code>i</code>. Buy on some day and sell on a later
+  day. Return the maximum profit, or <code>0</code> if no profit is possible.
+  <br><code>[7,1,5,3,6,4] &rarr; 5</code> &nbsp;&nbsp; <code>[7,6,4,3,1] &rarr; 0</code>
+  <br>Link: <a href="https://leetcode.com/problems/best-time-to-buy-and-sell-stock/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>For every day <code>r</code>, the best profit if you sell on day <code>r</code> is
+<code>prices[r] &minus; min(prices[0..r])</code>. The best profit overall is the max of this over all <code>r</code>.
+So you only need the smallest price seen so far on your left.</p>
+
+<p>This is a sliding window where the <b>right end</b> walks forward one step at a time, and the <b>left end</b>
+only jumps to <code>r</code> when a new minimum appears. Between jumps, you just update the profit against the fixed
+<code>lo</code>.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>So the question becomes:</b> as you scan left to right, keep the smallest price so far. Each day, either it is the
+  new low (then move the buy day here) or it beats the best known profit against the current low.
+</div>
+
+<p>Why one pass is enough: the buy day only ever moves forward to a cheaper price, and the sell day only ever moves
+forward. There is no case where going back helps &mdash; a cheaper buy day in the past would already have been captured.</p>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>today (r)</span>
+  <span><i style="background:var(--keep)"></i>buy day (lowest so far)</span>
+  <span><i style="background:var(--win)"></i>candidate sell days</span>
+  <span><i style="background:#e5e7eb"></i>not yet seen</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="t">int</span> maxProfit(<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; prices) {
+    <span class="t">int</span> lo = INT_MAX, best = <span class="n">0</span>;
+    <span class="k">for</span> (<span class="t">int</span> p : prices) {
+        <span class="k">if</span> (p &lt; lo) lo = p;                         <span class="c">// new buy day</span>
+        <span class="k">else</span> <span class="k">if</span> (p - lo &gt; best) best = p - lo;    <span class="c">// try selling today</span>
+    }
+    <span class="k">return</span> best;
+}</pre>
+
+<p><b>Complexity:</b> one linear scan, two integers of state. O(n) time, O(1) space.</p>
+
+<h2>5. The part interviewers ask about: why not try every pair?</h2>
+
+<p>The brute force is "for every <code>i</code>, for every <code>j &gt; i</code>, track <code>prices[j] &minus;
+prices[i]</code>". That is O(n<sup>2</sup>) and fails on big inputs. The one-pass trick works because the inner loop was
+redundant &mdash; for a fixed sell day <code>r</code>, the best buy day is the cheapest day on its left, and that
+information is one variable.</p>
+
+<div class="box insight">
+  <b>Generalisation.</b> The same trick turns any "max of <code>f(j) &minus; g(i)</code> for <code>i &lt; j</code>"
+  problem into a single pass: keep <code>min g(i)</code> seen so far on the left, update the answer against today's
+  <code>f(j)</code>, then update the running min with today's <code>g(j)</code>.
+</div>
+
+<p><b>Related harder problems.</b> If you can trade multiple times with no cooldown (LC 122) the answer is the sum of
+all positive deltas <code>prices[i] &minus; prices[i-1]</code>. With at most <code>k</code> trades (LC 188) it becomes
+DP over state <code>(day, trades_left, holding?)</code>. The sliding-min idea here is the <code>k = 1</code> base
+case.</p>
+
+<p><b>A real interview wrinkle.</b> If prices can be negative or go to zero, the code still works because the inequality
+<code>p &lt; lo</code> only looks at the raw value. Just make sure <code>lo</code> starts at <code>INT_MAX</code>, not
+<code>0</code>.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Initialising <code>lo</code> to <code>prices[0]</code> and skipping day 0 in the loop.</b> Fine, but then the
+      empty-input case must be handled first or you dereference <code>prices[0]</code>.</li>
+    <li><b>Initialising <code>best</code> to a negative value.</b> You cannot "sell before you buy", so the floor is
+      <code>0</code>, not a negative profit. The problem asks for max profit achievable, which includes doing nothing.</li>
+    <li><b>Updating <code>lo</code> and <code>best</code> in the wrong order.</b> If you set <code>lo = p</code> first
+      and then check <code>p - lo &gt; best</code>, every day scores <code>0</code>. Either compute profit first, or use
+      the <code>if / else if</code> as shown.</li>
+    <li><b>Monotonically decreasing input.</b> Returns <code>0</code>, not a negative number. Example:
+      <code>[7,6,4,3,1] &rarr; 0</code>.</li>
+    <li><b>Single-day or empty input.</b> No sell possible, answer is <code>0</code>.</li>
+    <li><b>Confusing with LC 122 (multiple trades).</b> That problem is a different pattern: sum of positive daily
+      deltas, not a single buy-sell pair.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "For every day treated as a sell day, the best profit is today's price minus the cheapest price before it. So I walk
+  left to right, keep the minimum price seen so far, and on each day I either beat the minimum (update it) or try to
+  sell against it (update the answer). One pass, O(n) time, O(1) space."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 122 Best Time to Buy and Sell Stock II</td><td>Unlimited trades: sum of positive <code>prices[i]-prices[i-1]</code>.</td></tr>
+  <tr><td>LC 123 / 188 At most k trades</td><td>DP over (day, trades left, holding?). This problem is k=1.</td></tr>
+  <tr><td>LC 309 Best Time with Cooldown</td><td>Same running-min idea plus a one-day cooldown state.</td></tr>
+  <tr><td>LC 53 Maximum Subarray</td><td>Running min of prefix sums gives the max subarray; identical trick.</td></tr>
+  <tr><td>LC 2016 Maximum Difference Between Increasing Elements</td><td>Literally this problem renamed.</td></tr>
+</table>
+
+<script>
+/* Draw prices as vertical bars, with the buy day (lo) and sell day (r) marked. */
+function priceBars(prices, state) {
+  const n = prices.length;
+  if (!n) return '';
+  const mx = Math.max(...prices), mn = Math.min(...prices, 0);
+  const H = 160, W = Math.max(360, 44 * n + 60);
+  const PAD_L = 36, PAD_B = 36, PAD_T = 18;
+  const barW = Math.max(18, (W - PAD_L - 20) / n - 6);
+  const step = (W - PAD_L - 20) / n;
+  const scale = v => PAD_T + (H - PAD_T - PAD_B) * (1 - (v - mn) / Math.max(1, mx - mn));
+  let bars = '';
+  for (let i = 0; i < n; i++) {
+    const s = state[i] || {};
+    const col = {
+      today:   { fill: '#fde68a', stroke: '#d97706' },
+      buy:     { fill: '#bbf7d0', stroke: '#15803d' },
+      candidate: { fill: '#dbeafe', stroke: '#3b82f6' },
+      future:  { fill: '#f1f5f9', stroke: '#cbd5e1' },
+    }[s.kind || 'future'];
+    const x = PAD_L + i * step + 3;
+    const y = scale(prices[i]);
+    const h = H - PAD_B - y;
+    bars += `<rect x="${x}" y="${y}" width="${barW}" height="${h}" fill="${col.fill}" stroke="${col.stroke}" stroke-width="2" rx="2"/>`;
+    bars += `<text x="${x + barW / 2}" y="${y - 4}" text-anchor="middle" font-size="12" font-weight="700" fill="${col.stroke}">${prices[i]}</text>`;
+    bars += `<text x="${x + barW / 2}" y="${H - PAD_B + 14}" text-anchor="middle" font-size="11" fill="#616e7c">${i}</text>`;
+    if (s.kind === 'buy') bars += `<text x="${x + barW / 2}" y="${H - PAD_B + 28}" text-anchor="middle" font-size="11" font-weight="700" fill="#15803d">buy</text>`;
+    if (s.kind === 'today') bars += `<text x="${x + barW / 2}" y="${H - PAD_B + 28}" text-anchor="middle" font-size="11" font-weight="700" fill="#d97706">r</text>`;
+  }
+  bars += `<line x1="${PAD_L - 2}" y1="${H - PAD_B}" x2="${W - 12}" y2="${H - PAD_B}" stroke="#334155" stroke-width="1.5"/>`;
+  bars += `<text x="${PAD_L - 6}" y="${PAD_T + 10}" text-anchor="end" font-size="10" fill="#616e7c">${mx}</text>`;
+  bars += `<text x="${PAD_L - 6}" y="${H - PAD_B}" text-anchor="end" font-size="10" fill="#616e7c">${mn}</text>`;
+  return `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${H}">${bars}</svg>`;
+}
+
+/* Static idea diagram. */
+(function () {
+  const prices = [7,1,5,3,6,4];
+  const state = [
+    { kind: 'candidate' }, { kind: 'buy' }, { kind: 'candidate' },
+    { kind: 'candidate' }, { kind: 'today' }, { kind: 'candidate' },
+  ];
+  document.getElementById('idea').innerHTML =
+    priceBars(prices, state) +
+    '<div class="caption">Buy on day 1 (price 1, green). The best sell day is day 4 (price 6, yellow). Profit = 6 &minus; 1 = <b>5</b>.</div>';
+})();
+
+/* Flow diagram. */
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Look at day r', lines: ['p = prices[r]'], color: 'yellow' },
+  { title: '2. New low?', lines: ['if p < lo:', 'lo = p'], color: 'blue' },
+  { title: '3. Else try selling', lines: ['best = max(best,', 'p - lo)'], color: 'green' },
+], { loop: 'next day' });
+
+/* Interactive trace. */
+VIZ.controls('trace', [{ id: 'prices', label: 'prices =', value: '[7,1,5,3,6,4]', size: 22 }], v => {
+  let prices;
+  try { prices = VIZ.parse.arr(v.prices); }
+  catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  if (!Array.isArray(prices) || !prices.every(x => typeof x === 'number'))
+    return '<div class="box trap">Expected a numeric array.</div>';
+  if (prices.length > 14)
+    return '<div class="box trap">Pick at most 14 prices to keep the bars readable.</div>';
+  if (!prices.length) {
+    document.getElementById('answer').innerHTML = '<b>Answer: 0</b>';
+    return '<p class="caption">Empty input: no trade possible, profit is 0.</p>';
+  }
+
+  let lo = Infinity, best = 0, buyIdx = -1;
+  const n = prices.length;
+  let html = '';
+  for (let r = 0; r < n; r++) {
+    const p = prices[r];
+    const prevLo = lo, prevBest = best, prevBuy = buyIdx;
+    let kind;
+    if (p < lo) { lo = p; buyIdx = r; kind = 'low'; }
+    else if (p - lo > best) { best = p - lo; kind = 'sell'; }
+    else { kind = 'nothing'; }
+
+    const state = prices.map((_, i) => {
+      if (i > r) return { kind: 'future' };
+      if (i === r) return { kind: 'today' };
+      if (i === buyIdx) return { kind: 'buy' };
+      return { kind: 'candidate' };
+    });
+    const img = priceBars(prices, state);
+
+    let note;
+    if (kind === 'low') {
+      note = `<code>${p} &lt; lo = ${prevLo === Infinity ? '&infin;' : prevLo}</code>. ` +
+             `New buy day. <code>lo = ${lo}</code>, best stays at <b>${best}</b>.`;
+    } else if (kind === 'sell') {
+      note = `<code>${p} &minus; lo(${lo}) = ${p - lo}</code> beats previous best <code>${prevBest}</code>. ` +
+             `Sell on day ${r} against buy on day ${buyIdx}. best = <b>${best}</b>${best > prevBest ? ' &#9650;' : ''}.`;
+    } else {
+      note = `<code>${p} &minus; lo(${lo}) = ${p - lo}</code> does not beat best <code>${best}</code>. Nothing to do.`;
+    }
+
+    html += VIZ.step(`r = ${r}, price = ${p}`, img, note, true);
+  }
+
+  document.getElementById('answer').innerHTML = `<b>Answer for [${prices.join(',')}]: ${best}</b>` +
+    (best > 0 ? ` (buy at day ${buyIdx}, price ${lo})` : '');
+  return html;
+}, 'Give a JSON array of integer prices, e.g. [7,1,5,3,6,4].');
+</script>
+
+</body>
+</html>

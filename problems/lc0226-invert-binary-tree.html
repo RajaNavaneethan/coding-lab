@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 226 - Invert Binary Tree</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#trees">Pattern lesson</a><span>Pattern 8: Trees (DFS/BFS)</span></div>
+
+<h1>Invert Binary Tree</h1>
+<p class="sub">LeetCode 226 &middot; Easy &middot; Pattern: post-order DFS &middot; O(n) time, O(h) space</p>
+
+<div class="box">
+  <b>Problem.</b> Given the root of a binary tree, swap every node's left and right child. Return the root.
+  <br><code>[4,2,7,1,3,6,9] &rarr; [4,7,2,9,6,3,1]</code> &nbsp;&nbsp; <code>[2,1,3] &rarr; [2,3,1]</code>
+  <br>Link: <a href="https://leetcode.com/problems/invert-binary-tree/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Inversion is defined by one rule: every node's children swap places. Children of children do the same, and so on. That
+is a recursive definition, so write a recursive function.</p>
+
+<p>At one node, you can't "swap this subtree with that subtree" until both subtrees are already inverted. So invert both
+children first, then swap the two pointers at the current node. This is <b>post-order DFS</b> (do the children, then the
+node). A pre-order variant works too (swap first, then recurse), but the post-order shape makes the "do children first,
+act on node after" habit stick, which is the common tree shape.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Define invert as: invert left subtree, invert right subtree, then swap the two pointers at this node.
+  Base case: an empty subtree is already inverted.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Enter each node, recurse into both children, then swap. The yellow node is the one just entered. Blue nodes are open
+calls still waiting for a child to return. Green nodes have finished (their subtree is fully inverted). The orange note
+beside a node shows the pointer returned by that call.</p>
+
+<div class="legend">
+  <span><i style="background:#fde68a;border-color:#d97706"></i>entered (recursing)</span>
+  <span><i style="background:#dbeafe;border-color:#3b82f6"></i>on the call stack</span>
+  <span><i style="background:#bbf7d0;border-color:#15803d"></i>done (subtree inverted)</span>
+  <span style="color:#d97706">note = pointer returned</span>
+</div>
+
+<div id="trace"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="t">TreeNode</span>* invertTree(<span class="t">TreeNode</span>* root) {
+    <span class="k">if</span> (!root) <span class="k">return</span> <span class="k">nullptr</span>;
+    <span class="t">TreeNode</span>* L = invertTree(root-&gt;left);     <span class="c">// invert left subtree</span>
+    <span class="t">TreeNode</span>* R = invertTree(root-&gt;right);    <span class="c">// invert right subtree</span>
+    root-&gt;left  = R;                          <span class="c">// swap</span>
+    root-&gt;right = L;
+    <span class="k">return</span> root;
+}</pre>
+
+<p><b>Complexity:</b> each node is touched exactly once, so O(n) time. Recursion depth equals the tree height, so O(h) stack
+space (O(log n) balanced, O(n) worst case for a chain).</p>
+
+<h3>Alternative: iterative BFS</h3>
+
+<pre><span class="t">TreeNode</span>* invertTree(<span class="t">TreeNode</span>* root) {
+    <span class="k">if</span> (!root) <span class="k">return</span> <span class="k">nullptr</span>;
+    <span class="t">queue</span>&lt;<span class="t">TreeNode</span>*&gt; q; q.push(root);
+    <span class="k">while</span> (!q.empty()) {
+        <span class="t">TreeNode</span>* n = q.front(); q.pop();
+        <span class="t">swap</span>(n-&gt;left, n-&gt;right);
+        <span class="k">if</span> (n-&gt;left)  q.push(n-&gt;left);
+        <span class="k">if</span> (n-&gt;right) q.push(n-&gt;right);
+    }
+    <span class="k">return</span> root;
+}</pre>
+
+<p>Same O(n) time. Use this when the tree is tall enough that recursion depth is a real worry. The queue holds at most one
+full level, so O(w) space where w is the maximum width.</p>
+
+<h2>5. The part interviewers ask about: order doesn't matter here, but usually it does</h2>
+
+<div class="box insight">
+  Invert is one of the rare tree problems where pre-order and post-order give the same tree. Swapping is a self-contained
+  action on one node; it doesn't look at anything the children returned. Most tree problems are not like that: validate
+  BST, maximum path sum, LCA all need information from the children before deciding at the parent, so the post-order shape
+  (recurse first, then combine) is forced.
+</div>
+
+<p>So the real lesson of 226 is the <i>skeleton</i>: recurse into both children, then do constant work at the node. You
+will reuse this skeleton for 98, 110, 111, 104, 543, 110, 124. Every page in this pattern that returns a tree-wide answer
+starts here.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Forgetting the empty-tree base case.</b> <code>invertTree(nullptr)</code> must return <code>nullptr</code>, not
+    dereference it.</li>
+    <li><b>Swapping without saving one side first.</b> <code>root-&gt;left = root-&gt;right; root-&gt;right = root-&gt;left;</code>
+    loses the original left. Use the two returned pointers, or <code>std::swap</code>.</li>
+    <li><b>Doing it top-down without recursion.</b> Walking only the original left spine and assigning will leave the right
+    subtree alone. The job is on every node.</li>
+    <li><b>Edge: single node.</b> Return the node unchanged. The recursion handles it: both children are <code>nullptr</code>,
+    the swap is a no-op.</li>
+    <li><b>Edge: left-only chain <code>[1,2,null,3]</code>.</b> After inversion it is a right-only chain <code>[1,null,2,null,3]</code>.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "Inversion is defined recursively: swap the children of every node. So I invert the left subtree, invert the right
+  subtree, then swap the two pointers at the current node. The base case is an empty tree. Each node is touched once, so
+  it's O(n) time and O(h) stack space. If the tree is very tall, I'd switch to a BFS with a queue."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 100 Same Tree</td><td>Walk two trees in lockstep, same recursive skeleton.</td></tr>
+  <tr><td>LC 101 Symmetric Tree</td><td>"Is this tree equal to its own inversion?" Compare mirrored pairs.</td></tr>
+  <tr><td>LC 104 Max Depth</td><td>Same skeleton, return <code>1 + max(left, right)</code>.</td></tr>
+  <tr><td>LC 110 Balanced Binary Tree</td><td>Return height from each subtree, bail out on imbalance.</td></tr>
+  <tr><td>LC 617 Merge Two Binary Trees</td><td>Walk two trees in lockstep, build a new one.</td></tr>
+</table>
+
+<script>
+/* Idea diagram: show a tiny tree [1,2,3] and its inversion side by side. */
+document.getElementById('idea').innerHTML =
+  '<div style="display:flex;gap:40px;align-items:flex-start;flex-wrap:wrap">' +
+    '<div><div class="caption">before</div>' + VIZ.tree([4,2,7,1,3,6,9]) + '</div>' +
+    '<div><div class="caption">after</div>' + VIZ.tree([4,7,2,9,6,3,1]) + '</div>' +
+  '</div>';
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Base case', lines: ['root == null?', 'return null'], color: 'blue' },
+  { title: '2. Recurse',   lines: ['L = invert(root->left)', 'R = invert(root->right)'], color: 'yellow' },
+  { title: '3. Swap',      lines: ['root->left = R', 'root->right = L'], color: 'green' },
+  { title: '4. Return',    lines: ['return root'], color: 'purple' },
+]);
+
+/* The trace: run the real algorithm on a tree, record step cards. */
+VIZ.controls('trace', [
+  { id: 'root', label: 'root =', value: '[4,2,7,1,3,6,9]', size: 24 },
+], v => {
+  const arr = VIZ.parse.tree(v.root);
+  const root = VIZ.buildTree(arr);
+  if (!root) return '<div class="box">Empty tree, nothing to invert. Answer: <b>null</b>.</div>';
+
+  const steps = [];
+  let state = {};                               // id -> 'new' | 'in' | 'keep'
+  const notes = {};                             // id -> 'ret=4' etc.
+
+  const snap = (title, text) => {
+    // clone state so later mutations don't affect this snapshot
+    steps.push({ title, text,
+      cls: Object.assign({}, state),
+      notes: Object.assign({}, notes),
+      tree: cloneTree(root) });
+  };
+  const cloneTree = n => n ? ({ val: n.val, id: n.id, left: cloneTree(n.left), right: cloneTree(n.right) }) : null;
+
+  function invert(n, depth) {
+    if (!n) return null;
+    state[n.id] = 'new';
+    snap('enter ' + n.val, 'Enter node <b>' + n.val + '</b>. Recurse into its left child first.');
+    state[n.id] = 'in';
+
+    const L = invert(n.left, depth + 1);
+    const R = invert(n.right, depth + 1);
+
+    // swap
+    const oldL = n.left, oldR = n.right;
+    n.left = R; n.right = L;
+
+    state[n.id] = 'keep';
+    notes[n.id] = 'ret=' + n.val;
+    const swapTxt = (oldL ? oldL.val : 'null') + ' &harr; ' + (oldR ? oldR.val : 'null');
+    snap('swap at ' + n.val, 'Both children returned. Swap <code>' + swapTxt +
+      '</code> at node <b>' + n.val + '</b>. Return pointer to <b>' + n.val + '</b>.');
+    return n;
+  }
+  invert(root, 0);
+
+  // Build the step cards.
+  const legend = {};
+  const html = steps.slice(0, 25).map(s =>
+    VIZ.step(s.title, VIZ.tree(s.tree, { cls: s.cls, notes: s.notes }), s.text)
+  ).join('');
+  const extra = steps.length > 25 ? '<p class="caption">&hellip; ' + (steps.length - 25) + ' more steps</p>' : '';
+  // Final answer line.
+  const finalArr = levelOrder(root);
+  return html + extra + '<div class="box good"><b>Inverted tree (level order): [' + finalArr.join(',') + ']</b></div>';
+
+  function levelOrder(r) {
+    if (!r) return [];
+    const out = [], q = [r];
+    while (q.length) {
+      const n = q.shift();
+      if (!n) { out.push('null'); continue; }
+      out.push(n.val);
+      q.push(n.left); q.push(n.right);
+    }
+    while (out.length && out[out.length - 1] === 'null') out.pop();
+    return out;
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 297 - Serialize and Deserialize Binary Tree</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#trees">Pattern lesson</a><span>Pattern 8: Trees (DFS/BFS)</span></div>
+
+<h1>Serialize and Deserialize Binary Tree</h1>
+<p class="sub">LeetCode 297 &middot; Hard &middot; Pattern: preorder DFS with null markers &middot; O(n) time, O(n) space</p>
+
+<div class="box">
+  <b>Problem.</b> Encode a binary tree into a string, then decode that string back into the same tree. The two must round
+  trip: <code>deserialize(serialize(root))</code> is structurally equal to <code>root</code>.
+  <br><code>[1,2,3,null,null,4,5] &rarr; "1,2,N,N,3,4,N,N,5,N,N,"</code>
+  <br>Link: <a href="https://leetcode.com/problems/serialize-and-deserialize-binary-tree/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>A preorder walk (root, then left, then right) names every node in a fixed order. If you also emit a sentinel every
+time you walk off a <code>null</code> edge, the sequence becomes unambiguous: the decoder reads one token at a time and
+knows exactly when a subtree ends.</p>
+
+<p>So the encoding is just: write the value, write the left subtree, write the right subtree. <code>null</code> becomes
+<code>N</code>. The decoder mirrors it: read the next token, build the node, recurse for its left child, recurse for its
+right child. The recursion itself defines where a subtree ends.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Preorder + explicit nulls. On encode, every call writes exactly one token (a value or <code>N</code>); on
+  decode, every call consumes exactly one token. The two shapes mirror each other, so the round trip is automatic.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Each card shows one call. Yellow is the node (or null edge) being emitted. Blue nodes are still on the recursion
+stack. Green nodes have been fully serialized. The orange annotation next to a node is the token it wrote.</p>
+
+<div class="legend">
+  <span><i style="background:#fde68a;border-color:#d97706"></i>emitting now</span>
+  <span><i style="background:#dbeafe;border-color:#3b82f6"></i>on the stack</span>
+  <span><i style="background:#bbf7d0;border-color:#15803d"></i>done</span>
+  <span style="color:#d97706">note = token written</span>
+</div>
+
+<div id="trace"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Codec {
+<span class="k">public</span>:
+    <span class="t">string</span> serialize(<span class="t">TreeNode</span>* root) {
+        <span class="t">string</span> s;
+        <span class="t">function</span>&lt;<span class="k">void</span>(<span class="t">TreeNode</span>*)&gt; dfs = [&amp;](<span class="t">TreeNode</span>* n) {
+            <span class="k">if</span> (!n) { s += <span class="n">"N,"</span>; <span class="k">return</span>; }
+            s += to_string(n-&gt;val) + <span class="n">","</span>;
+            dfs(n-&gt;left);
+            dfs(n-&gt;right);
+        };
+        dfs(root);
+        <span class="k">return</span> s;
+    }
+    <span class="t">TreeNode</span>* deserialize(<span class="t">string</span> data) {
+        <span class="t">int</span> i = <span class="n">0</span>;
+        <span class="t">function</span>&lt;<span class="t">TreeNode</span>*()&gt; dfs = [&amp;]() -&gt; <span class="t">TreeNode</span>* {
+            <span class="t">int</span> j = (<span class="t">int</span>)data.find(<span class="n">','</span>, i);
+            <span class="t">string</span> tok = data.substr(i, j - i);
+            i = j + <span class="n">1</span>;
+            <span class="k">if</span> (tok == <span class="n">"N"</span>) <span class="k">return</span> <span class="k">nullptr</span>;
+            <span class="t">TreeNode</span>* n = <span class="k">new</span> TreeNode(stoi(tok));
+            n-&gt;left  = dfs();
+            n-&gt;right = dfs();
+            <span class="k">return</span> n;
+        };
+        <span class="k">return</span> dfs();
+    }
+};</pre>
+
+<p><b>Complexity:</b> each node emits/consumes one token plus two null tokens. Total tokens &le; 2n + 1, so O(n) time
+and O(n) space for both the string and the recursion stack (at depth h).</p>
+
+<h3>Alternative: BFS with null markers</h3>
+
+<pre><span class="c">// serialize: level order, emit "N" for missing children.</span>
+<span class="t">string</span> serialize(<span class="t">TreeNode</span>* root) {
+    <span class="k">if</span> (!root) <span class="k">return</span> <span class="n">""</span>;
+    <span class="t">string</span> s;
+    <span class="t">queue</span>&lt;<span class="t">TreeNode</span>*&gt; q; q.push(root);
+    <span class="k">while</span> (!q.empty()) {
+        <span class="t">TreeNode</span>* n = q.front(); q.pop();
+        <span class="k">if</span> (!n) { s += <span class="n">"N,"</span>; <span class="k">continue</span>; }
+        s += to_string(n-&gt;val) + <span class="n">","</span>;
+        q.push(n-&gt;left); q.push(n-&gt;right);
+    }
+    <span class="k">return</span> s;
+}</pre>
+
+<p>This matches the LeetCode visual notation (<code>[1,2,3,null,null,4,5]</code>) exactly, which is handy for debugging.
+The deserialize mirror uses a queue of parents whose next two tokens are their children. Same O(n). Preorder is more
+common because the recursion is a tiny self-contained function; BFS needs the explicit queue on both sides.</p>
+
+<h2>5. The part interviewers ask about: why nulls are mandatory</h2>
+
+<div class="box insight">
+  Without null markers the preorder sequence is ambiguous. Both <code>[1,2]</code> (1 with left child 2) and
+  <code>[1,null,2]</code> (1 with right child 2) emit the same preorder "1,2". You either need a second traversal (inorder)
+  to disambiguate &mdash; that's LC 105 "Construct from preorder+inorder" &mdash; or an explicit null marker so each
+  subtree knows where it ends. The marker approach costs one extra token per missing edge; the two-traversal approach
+  costs the entire inorder sequence. Null markers win on size and are easier to decode.
+</div>
+
+<p>Edge detail: the format must handle negative values and multi-digit values. Delimit tokens with a non-digit character
+(comma, space). Don't use a fixed width or a non-delimited concatenation. The reference code above splits on commas, so
+<code>-1024</code> and <code>7</code> are both self-delimited.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Forgetting the terminator comma.</b> If the last token has no trailing comma, the parser might read past the
+    end. Simplest fix: always emit <code>val,</code> and <code>N,</code> so the comma count equals the token count.</li>
+    <li><b>Using space or no delimiter.</b> Then <code>12</code> and <code>1 2</code> collide. Pick a non-digit, non-sign
+    delimiter and stick to it.</li>
+    <li><b>Empty tree.</b> <code>serialize(nullptr)</code> must round-trip. The code emits <code>"N,"</code>, and
+    deserialize reads <code>"N"</code> and returns <code>nullptr</code>.</li>
+    <li><b>Negative integers.</b> Make sure the number parser accepts a leading <code>-</code>. <code>stoi</code> does.</li>
+    <li><b>Advancing the input pointer by value.</b> If you don't share <code>i</code> between the two recursive calls,
+    the right child reads the left child's tokens. The lambda captures <code>i</code> by reference, which is the whole
+    point of this shape.</li>
+    <li><b>Stack overflow on skewed input.</b> A chain of 10000 nodes blows the default stack. For production code, use
+    an explicit stack or BFS. In an interview, mention it.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I preorder-DFS the tree. At each node I emit its value; at each null edge I emit a sentinel like <code>N</code>, with
+  commas in between. The decoder is the exact mirror: read a token, if it's <code>N</code> return null, otherwise build a
+  node and recurse for its left then right. The null markers remove the ambiguity between a missing left and a missing
+  right child. One pass each way, O(n) time, O(n) space."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 105 Construct from Preorder + Inorder</td><td>Preorder alone is ambiguous; combining it with inorder disambiguates without null markers.</td></tr>
+  <tr><td>LC 106 Construct from Inorder + Postorder</td><td>Same trick with postorder.</td></tr>
+  <tr><td>LC 428 Serialize N-ary Tree</td><td>Same recursion, each node writes its child count or a null marker per child.</td></tr>
+  <tr><td>LC 449 Serialize BST</td><td>Preorder alone is enough for a BST, no null markers needed (bounds reconstruct the shape).</td></tr>
+  <tr><td>LC 1028 Recover Tree from Preorder</td><td>Preorder with depth prefixes instead of null markers.</td></tr>
+</table>
+
+<script>
+document.getElementById('idea').innerHTML =
+  VIZ.tree([1,2,3,null,null,4,5], {}) +
+  '<div class="caption">Preorder with null markers: <code>1,2,N,N,3,4,N,N,5,N,N</code>. Every node writes exactly one token; every missing edge writes one <code>N</code>.</div>';
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Null?',   lines: ['n == null?', 'emit "N,"'], color: 'red' },
+  { title: '2. Value',   lines: ['emit val + ","'], color: 'yellow' },
+  { title: '3. Left',    lines: ['recurse n->left'], color: 'purple' },
+  { title: '4. Right',   lines: ['recurse n->right'], color: 'green' },
+]);
+
+/* Trace: show preorder serialize of a tree. Reports each token emitted. */
+VIZ.controls('trace', [
+  { id: 'root', label: 'root =', value: '[1,2,3,null,null,4,5]', size: 32 },
+], v => {
+  const arr = VIZ.parse.tree(v.root);
+  const root = VIZ.buildTree(arr);
+  if (!root) {
+    return '<div class="box good"><b>serialize(null) &rarr; "N,"</b><br>Then <b>deserialize("N,")</b> reads the single token <code>N</code> and returns <code>null</code>.</div>';
+  }
+
+  const steps = [];
+  const state = {}, notes = {};
+  const nullIds = {};
+  let nextNullId = 10000;
+  let tokens = [];
+
+  const snap = (title, text) => steps.push({ title, text,
+    cls: Object.assign({}, state), notes: Object.assign({}, notes) });
+
+  function dfs(n, parentId, side) {
+    if (!n) {
+      // represent null as a note on the parent
+      const label = (side === 'L' ? 'L=N' : 'R=N');
+      const prev = notes[parentId];
+      notes[parentId] = prev ? prev + ' ' + label : label;
+      tokens.push('N');
+      snap('null ' + side,
+        'Walked off a null ' + (side === 'L' ? 'left' : 'right') +
+        ' edge of <b>' + (parentId !== undefined ? arr[parentId] : 'root') +
+        '</b>. Emit <code>N</code>. Tokens so far: <code>' + tokens.join(',') + '</code>.');
+      return;
+    }
+    state[n.id] = 'new';
+    tokens.push(String(n.val));
+    notes[n.id] = 'tok=' + n.val;
+    snap('emit ' + n.val,
+      'Enter <b>' + n.val + '</b>, emit value. Tokens so far: <code>' + tokens.join(',') + '</code>.');
+    state[n.id] = 'in';
+    dfs(n.left,  n.id, 'L');
+    dfs(n.right, n.id, 'R');
+    state[n.id] = 'keep';
+    snap('done ' + n.val,
+      'Both children of <b>' + n.val + '</b> written. Return.');
+  }
+  dfs(root, undefined, '');
+
+  const html = steps.slice(0, 25).map(s =>
+    VIZ.step(s.title, VIZ.tree(root, { cls: s.cls, notes: s.notes }), s.text)
+  ).join('');
+  const extra = steps.length > 25 ? '<p class="caption">&hellip; ' + (steps.length - 25) + ' more steps</p>' : '';
+  const finalStr = tokens.join(',') + ',';
+  return html + extra +
+    '<div class="box good"><b>serialize &rarr;</b> <code>"' + finalStr + '"</code><br>' +
+    '<b>deserialize</b> reads one token at a time in the same preorder, so <code>deserialize(serialize(root))</code> rebuilds the identical tree.</div>';
+});
+</script>
+</body>
+</html>

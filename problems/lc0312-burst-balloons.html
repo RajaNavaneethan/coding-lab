@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 312 - Burst Balloons</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#advanced">Pattern lesson</a><span>Pattern 20: Advanced</span></div>
+
+<h1>Burst Balloons</h1>
+<p class="sub">LeetCode 312 &middot; Hard &middot; Pattern: interval DP (last to burst) &middot; O(n<sup>3</sup>) time, O(n<sup>2</sup>) space</p>
+
+<div class="box">
+  <b>Problem.</b> You have <code>n</code> balloons with values <code>nums[i]</code>. Bursting balloon <code>i</code>
+  earns <code>left &middot; nums[i] &middot; right</code>, where <code>left</code> and <code>right</code> are the
+  values of the current neighbours (treat anything off the array as 1). After bursting, the neighbours become
+  adjacent. Find the maximum coins you can collect.
+  <br><code>nums = [3,1,5,8] &rarr; 167</code> (one optimal order: 1, 5, 3, 8)
+  <br><code>nums = [1,5] &rarr; 10</code>
+  <br>Link: <a href="https://leetcode.com/problems/burst-balloons/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>The obvious recursion "pick the next balloon to burst" fails because the neighbours of balloon <code>i</code>
+depend on what has already been removed. So any sub-problem written as "a set of remaining balloons" has state that
+is not a contiguous interval, and interval DP cannot be applied cleanly.</p>
+
+<p>The fix is to think <b>backwards</b>. Instead of asking "which to burst first", ask <b>which balloon is burst
+last inside the interval <code>(l, r)</code></b>. When balloon <code>k</code> is the last one left in that open
+interval, both its real neighbours at that moment are the fixed boundaries <code>v[l]</code> and <code>v[r]</code>
+&mdash; everyone between them is already gone. So the coins from the final pop are exactly
+<code>v[l] &middot; v[k] &middot; v[r]</code>, which no longer depends on the burst order of the rest.</p>
+
+<div id="idea"></div>
+
+<p>That lets us split the interval around <code>k</code>: before we can pop <code>k</code> last, we must empty
+<code>(l, k)</code> and <code>(k, r)</code> independently, and these two intervals <b>do not interact</b> because
+<code>k</code> is still there as a wall between them.</p>
+
+<div class="eq">dp[l][r] = max<sub>l &lt; k &lt; r</sub>&nbsp;&nbsp; dp[l][k] + dp[k][r] + v[l] &middot; v[k] &middot; v[r]</div>
+
+<div class="box insight">
+  <b>Idea.</b> Pad <code>nums</code> with a 1 on each end to kill the "off the array" special case. For the open
+  interval <code>(l, r)</code>, pick which balloon <code>k</code> is the <i>last</i> to burst. Its final left/right
+  are fixed at <code>v[l]</code> and <code>v[r]</code>, and the two sides split cleanly. Fill the table by interval
+  length.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>Fill order matters. <code>dp[l][r]</code> reads <code>dp[l][k]</code> and <code>dp[k][r]</code> for every
+<code>l &lt; k &lt; r</code>. Both are strictly <b>shorter</b> intervals than <code>(l, r)</code>, so if we loop by
+interval length (shortest first), the entries we read are already filled. Any other order risks reading from an empty
+cell.</p>
+
+<p>The answer is <code>dp[0][n+1]</code>: the open interval over the whole padded array, i.e. "burst everything
+between the two phantom 1-balloons".</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>The grid below is the DP table. Columns are <code>r</code>, rows are <code>l</code>; we only fill the
+<b>upper triangle</b> where <code>r - l &ge; 2</code> (an interval must contain at least one balloon). Yellow is the
+cell being filled, blue cells are the ones it reads, orange notes name the best <code>k</code>.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>cell being filled: dp[l][r]</span>
+  <span><i style="background:var(--win)"></i>cells read: dp[l][k] and dp[k][r]</span>
+  <span><i style="background:var(--keep)"></i>already filled</span>
+  <span><i style="background:#f8fafc;border:1px solid #cbd5e1"></i>unused (lower triangle)</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">int</span> maxCoins(<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; nums) {
+        <span class="t">int</span> n = nums.size();
+        <span class="t">vector</span>&lt;<span class="t">int</span>&gt; v(n + <span class="n">2</span>, <span class="n">1</span>);                 <span class="c">// pad with phantom 1-balloons</span>
+        <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt; n; i++) v[i + <span class="n">1</span>] = nums[i];
+
+        <span class="c">// dp[l][r] = best coins from popping every balloon strictly</span>
+        <span class="c">// between l and r. l,r themselves are never popped.</span>
+        <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt; dp(n + <span class="n">2</span>, <span class="t">vector</span>&lt;<span class="t">int</span>&gt;(n + <span class="n">2</span>, <span class="n">0</span>));
+
+        <span class="k">for</span> (<span class="t">int</span> len = <span class="n">2</span>; len &lt;= n + <span class="n">1</span>; len++) {         <span class="c">// len = r - l</span>
+            <span class="k">for</span> (<span class="t">int</span> l = <span class="n">0</span>; l + len &lt;= n + <span class="n">1</span>; l++) {
+                <span class="t">int</span> r = l + len;
+                <span class="k">for</span> (<span class="t">int</span> k = l + <span class="n">1</span>; k &lt; r; k++) {       <span class="c">// k is the LAST pop</span>
+                    <span class="t">int</span> cur = v[l] * v[k] * v[r] + dp[l][k] + dp[k][r];
+                    <span class="k">if</span> (cur &gt; dp[l][r]) dp[l][r] = cur;
+                }
+            }
+        }
+        <span class="k">return</span> dp[<span class="n">0</span>][n + <span class="n">1</span>];
+    }
+};</pre>
+
+<p><b>Complexity.</b> The outer two loops enumerate all <code>O(n<sup>2</sup>)</code> intervals; the inner loop over
+<code>k</code> is <code>O(n)</code>. So <code>O(n<sup>3</sup>)</code> time and <code>O(n<sup>2</sup>)</code> space
+for the table.</p>
+
+<h3>Alternative: top-down memoisation</h3>
+
+<pre><span class="t">int</span> solve(<span class="t">int</span> l, <span class="t">int</span> r, <span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; v, <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt;&amp; memo) {
+    <span class="k">if</span> (r - l &lt; <span class="n">2</span>) <span class="k">return</span> <span class="n">0</span>;
+    <span class="k">if</span> (memo[l][r] != -<span class="n">1</span>) <span class="k">return</span> memo[l][r];
+    <span class="t">int</span> best = <span class="n">0</span>;
+    <span class="k">for</span> (<span class="t">int</span> k = l + <span class="n">1</span>; k &lt; r; k++)
+        best = max(best, v[l]*v[k]*v[r] + solve(l,k,v,memo) + solve(k,r,v,memo));
+    <span class="k">return</span> memo[l][r] = best;
+}</pre>
+
+<p>Same recurrence, same complexity. Prefer bottom-up in C++ interviews &mdash; the fill order is explicit, and you
+avoid recursion depth concerns. Prefer top-down when you want to say "I'll fill only the sub-problems I need," but
+on this problem the full table is visited anyway.</p>
+
+<h2>5. The part interviewers ask about: why "burst last" and not "burst first"?</h2>
+
+<p>Try the natural recurrence first and see where it breaks. If <code>f(set)</code> picks which balloon
+<code>k</code> to burst <b>first</b>, the coins earned are
+<code>left(k) &middot; v[k] &middot; right(k) + f(set \ {k})</code>. The problem: <code>left(k)</code> and
+<code>right(k)</code> are the current neighbours in <code>set</code>, which depend on the shape of
+<code>set</code> &mdash; so the state isn't a contiguous interval, it's an arbitrary subset. That's
+<code>2<sup>n</sup></code> states, not <code>n<sup>2</sup></code>.</p>
+
+<div class="box insight">
+  Switching to "burst <b>last</b> in interval <code>(l, r)</code>" fixes the state because the <i>moment</i> balloon
+  <code>k</code> is bursting, its left and right are determined by <code>v[l]</code> and <code>v[r]</code>, not by
+  which other balloons were bursted earlier. All the choices inside <code>(l, k)</code> and <code>(k, r)</code> are
+  independent of each other because <code>k</code> acts as a wall. That independence is the whole trick.
+</div>
+
+<p>Second question people ask: <b>does an optimal order really exist?</b> Yes, trivially &mdash; there are only
+<code>n!</code> orders, and the max is attained by some order. The DP's optimality follows by induction on interval
+length: at length 2 the only balloon is <code>v[l+1]</code>, and <code>dp[l][l+2] = v[l]&middot;v[l+1]&middot;v[l+2]</code>
+is correct; longer intervals pick the best "last to burst" over all choices, by the recurrence.</p>
+
+<p>Third: the padding trick. Adding <code>v[-1] = v[n] = 1</code> replaces the "off the array" special case with
+plain multiplication, which keeps the code free of branches. If the balloons already contain 1s this is still fine
+&mdash; the recurrence doesn't require strict inequality on values.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Writing the recurrence as "burst first".</b> Looks natural, is exponential. Interviewers test this because
+    the fix is the whole lesson.</li>
+    <li><b>Forgetting the padding.</b> Without <code>v[-1] = v[n] = 1</code> you must branch on <code>l == -1</code>
+    and <code>r == n</code>, which is bug-prone.</li>
+    <li><b>Filling by <code>l</code> and <code>r</code> directly.</b> You can, but you have to loop <code>l</code>
+    from <code>n</code> down to <code>0</code> and <code>r</code> from <code>l + 2</code> upward. Interval-length order
+    is clearer and avoids off-by-one bugs.</li>
+    <li><b>Including <code>k = l</code> or <code>k = r</code>.</b> <code>k</code> is <i>strictly</i> inside the open
+    interval; the boundaries are walls, not candidates.</li>
+    <li><b>Integer overflow.</b> Values are up to 100, length up to 300, so one pop is at most
+    <code>100<sup>3</sup> = 10<sup>6</sup></code>, and the whole answer is bounded by about
+    <code>3 &middot; 10<sup>8</sup></code>. <code>int</code> holds this, but <code>long long</code> is safe for
+    larger constraints.</li>
+    <li><b>Empty <code>nums</code>.</b> No balloons to pop, answer 0. The padded array has only two phantom 1s and the
+    loop with <code>len &ge; 2</code> never fires on <code>n + 1 = 1</code>; <code>dp[0][1]</code> stays 0.</li>
+    <li><b>Single balloon.</b> <code>dp[0][2] = 1 &middot; nums[0] &middot; 1 = nums[0]</code>. The code handles it,
+    but it's a nice sanity check.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "Trying to pick which balloon to burst first gives subsets as state, which is exponential. I flip it: for the open
+  interval <code>(l, r)</code>, pick which balloon <code>k</code> is burst <i>last</i>. At that moment its real
+  neighbours are the fixed boundaries <code>v[l]</code> and <code>v[r]</code>, so the final pop earns
+  <code>v[l] &middot; v[k] &middot; v[r]</code>, and the two sub-intervals <code>(l, k)</code> and <code>(k, r)</code>
+  are independent because <code>k</code> walls them off. I pad with phantom 1s on both ends, fill
+  <code>dp[l][r]</code> by increasing interval length, and return <code>dp[0][n + 1]</code>. Time
+  <code>O(n<sup>3</sup>)</code>, space <code>O(n<sup>2</sup>)</code>."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 1000 Minimum Cost to Merge Stones</td><td>Interval DP: pick the final merge, split interval around it.</td></tr>
+  <tr><td>LC 1547 Minimum Cost to Cut a Stick</td><td>Mirror shape: pick which cut is <i>first</i> inside each stick interval; same "pad with ends" trick.</td></tr>
+  <tr><td>LC 87 Scramble String</td><td>Interval DP on two strings; split both intervals around the same cut point.</td></tr>
+  <tr><td>LC 664 Strange Printer</td><td>Interval DP on characters; last character to print acts like our "last to burst".</td></tr>
+</table>
+
+<script>
+/* 1. Idea diagram: show the open interval (l,r) with k picked as "last", and the split into (l,k) and (k,r). */
+(function () {
+  const W = 820, H = 190;
+  // Draw a strip with 6 cells: 1, 3, 1, 5, 8, 1 (padded 3,1,5,8). k = index 3 (value 5), say.
+  const vals = [1, 3, 1, 5, 8, 1];
+  const CS = 54, PAD = 60, Y = 70;
+  let s = '';
+  s += `<text x="${W / 2}" y="22" text-anchor="middle" font-size="13" font-weight="700" fill="#334155">v = [1, 3, 1, 5, 8, 1] &mdash; the padded array for nums = [3,1,5,8]</text>`;
+  for (let i = 0; i < vals.length; i++) {
+    const x = PAD + i * CS;
+    let fill = '#fff', stroke = '#475569';
+    if (i === 0 || i === vals.length - 1) { fill = '#e5e7eb'; }
+    if (i === 3) { fill = '#fde68a'; stroke = '#d97706'; }        // k
+    if (i === 0) { fill = '#dbeafe'; stroke = '#3b82f6'; }        // l
+    if (i === vals.length - 1) { fill = '#dbeafe'; stroke = '#3b82f6'; } // r
+    s += `<rect x="${x}" y="${Y}" width="${CS - 6}" height="${CS - 6}" rx="6" fill="${fill}" stroke="${stroke}" stroke-width="2"/>`;
+    s += `<text x="${x + (CS - 6) / 2}" y="${Y + (CS - 6) / 2 + 6}" text-anchor="middle" font-size="18" font-weight="700">${vals[i]}</text>`;
+    s += `<text x="${x + (CS - 6) / 2}" y="${Y - 6}" text-anchor="middle" font-size="11" fill="#616e7c">${i}</text>`;
+  }
+  // Labels under
+  const BY = Y + CS + 10;
+  s += `<text x="${PAD + (CS - 6) / 2}" y="${BY}" text-anchor="middle" font-size="12" font-weight="700" fill="#3b82f6">l = 0</text>`;
+  s += `<text x="${PAD + 3 * CS + (CS - 6) / 2}" y="${BY}" text-anchor="middle" font-size="12" font-weight="700" fill="#d97706">k = 3 (last)</text>`;
+  s += `<text x="${PAD + 5 * CS + (CS - 6) / 2}" y="${BY}" text-anchor="middle" font-size="12" font-weight="700" fill="#3b82f6">r = 5</text>`;
+  // Arcs showing split
+  s += `<path d="M${PAD + 10},${Y - 14} C${PAD + 10},${Y - 40} ${PAD + 3 * CS - 10},${Y - 40} ${PAD + 3 * CS - 10},${Y - 14}" fill="none" stroke="#15803d" stroke-width="2"/>`;
+  s += `<text x="${PAD + 1.5 * CS}" y="${Y - 44}" text-anchor="middle" font-size="12" font-weight="700" fill="#15803d">dp[0][3]</text>`;
+  s += `<path d="M${PAD + 3 * CS + 10},${Y - 14} C${PAD + 3 * CS + 10},${Y - 40} ${PAD + 5 * CS - 10},${Y - 40} ${PAD + 5 * CS - 10},${Y - 14}" fill="none" stroke="#15803d" stroke-width="2"/>`;
+  s += `<text x="${PAD + 4 * CS}" y="${Y - 44}" text-anchor="middle" font-size="12" font-weight="700" fill="#15803d">dp[3][5]</text>`;
+  s += `<text x="${W / 2}" y="${BY + 24}" text-anchor="middle" font-size="13.5">When <tspan font-weight="700">k = 3</tspan> is burst LAST inside (l=0, r=5), its neighbours are v[0]=1 and v[5]=1, earning 1&middot;5&middot;1.</text>`;
+  s += `<text x="${W / 2}" y="${BY + 44}" text-anchor="middle" font-size="13.5">The two sides, dp[0][3] and dp[3][5], are solved independently because k walls them off.</text>`;
+  document.getElementById('idea').innerHTML =
+    `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${H + 60}">${s}</svg>`;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Pad', lines: ['v = [1] + nums + [1]', 'dp[l][r] = 0'], color: 'green' },
+  { title: '2. For each interval length', lines: ['len = 2..n+1', 'l = 0..n+1-len', 'r = l + len'], color: 'yellow' },
+  { title: '3. Pick k (burst last)', lines: ['for k in (l..r):', 'try v[l]&middot;v[k]&middot;v[r]', '+ dp[l][k] + dp[k][r]'], color: 'red' },
+  { title: '4. Answer', lines: ['return dp[0][n+1]'], color: 'blue' },
+]);
+
+/* Interactive trace: fill dp table and show it growing by interval length. */
+VIZ.controls('trace', [
+  { id: 'nums', label: 'nums =', value: '[3,1,5,8]', size: 20 },
+], v => {
+  let nums;
+  try { nums = JSON.parse(v.nums.trim()); }
+  catch (e) { return '<div class="box trap">Could not parse nums as JSON. Example: [3,1,5,8].</div>'; }
+  if (!Array.isArray(nums) || nums.some(x => typeof x !== 'number'))
+    return '<div class="box trap">nums must be a JSON array of numbers.</div>';
+  if (nums.length > 6) return '<div class="box trap">Pick at most 6 balloons to keep the trace readable.</div>';
+
+  const n = nums.length;
+  const vp = [1, ...nums, 1];
+  const N = n + 2;                           // padded length
+  const dp = Array.from({ length: N }, () => new Array(N).fill(0));
+  const bestK = Array.from({ length: N }, () => new Array(N).fill(-1));
+
+  // Record one snapshot per interval length, highlighting the cells filled at that length
+  // and (for the biggest length) the cells read for the final answer.
+  const steps = [];
+  function snapshot(len, filled, highlights) {
+    // Build a visible rendering of dp.
+    const notes = {};
+    for (const [l, r] of filled) {
+      if (bestK[l][r] >= 0) notes[l + ',' + r] = `k=${bestK[l][r]}`;
+    }
+    const cls = (r, c) => {
+      if (c <= r) return 'dim';                        // lower triangle
+      if (highlights && highlights.read && highlights.read.some(([a, b]) => a === r && b === c)) return 'in';
+      if (highlights && highlights.wrote && highlights.wrote.some(([a, b]) => a === r && b === c)) return 'new';
+      return dp[r][c] > 0 ? 'keep' : '';
+    };
+    const grid = VIZ.grid(dp, { cls, notes, small: true });
+    steps.push({ len, grid, filled: filled.length });
+  }
+
+  // Initial snapshot
+  snapshot(0, [], {});
+
+  for (let len = 2; len <= n + 1; len++) {
+    const filled = [];
+    const wrote = [];
+    for (let l = 0; l + len <= n + 1; l++) {
+      const r = l + len;
+      let best = 0, bk = l + 1;
+      for (let k = l + 1; k < r; k++) {
+        const cur = vp[l] * vp[k] * vp[r] + dp[l][k] + dp[k][r];
+        if (cur > best) { best = cur; bk = k; }
+      }
+      dp[l][r] = best; bestK[l][r] = bk;
+      filled.push([l, r]); wrote.push([l, r]);
+    }
+    snapshot(len, filled, { wrote });
+  }
+
+  // Build HTML out of snapshots.
+  let html = '';
+  for (let i = 0; i < steps.length; i++) {
+    const st = steps[i];
+    const title = i === 0 ? 'Initial table (all zeros; only the upper triangle will be filled)'
+                           : `Interval length ${st.len}: filled ${st.filled} cell${st.filled === 1 ? '' : 's'}`;
+    let text;
+    if (i === 0) {
+      text = `v = [${vp.join(',')}]. dp[l][r] stores the best coins from bursting all balloons strictly between l and r.`;
+    } else if (i === steps.length - 1) {
+      text = `All cells filled. The answer is <code>dp[0][${n + 1}] = <b>${dp[0][n + 1]}</b></code>. Each cell's note shows the best "last to burst" k for that interval.`;
+    } else {
+      text = `For each (l, r) with r - l = ${st.len}, try every k in (l, r) and take the max of v[l]&middot;v[k]&middot;v[r] + dp[l][k] + dp[k][r].`;
+    }
+    html += VIZ.step(title, st.grid, text, true);
+  }
+
+  document.getElementById('answer').innerHTML =
+    `<b>Answer for nums = ${JSON.stringify(nums)}: ${dp[0][n + 1]}</b>`;
+
+  return html;
+}, 'Edit nums. The DP table fills row by row of interval length. The upper triangle is the only part used.');
+</script>
+
+</body>
+</html>

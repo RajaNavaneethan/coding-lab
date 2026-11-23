@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 62 - Unique Paths</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#dp-2d">Pattern lesson</a><span>Pattern 14: DP - 2D / Grids</span></div>
+
+<h1>Unique Paths</h1>
+<p class="sub">LeetCode 62 &middot; Medium &middot; Pattern: 2-D grid DP &middot; O(m &middot; n) time, O(m &middot; n) space (O(min(m,n)) with the rolling trick)</p>
+
+<div class="box">
+  <b>Problem.</b> A robot sits at the top-left corner <code>(0, 0)</code> of an <code>m &times; n</code> grid. It can
+  move only <b>right</b> or <b>down</b>. How many distinct paths reach the bottom-right corner <code>(m&minus;1, n&minus;1)</code>?
+  <br><code>m = 3, n = 7 &rarr; 28</code>
+  &nbsp;&nbsp; <code>m = 3, n = 2 &rarr; 3</code>
+  &nbsp;&nbsp; <code>m = 1, n = 1 &rarr; 1</code>
+  <br>Link: <a href="https://leetcode.com/problems/unique-paths/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Any path that ends at <code>(i, j)</code> must have arrived from exactly one of two cells: the one above it
+<code>(i&minus;1, j)</code> (the robot's last move was <b>down</b>), or the one to its left <code>(i, j&minus;1)</code>
+(last move was <b>right</b>). So the number of paths to <code>(i, j)</code> is the sum of the two:</p>
+
+<div class="eq">dp[i][j] = dp[i&minus;1][j] + dp[i][j&minus;1]</div>
+
+<p>Base: the first row and first column each have exactly one path (keep moving right, or keep moving down). So
+<code>dp[0][*] = dp[*][0] = 1</code>.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Every path ends with one final move: either down into <code>(i,j)</code> from above, or right into
+  <code>(i,j)</code> from the left. Count the paths that use each kind of final move and add them. No path can arrive
+  from any other cell, so there is no over-count.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>Fill the table row by row, left to right. By the time you compute <code>dp[i][j]</code>, both <code>dp[i&minus;1][j]</code>
+(above, filled in the previous row) and <code>dp[i][j&minus;1]</code> (left, filled one cell earlier in the same row)
+are already set. The answer is the bottom-right cell.</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Each card below shows the grid after one cell is filled. The yellow cell is the one just filled; the blue cells are
+the two it read (<code>dp[i&minus;1][j]</code> and <code>dp[i][j&minus;1]</code>). Row and column headers show the
+coordinates.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>cell being filled</span>
+  <span><i style="background:var(--win)"></i>cells being read (above &amp; left)</span>
+  <span><i style="background:var(--keep)"></i>already filled</span>
+  <span><i style="background:#f8fafc;border:1px solid #cbd5e1"></i>not filled yet</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">int</span> uniquePaths(<span class="t">int</span> m, <span class="t">int</span> n) {
+        <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt; dp(m, <span class="t">vector</span>&lt;<span class="t">int</span>&gt;(n, <span class="n">1</span>)); <span class="c">// first row/col all 1s</span>
+        <span class="k">for</span> (<span class="t">int</span> i = <span class="n">1</span>; i &lt; m; i++) {
+            <span class="k">for</span> (<span class="t">int</span> j = <span class="n">1</span>; j &lt; n; j++) {
+                dp[i][j] = dp[i-<span class="n">1</span>][j] + dp[i][j-<span class="n">1</span>];
+            }
+        }
+        <span class="k">return</span> dp[m-<span class="n">1</span>][n-<span class="n">1</span>];
+    }
+};</pre>
+
+<p><b>Complexity:</b> O(m &middot; n) time &mdash; one addition per cell. O(m &middot; n) space for the table.</p>
+
+<h3>Alternative: one row of memory</h3>
+
+<pre><span class="t">vector</span>&lt;<span class="t">int</span>&gt; dp(n, <span class="n">1</span>);
+<span class="k">for</span> (<span class="t">int</span> i = <span class="n">1</span>; i &lt; m; i++) {
+    <span class="k">for</span> (<span class="t">int</span> j = <span class="n">1</span>; j &lt; n; j++) {
+        dp[j] += dp[j-<span class="n">1</span>]; <span class="c">// dp[j] is "above", dp[j-1] is "left"</span>
+    }
+}
+<span class="k">return</span> dp[n-<span class="n">1</span>];</pre>
+
+<p>When you process cell <code>(i, j)</code>, <code>dp[j]</code> still holds the value from row <code>i&minus;1</code>
+(that's the "above" cell) and <code>dp[j&minus;1]</code> already holds the new value from row <code>i</code> (that's
+"left"). Add them in place. Prefer this on a cramped interview whiteboard; the 2-D version is easier to explain.</p>
+
+<h2>5. The part interviewers ask about: the closed form</h2>
+
+<p>Every path takes exactly <code>m &minus; 1</code> down moves and <code>n &minus; 1</code> right moves, in some
+interleaving. So the answer is the number of ways to choose which of the <code>m + n &minus; 2</code> steps are the
+down moves:</p>
+
+<div class="eq">C(m + n &minus; 2, m &minus; 1)</div>
+
+<div class="box insight">
+  The DP is really just computing one entry of Pascal's triangle: <code>dp[i][j] = C(i + j, i)</code>. You can verify by
+  induction: Pascal's identity is <code>C(i+j, i) = C(i+j&minus;1, i&minus;1) + C(i+j&minus;1, i)</code>, which is
+  exactly the recurrence shifted by one. Interviewers love this because it reduces the problem to an O(min(m, n))
+  multiplication, no table at all.
+</div>
+
+<p>Careful with overflow if you compute the binomial directly: <code>(m+n&minus;2)!</code> blows up fast. Compute it
+as a running product, dividing by <code>k</code> at each step (which stays integer because the partial product is
+<code>C(i+j, i)</code> at every stage).</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Zero-initialising the whole grid.</b> The recurrence then gives <code>dp[i][j] = 0</code> everywhere. You
+    must seed the first row and column with <code>1</code>, or seed <code>dp[0][0] = 1</code> and treat
+    out-of-range reads as <code>0</code>.</li>
+    <li><b>Looping from <code>i = 0, j = 0</code>.</b> The recurrence reads <code>dp[-1][0]</code>. Either start the
+    loops at <code>1</code>, or guard with <code>if (i == 0 || j == 0) dp[i][j] = 1</code>.</li>
+    <li><b>Big grids and overflow.</b> At <code>m = n = 23</code> the answer <code>C(44, 22)</code> is already past
+    <code>2^31</code>. LC's constraints keep it under <code>2 &middot; 10<sup>9</sup></code> but barely &mdash; use
+    <code>int</code> safely, but the closed-form binomial needs 64-bit intermediates.</li>
+    <li><b>Confusing with "Unique Paths II" (LC 63).</b> That version has obstacles. The recurrence is the same but a
+    blocked cell has <code>dp = 0</code>, and the first row/column stop being all ones at the first obstacle.</li>
+    <li><b>Confusing with "Minimum Path Sum" (LC 64).</b> Same table shape, but you take <code>min</code> of above/left
+    and add the cell's cost. The recurrence structure is identical; the semantic (count vs min cost) differs.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I define <code>dp[i][j]</code> as the number of paths from <code>(0,0)</code> to <code>(i,j)</code>. Every path's
+  last move was either down or right, so <code>dp[i][j] = dp[i&minus;1][j] + dp[i][j&minus;1]</code>. The first row and
+  column are all <code>1</code> (one path, straight line). I fill the table row by row and return
+  <code>dp[m&minus;1][n&minus;1]</code>. That's O(m &middot; n) time and space; I can roll to one row and get O(n)
+  space. For a bonus: the answer equals the binomial <code>C(m+n&minus;2, m&minus;1)</code> because every path is
+  a specific interleaving of <code>m&minus;1</code> downs and <code>n&minus;1</code> rights."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 63 Unique Paths II</td><td>Same recurrence; obstacle cells force <code>dp = 0</code> and stop the first row/column early.</td></tr>
+  <tr><td>LC 64 Minimum Path Sum</td><td>Same table shape, <code>min</code> of above/left plus cell cost instead of sum.</td></tr>
+  <tr><td>LC 120 Triangle</td><td>Variable-width grid; same "sum of two previous" recurrence.</td></tr>
+  <tr><td>LC 931 Minimum Falling Path Sum</td><td>Three predecessors (above-left, above, above-right) instead of two.</td></tr>
+</table>
+
+<script>
+/* Idea diagram: a 3x3 grid with dp values filled in; one cell highlighted and arrows from the two cells it reads. */
+(function () {
+  const vals = [[1,1,1],[1,2,3],[1,3,6]];
+  const CW = 48, X0 = 160, Y0 = 30;
+  let s = '';
+  for (let i = 0; i < 3; i++) {
+    for (let j = 0; j < 3; j++) {
+      const x = X0 + j * CW, y = Y0 + i * CW;
+      let fill = '#ffffff', stroke = '#475569';
+      if (i === 2 && j === 2) { fill = '#fde68a'; stroke = '#d97706'; }
+      else if ((i === 1 && j === 2) || (i === 2 && j === 1)) { fill = '#dbeafe'; stroke = '#3b82f6'; }
+      else { fill = '#bbf7d0'; stroke = '#15803d'; }
+      s += `<rect x="${x}" y="${y}" width="${CW}" height="${CW}" fill="${fill}" stroke="${stroke}" stroke-width="2"/>`;
+      s += `<text x="${x + CW/2}" y="${y + CW/2 + 6}" text-anchor="middle" font-size="18" font-weight="700">${vals[i][j]}</text>`;
+    }
+  }
+  // Arrows from (1,2) and (2,1) to (2,2)
+  const tx = X0 + 2 * CW + CW/2, ty = Y0 + 2 * CW + CW/2;
+  s += `<path d="M${X0 + 2*CW + CW/2},${Y0 + 1*CW + CW - 4} L${tx},${ty - 10}" stroke="#3b82f6" stroke-width="2" marker-end="url(#ar62)"/>`;
+  s += `<path d="M${X0 + 1*CW + CW - 4},${Y0 + 2*CW + CW/2} L${tx - 10},${ty}" stroke="#3b82f6" stroke-width="2" marker-end="url(#ar62)"/>`;
+  s += `<text x="${X0 + 1.5 * CW}" y="${Y0 - 10}" text-anchor="middle" font-size="13" fill="#616e7c">3 &times; 3 grid, dp values</text>`;
+  s += `<text x="${X0 + 1.5 * CW}" y="${Y0 + 3 * CW + 24}" text-anchor="middle" font-size="13" font-weight="700">dp[2][2] = dp[1][2] + dp[2][1] = 3 + 3 = <tspan fill="#d97706">6</tspan></text>`;
+  s = `<defs><marker id="ar62" markerWidth="10" markerHeight="10" refX="7" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3b82f6"/></marker></defs>` + s;
+  document.getElementById('idea').innerHTML =
+    `<svg class="figure" width="100%" style="max-width:520px" viewBox="0 0 520 240">${s}</svg>`;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Seed', lines: ['first row = 1', 'first col = 1'], color: 'green' },
+  { title: '2. For each (i, j)', lines: ['i from 1 to m-1', 'j from 1 to n-1', 'dp[i][j] = dp[i-1][j] + dp[i][j-1]'], color: 'yellow' },
+  { title: '3. Answer', lines: ['return dp[m-1][n-1]'], color: 'blue' },
+]);
+
+/* Interactive trace. */
+VIZ.controls('trace', [
+  { id: 'm', label: 'm =', value: '3', size: 3 },
+  { id: 'n', label: 'n =', value: '4', size: 3 },
+], v => {
+  let m, n;
+  try { m = VIZ.parse.int(v.m); n = VIZ.parse.int(v.n); }
+  catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  if (m < 1 || n < 1) return '<div class="box trap">m and n must be at least 1.</div>';
+  if (m > 6 || n > 6) return '<div class="box trap">Pick m and n at most 6 to keep the trace readable.</div>';
+
+  const dp = Array.from({length: m}, () => new Array(n).fill(0));
+  // seed first row/col
+  for (let j = 0; j < n; j++) dp[0][j] = 1;
+  for (let i = 0; i < m; i++) dp[i][0] = 1;
+
+  // helper to render current dp with per-cell class and shown-value gate
+  const render = (filledUpTo, cur) => {
+    const show = Array.from({length: m}, () => new Array(n).fill(''));
+    const clsMap = Array.from({length: m}, () => new Array(n).fill(''));
+    for (let i = 0; i < m; i++) {
+      for (let j = 0; j < n; j++) {
+        const idx = i * n + j;
+        if (idx < filledUpTo) { show[i][j] = dp[i][j]; clsMap[i][j] = 'keep'; }
+        else if (idx === filledUpTo && cur) { show[i][j] = dp[i][j]; clsMap[i][j] = 'new'; }
+        else { show[i][j] = '.'; clsMap[i][j] = 'dim'; }
+      }
+    }
+    if (cur) {
+      const [ci, cj] = cur;
+      if (ci - 1 >= 0) clsMap[ci-1][cj] = 'in';
+      if (cj - 1 >= 0) clsMap[ci][cj-1] = 'in';
+    }
+    return VIZ.grid(show, { cls: (r, c) => clsMap[r][c], small: Math.max(m, n) > 4 });
+  };
+
+  // Build the trace. Index cells in row-major; a cell is a step if i>=1 and j>=1 (seeded ones are "init").
+  let html = '';
+  // Init card
+  {
+    const show = Array.from({length: m}, () => new Array(n).fill('.'));
+    const clsMap = Array.from({length: m}, () => new Array(n).fill('dim'));
+    for (let j = 0; j < n; j++) { show[0][j] = 1; clsMap[0][j] = 'keep'; }
+    for (let i = 0; i < m; i++) { show[i][0] = 1; clsMap[i][0] = 'keep'; }
+    html += VIZ.step('Init', VIZ.grid(show, { cls: (r, c) => clsMap[r][c], small: Math.max(m, n) > 4 }),
+      `Seed: first row and first column all <code>1</code> (only one way to walk straight to any edge cell).`);
+  }
+
+  const steps = [];
+  for (let i = 1; i < m; i++) {
+    for (let j = 1; j < n; j++) {
+      dp[i][j] = dp[i-1][j] + dp[i][j-1];
+      steps.push({ i, j, above: dp[i-1][j], left: dp[i][j-1], val: dp[i][j] });
+    }
+  }
+
+  const MAX = 20;
+  const show = steps.length <= MAX ? steps : steps.slice(0, MAX);
+  show.forEach((st, k) => {
+    // snapshot: fill up to and including this (i, j)
+    const snap = Array.from({length: m}, () => new Array(n).fill(0));
+    for (let j = 0; j < n; j++) snap[0][j] = 1;
+    for (let i = 0; i < m; i++) snap[i][0] = 1;
+    const stop = st.i * n + st.j;
+    for (let i = 1; i < m; i++) {
+      for (let j = 1; j < n; j++) {
+        const idx = i * n + j;
+        if (idx > stop) continue;
+        snap[i][j] = snap[i-1][j] + snap[i][j-1];
+      }
+    }
+    const clsMap = Array.from({length: m}, () => new Array(n).fill(''));
+    // mark cells
+    for (let i = 0; i < m; i++) {
+      for (let j = 0; j < n; j++) {
+        const idx = i * n + j;
+        if (idx > stop) clsMap[i][j] = 'dim';
+        else clsMap[i][j] = 'keep';
+      }
+    }
+    clsMap[st.i][st.j] = 'new';
+    clsMap[st.i - 1][st.j] = 'in';
+    clsMap[st.i][st.j - 1] = 'in';
+    const displayed = Array.from({length: m}, () => new Array(n).fill('.'));
+    for (let i = 0; i < m; i++) {
+      for (let j = 0; j < n; j++) {
+        const idx = i * n + j;
+        if (idx <= stop) displayed[i][j] = snap[i][j];
+      }
+    }
+    const vis = VIZ.grid(displayed, { cls: (r, c) => clsMap[r][c], small: Math.max(m, n) > 4 });
+    const text = `<code>dp[${st.i}][${st.j}] = dp[${st.i-1}][${st.j}] + dp[${st.i}][${st.j-1}] = ${st.above} + ${st.left} = <b>${st.val}</b></code>`;
+    html += VIZ.step(`Step ${k + 1}: fill (${st.i}, ${st.j})`, vis, text);
+  });
+  if (steps.length > MAX) html += `<p class="caption">... ${steps.length - MAX} more cells, same pattern.</p>`;
+
+  document.getElementById('answer').innerHTML =
+    `<b>Answer for ${m} &times; ${n}: ${dp[m-1][n-1]} unique paths.</b>`;
+  return html;
+}, 'Change m or n (each up to 6). The table fills row by row.');
+</script>
+
+</body>
+</html>

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>LC 525 - Contiguous Array</title>
+<link rel="stylesheet" href="assets/style.css"><script src="assets/viz.js"></script></head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#prefix-sum-hashing">Pattern lesson</a><span>Pattern 3: Prefix Sum / Hashing</span></div>
+<h1>Contiguous Array</h1>
+<p class="sub">LeetCode 525 &middot; Medium &middot; Pattern: prefix sum + first-index hash map &middot; O(n) time, O(n) space</p>
+<div class="box"><b>Problem.</b> Given a binary array <code>nums</code>, return the length of the longest contiguous subarray
+with an equal number of 0s and 1s.<br>
+<code>[0,1] &rarr; 2</code> &nbsp; <code>[0,1,0] &rarr; 2</code> &nbsp; <code>[0,0,1,0,0,0,1,1] &rarr; 6</code>
+&nbsp; Link: <a href="https://leetcode.com/problems/contiguous-array/">LeetCode</a></div>
+
+<h2>1. The one idea that solves it</h2>
+<p>Count each 1 as <b>+1</b> and each 0 as <b>&minus;1</b>. Now "equal 0s and 1s" means "the subarray sums to 0".</p>
+<p>Keep a running total called the <b>balance</b>. If the balance is the same at two positions, everything between them added up
+to zero, so that stretch is balanced. The longest balanced stretch ending here starts right after the <b>first</b> time we saw
+this balance.</p>
+<div id="idea"></div>
+<div class="box insight"><b>Idea.</b> Map 0 to &minus;1 and track the balance. Store the <b>first</b> index where each balance
+appears, seeded with <code>{0: -1}</code>. When the balance repeats at index <code>i</code>, the subarray
+<code>(first[bal], i]</code> is balanced and has length <code>i &minus; first[bal]</code>.</div>
+
+<h2>2. Picture of the algorithm</h2>
+<div id="flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+<div class="legend">
+  <span><i style="background:var(--new)"></i>current index</span>
+  <span><i style="background:var(--keep)"></i>balanced subarray found at this step</span>
+  <span><i style="background:#e9d5ff"></i>first index of this balance (the cut)</span>
+</div>
+<div id="trace"></div>
+
+<h2>4. Code (C++)</h2>
+<pre><span class="t">int</span> findMaxLength(<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; nums) {
+    <span class="t">unordered_map</span>&lt;<span class="t">int</span>, <span class="t">int</span>&gt; first{{<span class="n">0</span>, -<span class="n">1</span>}};   <span class="c">// balance 0 seen "before index 0"</span>
+    <span class="t">int</span> bal = <span class="n">0</span>, best = <span class="n">0</span>;
+    <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt; (<span class="t">int</span>)nums.size(); i++) {
+        bal += nums[i] == <span class="n">1</span> ? <span class="n">1</span> : -<span class="n">1</span>;
+        <span class="k">auto</span> it = first.find(bal);
+        <span class="k">if</span> (it != first.end()) best = max(best, i - it-&gt;second);
+        <span class="k">else</span> first[bal] = i;                        <span class="c">// keep only the earliest index</span>
+    }
+    <span class="k">return</span> best;
+}</pre>
+<p><b>Complexity:</b> one pass with O(1) average map work per element, so O(n) time. The balance ranges from &minus;n to n,
+so the map holds at most 2n+1 entries: O(n) space. You can replace the map with a <code>vector&lt;int&gt;(2*n+1, -2)</code>
+indexed by <code>bal + n</code> for a faster constant.</p>
+
+<h2>5. The part interviewers ask about: why the first index?</h2>
+<div class="box insight">We want the <b>longest</b> subarray, so for a given end <code>i</code> we want the cut as far left as
+possible. The earliest index with the same balance gives the widest span. If you overwrite the map entry every time the balance
+repeats, you keep the latest index and measure the <b>shortest</b> balanced stretch instead. That still passes
+<code>[0,1]</code>, which is why the bug is easy to miss. On <code>[0,1,0,1]</code> it returns 2 instead of 4.</div>
+<p>Compare with LC 560: there we want <b>how many</b> subarrays, so we store a count per prefix. Here we want <b>how long</b>,
+so we store the first index. Same skeleton, different payload in the map.</p>
+
+<h2>6. Traps and edge cases</h2>
+<div class="box trap"><ul>
+  <li><b>Forgetting the seed <code>{0: -1}</code>.</b> Balanced prefixes that start at index 0 are missed. <code>[0,1]</code> returns 0.</li>
+  <li><b>Seeding with <code>{0: 0}</code>.</b> Off by one: every length from the start is one too short.</li>
+  <li><b>Overwriting the stored index.</b> Gives the shortest, not the longest. <code>[0,1,0,1] &rarr; 4</code>, not 2.</li>
+  <li><b>Counting with +1 / +0.</b> Zeros must subtract, otherwise "sum 0" has no meaning.</li>
+  <li><b>Edge inputs.</b> <code>[0,0,0] &rarr; 0</code>; <code>[1] &rarr; 0</code>; <code>[0,0,1,0,0,0,1,1] &rarr; 6</code>.</li>
+</ul></div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+<div class="box good">"I treat 1 as plus one and 0 as minus one, so equal counts means the subarray sums to zero. I keep a running
+balance and a map from balance to the first index it appeared, seeded with zero at index minus one. When the balance repeats,
+the part between the two positions is balanced, and using the first index gives the longest one. One pass, O(n) time and space."</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 560 Subarray Sum Equals K</td><td>Same prefix-map skeleton; stores counts to count subarrays</td></tr>
+  <tr><td>LC 325 Max Size Subarray Sum Equals k</td><td>Exactly this with a general k: look up <code>bal &minus; k</code>, store first index</td></tr>
+  <tr><td>LC 1124 Longest Well-Performing Interval</td><td>Map hours to &plusmn;1, then longest subarray with positive sum</td></tr>
+</table>
+
+<script>
+const V = VIZ;
+(() => {
+  const nums = [0, 0, 1, 0, 1, 1];
+  const signs = nums.map(x => x ? '+1' : '-1');
+  let bal = 0; const B = [0]; nums.forEach(x => { bal += x ? 1 : -1; B.push(bal); });
+  let h = '<p class="caption">nums = [0,0,1,0,1,1]: the balance is &minus;1 after index 0 and again after index 4, so indices 1..4 = [0,1,0,1] are balanced.</p>';
+  h += V.strip(nums, { cls: i => (i >= 1 && i <= 4 ? 'keep' : '') });
+  h += V.strip(signs, { index: false, small: true, cls: i => (i >= 1 && i <= 4 ? 'keep' : '') });
+  h += V.strip(B, { labels: B.map((_, i) => i === 0 ? 'start' : 'after ' + (i - 1)), cls: { 1: 'hit', 5: 'hit' }, notes: { 1: 'first', 5: 'repeat' } });
+  document.getElementById('idea').innerHTML = h;
+  document.getElementById('flow').innerHTML = V.flow([
+    { title: '1. Update balance', lines: ['bal += (x == 1) ? 1 : -1'], color: 'yellow' },
+    { title: '2. Seen before?', lines: ['yes: best = max(best, i - first[bal])', 'no: first[bal] = i'], color: 'purple' }], { loop: 'next index' });
+})();
+
+V.controls('trace', [{ id: 'nums', label: 'nums =', value: '[0,0,1,0,0,0,1,1]', size: 24 }], v => {
+  const nums = V.parse.arr(v.nums);
+  if (!nums.length || nums.some(x => x !== 0 && x !== 1)) return '<div class="box trap">Enter a non-empty array of 0s and 1s.</div>';
+  const first = new Map([[0, -1]]);
+  let bal = 0, best = 0, bestRange = null, out = '';
+  const mapTable = () => V.table(['balance', 'first index'], [...first.entries()].sort((a, b) => a[0] - b[0]).map(([b, i]) => [b, i]));
+  out += V.step('Start', mapTable(), 'Balance 0 is seeded at index &minus;1, the position "before the array".');
+  for (let i = 0; i < nums.length; i++) {
+    bal += nums[i] === 1 ? 1 : -1;
+    const cls = {}; let text = `nums[${i}] = ${nums[i]} &rarr; ${nums[i] ? '+1' : '&minus;1'}, balance = <b>${bal}</b>. `;
+    if (first.has(bal)) {
+      const f = first.get(bal), len = i - f;
+      for (let t = f + 1; t <= i; t++) cls[t] = 'keep';
+      if (f >= 0) cls[f] = 'hit';
+      text += `Seen first at index ${f}, so indices ${f + 1}..${i} are balanced, length ${len}. `;
+      if (len > best) { best = len; bestRange = [f + 1, i]; text += `<span class="ok">New best = ${best}.</span>`; }
+      else text += `best stays ${best}. Map unchanged (keep the first index).`;
+    } else {
+      first.set(bal, i); cls[i] = 'new';
+      text += `New balance: store first[${bal}] = ${i}.`;
+    }
+    if (!cls[i]) cls[i] = 'new';
+    out += V.step(`i = ${i}`, V.strip(nums, { cls: t => t > i ? 'dim' : (cls[t] || '') }) + mapTable(), text);
+  }
+  return out + `<div class="box good"><b>Answer for [${nums.join(',')}]: ${best}</b>${bestRange ? ` (indices ${bestRange[0]}..${bestRange[1]})` : ''}</div>`;
+});
+</script>
+</body></html>

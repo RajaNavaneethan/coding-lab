@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 355 - Design Twitter</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#math-design">Pattern lesson</a><span>Pattern 19: Math / Design</span></div>
+
+<h1>Design Twitter</h1>
+<p class="sub">LeetCode 355 &middot; Medium &middot; Pattern: Design / k-way merge with a heap &middot; O(1) post, O((k+10) log k) feed</p>
+
+<div class="box">
+  <b>Problem.</b> Design a tiny Twitter with four operations:
+  <ul style="margin:4px 0">
+    <li><code>postTweet(user, tweetId)</code> &mdash; user composes a tweet.</li>
+    <li><code>getNewsFeed(user)</code> &mdash; return the 10 most recent tweet IDs from the user plus everyone they follow, newest first.</li>
+    <li><code>follow(followerId, followeeId)</code></li>
+    <li><code>unfollow(followerId, followeeId)</code></li>
+  </ul>
+  Link: <a href="https://leetcode.com/problems/design-twitter/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Keep each user's own tweets in a per-user list, in chronological order. For a feed, we want the newest 10 across
+several such lists &mdash; each list is already sorted by time, so this is the classic <b>k-way merge of sorted lists</b>:
+pour the tails into a max-heap keyed on timestamp, pop the newest, then push the next-older tweet from the same list.
+Stop after 10 pops.</p>
+
+<p>A single global timestamp counter <code>clk</code> that we bump on every post gives us the ordering key for free. No
+real clocks, no ties.</p>
+
+<div id="idea"></div>
+
+<p>Membership (follow / unfollow) is just a hash set per user. The follower is always included in their own feed, even
+if they don't explicitly follow themselves.</p>
+
+<div class="box insight">
+  <b>Idea.</b> Store tweets per user in time order. A feed is a k-way merge over the follower's own list plus the
+  lists of everyone they follow &mdash; max-heap on <code>(timestamp, tweetId, userId, indexInTheirList)</code>, pop 10.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>Alternative shapes exist (merge everyone's tweets into a single global list, or a global heap of size 10). The k-way
+merge is the clean choice because it keeps post O(1) and only pays O((k+10) log k) at feed time, where <code>k</code>
+is the number of followees. The merge is also exactly what interviewers want to see &mdash; it generalises to
+distributed timelines.</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Enter an operation sequence. The trace shows the data structures after each op:</p>
+<ul style="margin-top:0">
+  <li><b>Follow sets</b> for every user that has one &mdash; who they follow.</li>
+  <li><b>Per-user tweet lists</b> with their timestamps, oldest first.</li>
+  <li><b>For <code>getNewsFeed</code></b>: an extra card walking through the max-heap, showing which tweet gets popped each round.</li>
+</ul>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>object touched this step (tweet posted, follow added)</span>
+  <span><i style="background:var(--win)"></i>member of the feed source set for the current getNewsFeed</span>
+  <span><i style="background:var(--keep)"></i>tweet popped onto the feed</span>
+  <span><i style="background:var(--gone)"></i>link removed by unfollow</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Twitter {
+    <span class="t">int</span> clk = <span class="n">0</span>;                                  <span class="c">// global timestamp</span>
+    unordered_map&lt;<span class="t">int</span>, vector&lt;pair&lt;<span class="t">int</span>,<span class="t">int</span>&gt;&gt;&gt; tweets;  <span class="c">// user -&gt; (time, tweetId), chronological</span>
+    unordered_map&lt;<span class="t">int</span>, unordered_set&lt;<span class="t">int</span>&gt;&gt; follows;         <span class="c">// user -&gt; set of followees</span>
+
+<span class="k">public</span>:
+    Twitter() {}
+
+    <span class="t">void</span> postTweet(<span class="t">int</span> userId, <span class="t">int</span> tweetId) {
+        tweets[userId].push_back({++clk, tweetId});
+    }
+
+    vector&lt;<span class="t">int</span>&gt; getNewsFeed(<span class="t">int</span> userId) {
+        <span class="c">// k-way merge of the newest tails from each feed source.</span>
+        <span class="c">// Max-heap of (time, tweetId, ownerId, indexIntoTheirList).</span>
+        <span class="k">using</span> Node = tuple&lt;<span class="t">int</span>,<span class="t">int</span>,<span class="t">int</span>,<span class="t">int</span>&gt;;
+        priority_queue&lt;Node&gt; pq;
+        <span class="k">auto</span> push_last = [&amp;](<span class="t">int</span> u) {
+            <span class="k">auto</span> it = tweets.find(u);
+            <span class="k">if</span> (it == tweets.end() || it-&gt;second.empty()) <span class="k">return</span>;
+            <span class="t">int</span> idx = (<span class="t">int</span>)it-&gt;second.size() - <span class="n">1</span>;
+            pq.push({it-&gt;second[idx].first, it-&gt;second[idx].second, u, idx});
+        };
+        push_last(userId);
+        <span class="k">for</span> (<span class="t">int</span> f : follows[userId]) <span class="k">if</span> (f != userId) push_last(f);
+        vector&lt;<span class="t">int</span>&gt; out;
+        <span class="k">while</span> (!pq.empty() &amp;&amp; (<span class="t">int</span>)out.size() &lt; <span class="n">10</span>) {
+            <span class="k">auto</span> [t, id, u, idx] = pq.top(); pq.pop();
+            out.push_back(id);
+            <span class="k">if</span> (idx &gt; <span class="n">0</span>) {
+                <span class="k">auto</span>&amp; v = tweets[u];
+                pq.push({v[idx-<span class="n">1</span>].first, v[idx-<span class="n">1</span>].second, u, idx-<span class="n">1</span>});
+            }
+        }
+        <span class="k">return</span> out;
+    }
+
+    <span class="t">void</span> follow(<span class="t">int</span> followerId, <span class="t">int</span> followeeId) {
+        <span class="k">if</span> (followerId != followeeId) follows[followerId].insert(followeeId);
+    }
+
+    <span class="t">void</span> unfollow(<span class="t">int</span> followerId, <span class="t">int</span> followeeId) {
+        <span class="k">auto</span> it = follows.find(followerId);
+        <span class="k">if</span> (it != follows.end()) it-&gt;second.erase(followeeId);
+    }
+};</pre>
+
+<p><b>Complexity.</b> <code>postTweet</code> is O(1) amortised. <code>follow</code>/<code>unfollow</code> are O(1).
+<code>getNewsFeed</code> seeds the heap with up to <code>k</code> entries (one per feed source), then pops at most 10
+times with up to 10 pushes &mdash; O((k + 10) log k) time, O(k) extra space.</p>
+
+<h3>Alternative: scan everyone's full list and sort</h3>
+
+<pre>vector&lt;pair&lt;<span class="t">int</span>, <span class="t">int</span>&gt;&gt; buf;
+<span class="k">for</span> (<span class="t">int</span> u : feedSources(userId))
+    <span class="k">for</span> (<span class="k">auto</span>&amp; [t, id] : tweets[u]) buf.push_back({t, id});
+sort(buf.rbegin(), buf.rend());
+buf.resize(min(<span class="n">10</span>, (<span class="t">int</span>)buf.size()));</pre>
+
+<p>Dead simple. Prefer when a user may follow many people but each has only a handful of tweets, or when "feed length"
+isn't fixed. The heap version wins when any user can have a very long tweet history: the heap only touches the newest
+tail of each list.</p>
+
+<h2>5. The part interviewers ask about: why k-way merge is the right shape</h2>
+
+<div class="box insight">
+  <ul>
+    <li><b>Each user's list is already sorted by time.</b> We never need to re-sort. Only the pointers into the tails
+    need to be managed, and that's exactly what a heap does.</li>
+    <li><b>Heap pops are bounded by 10, not by total tweets.</b> If a user you follow has posted a million tweets,
+    we touch only the newest 10 of them in the worst case, not a million.</li>
+    <li><b>A global list across all users would also work</b> but you'd have to filter down to the follower's sources
+    on every feed, which is O(global tweets). Per-user lists keep the work proportional to <i>what the viewer sees</i>.</li>
+    <li><b>Followers always include themselves.</b> Call <code>push_last(userId)</code> unconditionally in
+    <code>getNewsFeed</code>, independent of <code>follows[userId]</code>. Interviewers love asking "what if a user
+    follows themselves?" &mdash; our guard <code>if (followerId != followeeId)</code> keeps the follow set clean, and
+    we add the self source explicitly so the feed is right either way.</li>
+  </ul>
+</div>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Forgetting the self-source.</b> If you only merge <code>follows[userId]</code> you miss the user's own tweets. The
+    reference solution always pushes the user themselves.</li>
+    <li><b>Comparator direction.</b> C++'s <code>priority_queue</code> is a max-heap by default, which is what we want on
+    the first element of the tuple (timestamp). If you reach for <code>greater&lt;&gt;</code> or a custom comparator,
+    get the direction right &mdash; it is a classic bug.</li>
+    <li><b>Duplicate tweet IDs.</b> Not forbidden. The timestamp disambiguates ordering, so the heap never ties.</li>
+    <li><b>Unfollow something you don't follow.</b> No crash: <code>erase</code> on a missing key is a no-op.</li>
+    <li><b>Follow or unfollow a user who has never tweeted.</b> No crash: <code>tweets[u]</code> would be absent;
+    our <code>push_last</code> checks the iterator before dereferencing.</li>
+    <li><b>Mutation during iteration.</b> If you ever decide to filter or expire tweets inside <code>getNewsFeed</code>,
+    don't mutate the user's list &mdash; copies are cheap because we only look at the tail.</li>
+    <li><b>Order within the same timestamp.</b> Can't happen with a single-threaded <code>clk</code> that increments
+    before each insert. If you later go concurrent, use <code>(clk++, tweetId)</code> as the key: still unique.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I keep two maps. <code>tweets[user]</code> is a chronological list of <code>(timestamp, tweetId)</code>, and
+  <code>follows[user]</code> is a hash set of followees. A global counter stamps every post. For
+  <code>getNewsFeed</code>, I seed a max-heap with the newest tweet of each feed source (the user themselves plus
+  everyone they follow), pop the top, and push the next-older one from the same user. Ten pops gives the feed.
+  Post is O(1); feed is O((k+10) log k) in the number of followees. The trick is the k-way merge: each per-user list is
+  already sorted, so we never re-sort anything."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 23 Merge k Sorted Lists</td><td>The pure form of the k-way merge used here. Same heap of <code>(value, listIndex)</code>.</td></tr>
+  <tr><td>LC 378 Kth Smallest in Sorted Matrix</td><td>Rows are k sorted lists; merge until you've popped k values.</td></tr>
+  <tr><td>LC 632 Smallest Range in k Sorted Lists</td><td>Keep one pointer per list in a heap, slide the top forward.</td></tr>
+  <tr><td>LC 460 LFU Cache</td><td>Design problem where the right data structures (hash + ordered buckets) make all ops O(1).</td></tr>
+  <tr><td>LC 146 LRU Cache</td><td>Same "design" discipline: pick the data structures that make every op cheap, then compose them.</td></tr>
+</table>
+
+<script>
+/* 1. Static idea diagram: three users with lists, one user's feed built by k-way merge. */
+(function () {
+  // Scene:
+  //   user 1 tweets 11 at t=1, 15 at t=4, 18 at t=7
+  //   user 2 tweets 22 at t=2, 24 at t=5
+  //   user 3 tweets 33 at t=3, 37 at t=6
+  //   user 1 follows {2, 3}. getNewsFeed(1) merges three lists -> [18(t7), 37(t6), 24(t5), 15(t4), 33(t3), 22(t2), 11(t1)].
+  //   We only need up to 10, so all seven appear.
+  const W = 880, H = 320;
+  let s = '';
+  s += `<text x="20" y="26" font-size="14" font-weight="700" fill="#334155">Three users, each with their own list in time order</text>`;
+
+  // Draw three lists as rows of (t, id) chips.
+  function drawList(y, label, items, bgColor) {
+    s += `<text x="20" y="${y + 18}" font-size="13" font-weight="700" fill="#334155">user ${label}</text>`;
+    items.forEach((it, i) => {
+      const x = 110 + i * 90;
+      s += `<rect x="${x}" y="${y}" width="78" height="40" rx="6" fill="${bgColor}" stroke="#475569" stroke-width="1.5"/>`;
+      s += `<text x="${x + 39}" y="${y + 16}" text-anchor="middle" font-size="11" fill="#616e7c">t = ${it.t}</text>`;
+      s += `<text x="${x + 39}" y="${y + 32}" text-anchor="middle" font-size="13" font-weight="700" fill="#1f2933">id ${it.id}</text>`;
+    });
+  }
+  drawList(50,  '1', [{t:1, id:11}, {t:4, id:15}, {t:7, id:18}], '#eff6ff');
+  drawList(110, '2', [{t:2, id:22}, {t:5, id:24}],               '#f0fdf4');
+  drawList(170, '3', [{t:3, id:33}, {t:6, id:37}],               '#fdf4ff');
+
+  // Arrows from each list's newest (rightmost) item into the max-heap.
+  // Heap drawn as a stack to the right.
+  const heapX = 560, heapY = 60;
+  s += `<text x="${heapX + 70}" y="${heapY - 4}" text-anchor="middle" font-size="13" font-weight="700" fill="#334155">max-heap seeded with newest of each</text>`;
+  const heapItems = [
+    { t: 7, id: 18, u: 1, color:'#eff6ff' },
+    { t: 6, id: 37, u: 3, color:'#fdf4ff' },
+    { t: 5, id: 24, u: 2, color:'#f0fdf4' },
+  ];
+  heapItems.forEach((it, i) => {
+    const y = heapY + 10 + i * 44;
+    s += `<rect x="${heapX}" y="${y}" width="140" height="36" rx="6" fill="${it.color}" stroke="#7c3aed" stroke-width="2"/>`;
+    s += `<text x="${heapX + 70}" y="${y + 22}" text-anchor="middle" font-size="12" fill="#1f2933">t=${it.t}, id=${it.id}, user=${it.u}</text>`;
+  });
+  // arrows from newest to heap
+  // u1: last at x = 110 + 2*90 + 78 = 368, y = 50 + 20 ; target = heapX + 0, heapY + 28
+  function arrow(x1, y1, x2, y2) {
+    s += `<line x1="${x1}" y1="${y1}" x2="${x2 - 6}" y2="${y2}" stroke="#64748b" stroke-width="1.5" marker-end="url(#arr355)"/>`;
+  }
+  arrow(368, 70,  heapX, heapY + 28);
+  arrow(290, 190, heapX, heapY + 72);
+  arrow(290, 130, heapX, heapY + 116);
+
+  s += `<defs><marker id="arr355" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#64748b"/></marker></defs>`;
+
+  // Final answer below.
+  s += `<text x="20" y="260" font-size="13" font-weight="700" fill="#334155">pop 10 (or until empty): newest tweet first</text>`;
+  const feed = [18, 37, 24, 15, 33, 22, 11];
+  feed.forEach((id, i) => {
+    const x = 20 + i * 70, y = 272;
+    s += `<rect x="${x}" y="${y}" width="60" height="34" rx="6" fill="#bbf7d0" stroke="#15803d" stroke-width="2"/>`;
+    s += `<text x="${x + 30}" y="${y + 22}" text-anchor="middle" font-size="13" font-weight="700" fill="#1f2933">id ${id}</text>`;
+  });
+
+  document.getElementById('idea').innerHTML =
+    `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${H}">${s}</svg>
+     <div class="caption">User 1 follows user 2 and user 3. Feed = merge of three sorted lists, newest first, capped at 10.</div>`;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. postTweet', lines: ['tweets[u].push_back({++clk, id})'], color: 'green' },
+  { title: '2. follow / unfollow', lines: ['follows[follower].insert / erase'], color: 'blue' },
+  { title: '3. getNewsFeed: seed', lines: ['for each source u:', 'push newest of tweets[u]'], color: 'yellow' },
+  { title: '4. Pop 10', lines: ['while heap && out<10:', 'pop top, append to out', 'push next-older from same u'], color: 'purple' },
+]);
+
+/* Interactive trace.
+   Supported ops:
+     postTweet(u, id)      post(u, id)
+     getNewsFeed(u)        feed(u)
+     follow(a, b)
+     unfollow(a, b) */
+VIZ.controls('trace', [
+  { id: 'ops', label: 'ops =',
+    value: 'postTweet(1,5) getNewsFeed(1) follow(1,2) postTweet(2,6) getNewsFeed(1) unfollow(1,2) getNewsFeed(1)',
+    size: 90 },
+], v => {
+  const ops = parseOps(v.ops);
+  if (!ops.length) return '<div class="box trap">No valid ops. Try <code>postTweet(1,5) follow(1,2) getNewsFeed(1)</code>.</div>';
+  if (ops.length > 20) return '<div class="box trap">Keep ops &le; 20 so the trace stays readable.</div>';
+
+  // Model.
+  let clk = 0;
+  const tweets = new Map();       // user -> [{t, id}]
+  const follows = new Map();      // user -> Set
+
+  // For visual flagging per step: which user/tweet/link was just touched.
+  const results = [];
+  let html = '';
+
+  // Init state card
+  html += VIZ.step('Init', renderState(tweets, follows, null, null, null), 'Fresh Twitter: no tweets, no follows, clock = 0.');
+
+  ops.forEach((o, k) => {
+    const touched = { tweetedUser: null, tweetedId: null, followLink: null, unfollowLink: null };
+    if (o.op === 'posttweet') {
+      clk++;
+      if (!tweets.has(o.a)) tweets.set(o.a, []);
+      tweets.get(o.a).push({ t: clk, id: o.b });
+      touched.tweetedUser = o.a; touched.tweetedId = o.b;
+      html += VIZ.step(`Step ${k + 1}: postTweet(${o.a}, ${o.b})`,
+        renderState(tweets, follows, touched, null, null),
+        `clk &rarr; ${clk}. Append <code>(t=${clk}, id=${o.b})</code> to user <code>${o.a}</code>'s list.`);
+    } else if (o.op === 'follow') {
+      if (o.a !== o.b) {
+        if (!follows.has(o.a)) follows.set(o.a, new Set());
+        follows.get(o.a).add(o.b);
+        touched.followLink = [o.a, o.b];
+      }
+      html += VIZ.step(`Step ${k + 1}: follow(${o.a}, ${o.b})`,
+        renderState(tweets, follows, touched, null, null),
+        o.a === o.b
+          ? `No-op: a user cannot follow themselves (the self source is always added inside <code>getNewsFeed</code>).`
+          : `Add <code>${o.b}</code> to <code>follows[${o.a}]</code>.`);
+    } else if (o.op === 'unfollow') {
+      const s = follows.get(o.a);
+      if (s) { s.delete(o.b); }
+      touched.unfollowLink = [o.a, o.b];
+      html += VIZ.step(`Step ${k + 1}: unfollow(${o.a}, ${o.b})`,
+        renderState(tweets, follows, touched, null, null),
+        `Remove <code>${o.b}</code> from <code>follows[${o.a}]</code>${s ? '' : ' (no-op: no follow set for user ' + o.a + ')'}.`);
+    } else if (o.op === 'getnewsfeed') {
+      // Full k-way merge trace.
+      const [feed, mergeHtml, sources] = feedTrace(o.a, tweets, follows);
+      html += VIZ.step(`Step ${k + 1}: getNewsFeed(${o.a})`,
+        renderState(tweets, follows, null, sources, null),
+        `Merging ${sources.size} source${sources.size === 1 ? '' : 's'} (user ${o.a}${sources.size > 1 ? ' + followees ' + [...sources].filter(x => x !== o.a).join(', ') : ' only'}): newest tweets &rarr; <code>[${feed.join(', ')}]</code>.`,
+        true /* wide */);
+      // Followed by the merge step card.
+      html += mergeHtml;
+      results.push({ op: `getNewsFeed(${o.a})`, result: feed });
+    }
+  });
+
+  const ansLines = results.map(r => `<code>${r.op} = [${r.result.join(', ')}]</code>`);
+  document.getElementById('answer').innerHTML = ansLines.length
+    ? `<b>Feed results:</b> ${ansLines.join(', ')}`
+    : '<b>No <code>getNewsFeed</code> calls in this trace.</b>';
+  return html;
+}, 'Each tweet gets the next clock value. getNewsFeed merges the follower + followees. Try adding more follows and tweets.');
+
+/* --- parsing --- */
+function parseOps(s) {
+  const re = /(postTweet|getNewsFeed|follow|unfollow)\s*\(\s*(\d+)\s*(?:,\s*(\d+)\s*)?\)/gi;
+  const out = []; let m;
+  while ((m = re.exec(s))) {
+    out.push({ op: m[1].toLowerCase(), a: parseInt(m[2], 10), b: m[3] !== undefined ? parseInt(m[3], 10) : null });
+  }
+  return out;
+}
+
+/* --- rendering --- */
+function renderState(tweets, follows, touched, feedSources, _unused) {
+  // Collect all users seen so far.
+  const users = new Set();
+  for (const u of tweets.keys()) users.add(u);
+  for (const [u, s] of follows.entries()) { users.add(u); s.forEach(f => users.add(f)); }
+  const list = [...users].sort((a, b) => a - b);
+  if (list.length === 0) return '<div class="caption">(no users yet)</div>';
+
+  // Build the Follow-sets block.
+  let followBlock = '<div style="margin:4px 0 10px"><div style="font-size:12px;color:#616e7c;font-weight:700;margin-bottom:4px">Follow sets</div>';
+  const anyFollows = [...follows.values()].some(s => s.size > 0);
+  if (!anyFollows) {
+    followBlock += '<div class="caption" style="margin-left:4px">(no follows)</div>';
+  } else {
+    followBlock += '<div style="display:flex;flex-direction:column;gap:4px">';
+    list.forEach(u => {
+      const s = follows.get(u);
+      if (!s || s.size === 0) return;
+      const members = [...s].sort((a, b) => a - b);
+      const chips = members.map(f => {
+        const removed = touched && touched.unfollowLink && touched.unfollowLink[0] === u && touched.unfollowLink[1] === f;
+        const added = touched && touched.followLink && touched.followLink[0] === u && touched.followLink[1] === f;
+        const cls = removed ? 'gone' : added ? 'new' : '';
+        return `<span class="cell small ${cls}" style="min-width:28px;height:24px;font-size:12px">${f}</span>`;
+      }).join('');
+      followBlock += `<div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;min-width:120px"><code>follows[${u}]</code> =</span>${chips || '<span class="caption">&empty;</span>'}</div>`;
+    });
+    // Show deleted link even if the resulting set is empty:
+    if (touched && touched.unfollowLink) {
+      const [u, f] = touched.unfollowLink;
+      const s = follows.get(u);
+      if (!s || !s.has(f)) {
+        // Draw a ghosted row indicating the delete.
+        followBlock += `<div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;min-width:120px"><code>follows[${u}]</code> =</span><span class="cell small gone" style="min-width:28px;height:24px;font-size:12px">${f}</span></div>`;
+      }
+    }
+    followBlock += '</div>';
+  }
+  followBlock += '</div>';
+
+  // Build the Per-user tweet lists block.
+  let listsBlock = '<div><div style="font-size:12px;color:#616e7c;font-weight:700;margin-bottom:4px">Per-user tweet lists (oldest &rarr; newest)</div>';
+  listsBlock += '<div style="display:flex;flex-direction:column;gap:6px">';
+  list.forEach(u => {
+    const tw = tweets.get(u) || [];
+    const isSource = feedSources && feedSources.has(u);
+    const chips = tw.map(({ t, id }, i) => {
+      const flagged = touched && touched.tweetedUser === u && touched.tweetedId === id && i === tw.length - 1;
+      const cls = flagged ? 'new' : (isSource ? 'in' : '');
+      return `<span class="cell small ${cls}" style="min-width:60px;height:28px;font-size:12px"><div style="line-height:1"><div style="font-size:10px;color:#616e7c">t=${t}</div><div style="font-weight:700">${id}</div></div></span>`;
+    }).join('');
+    const label = `<span style="font-size:12px;min-width:120px"><code>tweets[${u}]</code>${isSource ? ' <span style="color:#3b82f6;font-weight:700">(src)</span>' : ''} =</span>`;
+    listsBlock += `<div style="display:flex;align-items:center;gap:6px">${label}${chips || '<span class="caption">(empty)</span>'}</div>`;
+  });
+  listsBlock += '</div></div>';
+  return followBlock + listsBlock;
+}
+
+/* k-way merge trace for getNewsFeed(user). Returns [feedArray, html, sourcesSet]. */
+function feedTrace(user, tweets, follows) {
+  const sources = new Set([user]);
+  const fs = follows.get(user);
+  if (fs) fs.forEach(f => { if (f !== user) sources.add(f); });
+
+  // Seed heap with the newest from each source.
+  // Node: {t, id, u, idx}
+  const heap = [];
+  function heapPush(n) { heap.push(n); heap.sort((a, b) => b.t - a.t); }
+  function heapPop() { return heap.shift(); }
+
+  [...sources].forEach(u => {
+    const l = tweets.get(u);
+    if (l && l.length) heapPush({ t: l[l.length - 1].t, id: l[l.length - 1].id, u, idx: l.length - 1 });
+  });
+
+  let html = '<div class="step wide"><h4>k-way merge of ' + sources.size + ' source' + (sources.size === 1 ? '' : 's') + '</h4>';
+  html += '<div class="text">' + renderHeap(heap, null, null) + '<div style="height:8px"></div>';
+
+  const feed = [];
+  let round = 0;
+  while (heap.length && feed.length < 10 && round < 25) {
+    const top = heapPop();
+    feed.push(top.id);
+    let next = null;
+    if (top.idx > 0) {
+      const l = tweets.get(top.u);
+      next = { t: l[top.idx - 1].t, id: l[top.idx - 1].id, u: top.u, idx: top.idx - 1 };
+      heapPush(next);
+    }
+    round++;
+    html += `<div style="margin:6px 0;font-size:13px">Round ${round}: pop <code>(t=${top.t}, id=${top.id}, user=${top.u})</code> &rarr; feed[${round - 1}] = ${top.id}.`;
+    if (next) html += ` Push next-older from user ${top.u}: <code>(t=${next.t}, id=${next.id})</code>.`;
+    else html += ` User ${top.u} has no older tweet in this list.`;
+    html += '</div>';
+    html += renderHeap(heap, top, next);
+  }
+  html += `<div style="margin-top:8px;font-weight:700">Feed = [${feed.join(', ')}]</div>`;
+  html += '</div></div>';
+  return [feed, html, sources];
+}
+
+function renderHeap(heap, justPopped, justPushed) {
+  if (heap.length === 0) {
+    return '<div style="font-size:12px;color:#616e7c">heap: <i>empty</i></div>';
+  }
+  const chips = heap.map((n, i) => {
+    const isTop = i === 0;
+    const isNew = justPushed && n.t === justPushed.t && n.id === justPushed.id && n.u === justPushed.u;
+    const cls = isNew ? 'new' : (isTop ? 'in' : '');
+    return `<span class="cell small ${cls}" style="min-width:120px;height:30px;font-size:12px;padding:0 6px">(t=${n.t}, id=${n.id}, user=${n.u})</span>`;
+  }).join(' ');
+  const label = `<span style="font-size:12px;color:#616e7c;margin-right:6px">max-heap (top first):</span>`;
+  return `<div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px">${label}${chips}</div>`;
+}
+</script>
+
+</body>
+</html>

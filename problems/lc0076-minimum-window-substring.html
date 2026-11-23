@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 76 - Minimum Window Substring</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#sliding-window">Pattern lesson</a><span>Pattern 2: Sliding Window</span></div>
+
+<h1>Minimum Window Substring</h1>
+<p class="sub">LeetCode 76 &middot; Hard &middot; Pattern: variable-size sliding window, shrink to minimise &middot; O(|s| + |t|) time, O(&Sigma;) space</p>
+
+<div class="box">
+  <b>Problem.</b> Given strings <code>s</code> and <code>t</code>, return the shortest substring of <code>s</code> that
+  contains every character of <code>t</code> (with multiplicity). Return <code>""</code> if no such window exists.
+  <br><code>s = "ADOBECODEBANC", t = "ABC" &rarr; "BANC"</code>
+  <br><code>s = "a", t = "aa" &rarr; ""</code>
+  <br>Link: <a href="https://leetcode.com/problems/minimum-window-substring/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Keep two counts over the characters in <code>t</code>: <code>need[c]</code> (how many of <code>c</code> must be in
+the window) and <code>have[c]</code> (how many are in the window right now). The window is <b>valid</b> when
+<code>have[c] &ge; need[c]</code> for every <code>c</code>.</p>
+
+<p>Grow to the right. The moment the window becomes valid, try to shrink from the left while it stays valid, recording
+the smallest valid window seen. Then grow again.</p>
+
+<div id="idea"></div>
+
+<p>Comparing all 128 or 52 counts after every move is wasteful. Track one integer: <code>formed</code> = the number of
+distinct characters whose <code>have[c]</code> has reached <code>need[c]</code>. The window is valid exactly when
+<code>formed == required</code> (<code>required</code> = distinct characters in <code>t</code>). You only need to
+touch <code>formed</code> when a count crosses the threshold either way.</p>
+
+<div class="box insight">
+  <b>So the question becomes:</b> maintain <code>need</code>, <code>have</code>, and the counter <code>formed</code>.
+  Expand right until <code>formed == required</code>, shrink left as long as that stays true (recording
+  <code>bestLen</code>), expand again. One left-to-right pass over <code>s</code>.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>just added (r)</span>
+  <span><i style="background:var(--win)"></i>inside the window</span>
+  <span><i style="background:var(--gone)"></i>dropped by l</span>
+  <span><i style="background:var(--keep)"></i>best window so far</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="t">string</span> minWindow(<span class="t">string</span> s, <span class="t">string</span> t) {
+    <span class="k">if</span> (t.empty() || s.size() &lt; t.size()) <span class="k">return</span> <span class="n">""</span>;
+    <span class="t">int</span> need[<span class="n">128</span>] = {<span class="n">0</span>}, have[<span class="n">128</span>] = {<span class="n">0</span>};
+    <span class="k">for</span> (<span class="t">char</span> c : t) need[(<span class="t">unsigned</span> <span class="t">char</span>)c]++;
+    <span class="t">int</span> required = <span class="n">0</span>;
+    <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt; <span class="n">128</span>; i++) <span class="k">if</span> (need[i]) required++;
+
+    <span class="t">int</span> formed = <span class="n">0</span>, l = <span class="n">0</span>, bestLen = INT_MAX, bestL = <span class="n">0</span>;
+    <span class="k">for</span> (<span class="t">int</span> r = <span class="n">0</span>; r &lt; (<span class="t">int</span>)s.size(); r++) {
+        <span class="t">int</span> c = (<span class="t">unsigned</span> <span class="t">char</span>)s[r];
+        have[c]++;
+        <span class="k">if</span> (need[c] &amp;&amp; have[c] == need[c]) formed++;      <span class="c">// just hit the threshold</span>
+        <span class="k">while</span> (formed == required) {                        <span class="c">// shrink while valid</span>
+            <span class="k">if</span> (r - l + <span class="n">1</span> &lt; bestLen) { bestLen = r - l + <span class="n">1</span>; bestL = l; }
+            <span class="t">int</span> lc = (<span class="t">unsigned</span> <span class="t">char</span>)s[l];
+            have[lc]--;
+            <span class="k">if</span> (need[lc] &amp;&amp; have[lc] &lt; need[lc]) formed--;  <span class="c">// fell below the threshold</span>
+            l++;
+        }
+    }
+    <span class="k">return</span> bestLen == INT_MAX ? <span class="n">""</span> : s.substr(bestL, bestLen);
+}</pre>
+
+<p><b>Complexity:</b> each index in <code>s</code> is visited once by <code>r</code> and at most once by
+<code>l</code>, so O(|s| + |t|). Space is O(&Sigma;) for the two count arrays, O(1) when the alphabet is fixed.</p>
+
+<h3>Alternative: filter <code>s</code> down to characters that appear in <code>t</code></h3>
+
+<p>When <code>|t|</code> is tiny compared to <code>|s|</code>, you can first build a list of positions in <code>s</code>
+whose character is in <code>t</code>, then run the same window over that list. Each shrink/expand costs the same but
+you skip over irrelevant characters. Same asymptotic complexity, faster constants on sparse inputs.</p>
+
+<h2>5. The part interviewers ask about: why one counter beats comparing maps</h2>
+
+<p>The naive version re-checks "every <code>have[c] &ge; need[c]</code>" after every move. That is O(&Sigma;) per
+step. On the full string that gives O(|s| &middot; &Sigma;). Fine for ASCII, slow for Unicode or paragraphs.</p>
+
+<div class="box insight">
+  <b>Why <code>formed</code> is correct.</b> A character <code>c</code> contributes to <code>formed</code> while
+  <code>have[c] &ge; need[c]</code>. <code>have[c]</code> changes by &pm;1 per operation, so it crosses the threshold
+  <code>need[c]</code> only at one specific moment during an expand and one specific moment during a shrink.
+  Incrementing/decrementing <code>formed</code> exactly at those crossings keeps it consistent with the real state. The
+  guard <code>need[c]</code> ensures characters not in <code>t</code> never affect <code>formed</code>.
+</div>
+
+<p><b>Follow-up: what if a character can appear with any count (just "at least one occurrence")?</b> Set
+<code>required = </code> distinct chars in <code>t</code>, and <code>have[c] &ge; 1</code> contributes. The code
+simplifies: no need to count copies.</p>
+
+<p><b>Why we record <code>bestLen</code> at the top of the shrink loop, not after.</b> The window is valid at the
+instant we enter the loop body. If we shrink first and then check, we might skip past the smallest valid window,
+because the step that removes the last required copy both invalidates the window and advances <code>l</code>.</p>
+
+<p><b>Can this be done with two pointers but no counts?</b> No. "Contains all of <code>t</code>" is not a monotone
+substring predicate in the sense you can test by looking at endpoints alone; you need to know the multiset.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Treating <code>t</code> as a set.</b> <code>t = "aabc"</code> needs two <code>a</code>s. If you lose the
+      counts, <code>"abc"</code> would wrongly match.</li>
+    <li><b>Incrementing <code>formed</code> on every match.</b> It must increment only when <code>have[c] == need[c]</code>
+      for the first time. A later extra copy keeps the window valid but should not bump <code>formed</code> again.</li>
+    <li><b>Decrementing <code>formed</code> on every removal.</b> It must decrement only when <code>have[c]</code> drops
+      <i>below</i> <code>need[c]</code>. If you had extras, removing one still leaves the character satisfied.</li>
+    <li><b>Recording <code>bestLen</code> outside the <code>while</code> loop.</b> You miss the smallest window.</li>
+    <li><b>Returning <code>s.substr(l, bestLen)</code> instead of <code>s.substr(bestL, bestLen)</code>.</b> <code>l</code>
+      has moved past the best window by the end.</li>
+    <li><b><code>t</code> longer than <code>s</code>, or empty <code>t</code>.</b> Guard early and return <code>""</code>.</li>
+    <li><b>Mixed case.</b> The problem is case-sensitive. <code>s = "ab"</code>, <code>t = "A"</code> &rarr;
+      <code>""</code>.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I count the characters in <code>t</code> into <code>need</code>, and track <code>have</code> for the current window.
+  To avoid re-checking the whole map, I keep a single counter <code>formed</code> that counts how many characters have
+  reached their required count. I expand to the right, bumping <code>formed</code> when a count hits the threshold;
+  while the window is valid (<code>formed == required</code>) I shrink from the left, recording the smallest valid
+  window, and I drop <code>formed</code> when a count falls below. O(|s| + |t|) time."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 3 Longest Substring Without Repeating</td><td>Grow / jump variant; shrink to maximise length instead.</td></tr>
+  <tr><td>LC 424 Longest Repeating Character Replacement</td><td>Variable window with a different validity rule.</td></tr>
+  <tr><td>LC 567 Permutation in String</td><td>Fixed-size window version; check if any window matches the multiset.</td></tr>
+  <tr><td>LC 438 Find All Anagrams in a String</td><td>Fixed-size variant; return every window that matches.</td></tr>
+  <tr><td>LC 727 Minimum Window Subsequence</td><td>Must preserve order of <code>t</code>, not just counts; different pattern (DP or two-phase scan).</td></tr>
+</table>
+
+<script>
+function esc(x) { return String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+/* Draw s as a strip with window shading, best window underlined. */
+function sStrip(s, l, r, bestL, bestR, newIdx, droppedIdx) {
+  const n = s.length;
+  const idx = '<div class="idx">' + [...s].map((_, i) => `<span>${i}</span>`).join('') + '</div>';
+  const cells = '<div class="strip">' + [...s].map((c, i) => {
+    let cls = '';
+    if (droppedIdx !== undefined && i === droppedIdx) cls = 'gone';
+    else if (i >= l && i <= r) cls = 'in';
+    if (i === newIdx) cls = 'new';
+    return `<div class="cell ${cls}">${esc(c)}</div>`;
+  }).join('') + '</div>';
+  let ptr = '<div class="ptr">' + [...s].map((_, i) => {
+    if (i === l && i === r) return '<span>L R</span>';
+    if (i === l) return '<span>L</span>';
+    if (i === r) return '<span>R</span>';
+    return '<span></span>';
+  }).join('') + '</div>';
+  let under = '';
+  if (bestR >= 0) {
+    const w = 42, g = 4;
+    const x1 = bestL * (w + g);
+    const bw = (bestR - bestL + 1) * (w + g) - g;
+    under = `<div style="position:relative;height:12px;margin-top:2px">
+      <div style="position:absolute;left:${x1}px;top:0;width:${bw}px;height:4px;background:var(--keepb);border-radius:2px"></div>
+      <div style="position:absolute;left:${x1 + bw + 6}px;top:-2px;font-size:11px;color:var(--keepb);font-weight:700">best so far</div></div>`;
+  }
+  return `<div class="figure">${idx}${cells}${ptr}${under}</div>`;
+}
+
+/* Table of need[c] vs have[c], with a check mark when have >= need. */
+function needHaveTable(need, have) {
+  const keys = Object.keys(need).filter(c => need[c] > 0).sort();
+  if (!keys.length) return '';
+  let h = '<table style="font-size:13px;max-width:360px"><tr><th>char</th>' +
+    keys.map(c => `<th>${esc(c)}</th>`).join('') + '</tr>';
+  h += '<tr><th>need</th>' + keys.map(c => `<td>${need[c]}</td>`).join('') + '</tr>';
+  h += '<tr><th>have</th>' + keys.map(c => {
+    const h2 = have[c] || 0;
+    const ok = h2 >= need[c];
+    return `<td style="color:${ok ? 'var(--ok)' : 'var(--bad)'};font-weight:${ok ? 700 : 400}">${h2}${ok ? ' &check;' : ''}</td>`;
+  }).join('') + '</tr></table>';
+  return h;
+}
+
+/* Static idea diagram: show one valid and one invalid window side by side. */
+(function () {
+  const s = 'ADOBECODEBANC';
+  const need = {A:1,B:1,C:1}, have1 = {A:1,B:1,C:1,D:1,O:1,E:1}, have2 = {B:1,A:1,N:1,C:1};
+  let html = '<div style="display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start">';
+  html += '<div><div style="font-size:13px;color:var(--muted);margin-bottom:4px">First valid window: <code>"ADOBEC"</code> (length 6)</div>' +
+    sStrip(s, 0, 5, -1, -1) + needHaveTable(need, have1) + '</div>';
+  html += '<div><div style="font-size:13px;color:var(--muted);margin-bottom:4px">Shrunk minimum window: <code>"BANC"</code> (length 4)</div>' +
+    sStrip(s, 9, 12, 9, 12) + needHaveTable(need, have2) + '</div>';
+  html += '</div><div class="caption">Both windows contain A, B and C. The question is to find the shortest one.</div>';
+  document.getElementById('idea').innerHTML = html;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Expand right', lines: ['have[s[r]]++', 'maybe formed++'], color: 'yellow' },
+  { title: '2. Valid?', lines: ['formed == required?'], color: 'blue' },
+  { title: '3a. Record + shrink', lines: ['best = min(best, len)', 'have[s[l]]--', 'maybe formed--'], color: 'green' },
+  { title: '3b. Keep growing', lines: ['move r on'], color: 'purple' },
+]);
+
+/* Interactive trace. */
+VIZ.controls('trace', [
+  { id: 's', label: 's =', value: 'ADOBECODEBANC', size: 18 },
+  { id: 't', label: 't =', value: 'ABC', size: 10 },
+], v => {
+  const s = v.s, t = v.t;
+  if (!t.length) {
+    document.getElementById('answer').innerHTML = '<b>Answer: ""</b> (t empty)';
+    return '<p class="caption">Empty t: return "".</p>';
+  }
+  if (s.length < t.length) {
+    document.getElementById('answer').innerHTML = '<b>Answer: ""</b> (|s| &lt; |t|)';
+    return '<p class="caption">|s| &lt; |t|, no window possible.</p>';
+  }
+  if (s.length > 22)
+    return '<div class="box trap">Pick |s| &le; 22 to keep the trace readable.</div>';
+
+  const need = {};
+  for (const c of t) need[c] = (need[c] || 0) + 1;
+  const required = Object.keys(need).length;
+  const have = {};
+  let formed = 0, l = 0, bestLen = Infinity, bestL = 0, bestR = -1;
+  const MAX_STEPS = 24;
+  let html = '';
+  let stepCount = 0;
+
+  const addStep = (title, visual, text) => {
+    if (stepCount >= MAX_STEPS) return;
+    html += `<div class="step"><div><h4>${title}</h4>${visual}</div>` +
+      `<div class="text">${text}</div></div>`;
+    stepCount++;
+  };
+
+  outer:
+  for (let r = 0; r < s.length; r++) {
+    const c = s[r];
+    have[c] = (have[c] || 0) + 1;
+    const crossed = need[c] && have[c] === need[c];
+    if (crossed) formed++;
+
+    let note = `Expand: add <b>${esc(c)}</b> at index ${r}. `;
+    if (need[c]) {
+      note += `<code>have[${esc(c)}] = ${have[c]}</code>, <code>need = ${need[c]}</code>. `;
+      note += crossed
+        ? `Just hit the threshold &rarr; <code>formed = ${formed}</code>${formed === required ? ' (valid)' : ''}.`
+        : `${have[c] > need[c] ? 'Extra copy, no formed change.' : 'Still below need.'}`;
+    } else {
+      note += `<code>${esc(c)}</code> is not in <code>t</code>, no effect on formed.`;
+    }
+    const visual = sStrip(s, l, r, bestR >= 0 ? bestL : -1, bestR, r) +
+      needHaveTable(need, have);
+    addStep(`r = ${r} (expand)`, visual, note);
+    if (stepCount >= MAX_STEPS) break;
+
+    while (formed === required) {
+      const len = r - l + 1;
+      const improved = len < bestLen;
+      if (improved) { bestLen = len; bestL = l; bestR = r; }
+
+      const lc = s[l];
+      const dropped = l;
+      have[lc]--;
+      let shrinkNote = `Valid window <b>"${esc(s.slice(l, r + 1))}"</b>, length ${len}. ` +
+        (improved ? `New best! bestLen = ${bestLen}, window = <code>"${esc(s.slice(bestL, bestR + 1))}"</code>. ` : `Not better than best ${bestLen}. `) +
+        `Shrink: drop <b>${esc(lc)}</b> at index ${dropped}. `;
+      let formedBefore = formed;
+      if (need[lc] && have[lc] < need[lc]) {
+        formed--;
+        shrinkNote += `<code>have[${esc(lc)}] = ${have[lc]} &lt; need = ${need[lc]}</code> &rarr; <code>formed = ${formed}</code> (no longer valid).`;
+      } else if (need[lc]) {
+        shrinkNote += `<code>have[${esc(lc)}] = ${have[lc]} &ge; need = ${need[lc]}</code>, still formed.`;
+      } else {
+        shrinkNote += `<code>${esc(lc)}</code> not in t, no formed change.`;
+      }
+      l++;
+      const visual2 = sStrip(s, l, r, bestL, bestR, -1, dropped) + needHaveTable(need, have);
+      addStep(`l advances to ${l} (shrink)`, visual2, shrinkNote);
+      if (stepCount >= MAX_STEPS) break outer;
+    }
+  }
+
+  // finish silently if truncated
+  if (stepCount >= MAX_STEPS) html += `<p class="caption">... more steps omitted, same pattern.</p>`;
+
+  const ans = bestLen === Infinity ? '' : s.slice(bestL, bestR + 1);
+  document.getElementById('answer').innerHTML =
+    `<b>Answer for s="${esc(s)}", t="${esc(t)}": "${esc(ans)}"</b>` + (ans ? ` (length ${bestLen})` : '');
+  return html;
+}, 'Give two strings s and t.');
+</script>
+
+</body>
+</html>

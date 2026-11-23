@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 7 - Reverse Integer</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#math-design">Pattern lesson</a><span>Pattern 19: Math / Design</span></div>
+
+<h1>Reverse Integer</h1>
+<p class="sub">LeetCode 7 &middot; Medium &middot; Pattern: Math (overflow-safe digit extraction) &middot; O(log<sub>10</sub> x) time, O(1) space</p>
+
+<div class="box">
+  <b>Problem.</b> Reverse the digits of a 32-bit signed integer <code>x</code>. If the reversed value overflows the
+  signed 32-bit range <code>[-2<sup>31</sup>, 2<sup>31</sup>-1]</code>, return <code>0</code>.
+  <br>Examples: <code>123 &rarr; 321</code>, <code>-123 &rarr; -321</code>, <code>120 &rarr; 21</code>,
+  <code>1534236469 &rarr; 0</code> (reversed is <code>9646324351</code>, too big).
+  <br>Link: <a href="https://leetcode.com/problems/reverse-integer/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Peel digits off the right of <code>x</code> with <code>d = x % 10</code>, divide <code>x</code> by 10 to drop that
+digit, and glue <code>d</code> onto a running result with <code>r = r * 10 + d</code>. In C++ the <code>%</code>
+operator keeps the sign of <code>x</code>, so negatives come out right without a special case.</p>
+
+<p>The one real difficulty is the overflow. The result is an <code>int</code>, and if the reversed value does not fit,
+we must return <code>0</code> &mdash; <i>but we must detect this before the multiply that actually overflows</i>,
+otherwise the overflow is undefined behaviour. The check is on <code>r</code> compared to <code>INT_MAX/10</code> and
+<code>INT_MIN/10</code>, done before the next <code>r * 10 + d</code>.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Pull one digit, push one digit. Before each push, check whether the push would overflow by comparing
+  the current <code>r</code> to <code>INT_MAX/10</code> (positive side) and <code>INT_MIN/10</code> (negative side).
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>Each iteration moves exactly one digit from <code>x</code> to <code>r</code>. The loop runs at most 10 times for a
+32-bit int, so the whole thing is O(log<sub>10</sub> x).</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Change <code>x</code> and press <b>Trace it</b>. Each card shows one iteration: the digit popped off <code>x</code>,
+the overflow check against <code>INT_MAX/10 = 214748364</code>, and the new <code>r</code>.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>digit being popped / pushed this step</span>
+  <span><i style="background:var(--win)"></i>already pushed into <code>r</code></span>
+  <span><i style="background:var(--keep)"></i>final answer</span>
+  <span><i style="background:var(--gone)"></i>overflow &rarr; return 0</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">int</span> reverse(<span class="t">int</span> x) {
+        <span class="t">int</span> r = <span class="n">0</span>;
+        <span class="k">while</span> (x != <span class="n">0</span>) {
+            <span class="t">int</span> d = x % <span class="n">10</span>;        <span class="c">// keeps sign of x</span>
+            x /= <span class="n">10</span>;
+            <span class="c">// overflow checks (branch-free on signed int)</span>
+            <span class="k">if</span> (r &gt; INT_MAX / <span class="n">10</span> || (r == INT_MAX / <span class="n">10</span> &amp;&amp; d &gt; <span class="n">7</span>)) <span class="k">return</span> <span class="n">0</span>;
+            <span class="k">if</span> (r &lt; INT_MIN / <span class="n">10</span> || (r == INT_MIN / <span class="n">10</span> &amp;&amp; d &lt; <span class="n">-8</span>)) <span class="k">return</span> <span class="n">0</span>;
+            r = r * <span class="n">10</span> + d;
+        }
+        <span class="k">return</span> r;
+    }
+};</pre>
+
+<p><b>Complexity:</b> O(log<sub>10</sub> x) time &mdash; at most 10 iterations for a 32-bit int. O(1) space.</p>
+
+<p>Why <code>7</code> and <code>-8</code>? <code>INT_MAX = 2147483647</code> ends in <code>7</code>, and
+<code>INT_MIN = -2147483648</code> ends in <code>-8</code> under C++ truncated division. So on the knife-edge where
+<code>r == INT_MAX/10 = 214748364</code>, a next digit greater than <code>7</code> would push past <code>INT_MAX</code>;
+similarly for <code>-8</code> at <code>INT_MIN</code>.</p>
+
+<h3>Alternative: use <code>long long</code> and compare</h3>
+
+<pre><span class="t">long</span> <span class="t">long</span> r = <span class="n">0</span>;
+<span class="k">while</span> (x) { r = r * <span class="n">10</span> + x % <span class="n">10</span>; x /= <span class="n">10</span>; }
+<span class="k">if</span> (r &gt; INT_MAX || r &lt; INT_MIN) <span class="k">return</span> <span class="n">0</span>;
+<span class="k">return</span> (<span class="t">int</span>)r;</pre>
+
+<p>Simpler, but relies on a wider type. Interviewers often ban it and want the int-only version. Learn both; lead with
+the int-only one.</p>
+
+<h2>5. The part interviewers ask about: why the overflow check is tricky</h2>
+
+<div class="box insight">
+  <ul>
+    <li><b>Check before the multiply.</b> If you compute <code>r = r * 10 + d</code> first and then test overflow,
+    the multiply itself is undefined behaviour on signed overflow. The check must happen on the OLD <code>r</code>.</li>
+    <li><b>Why compare to <code>INT_MAX/10</code>, not <code>INT_MAX</code>?</b> <code>INT_MAX/10 = 214748364</code>.
+    If <code>r &gt; 214748364</code> then <code>r*10</code> is already past <code>INT_MAX</code>, no matter what digit
+    comes next. If <code>r == 214748364</code>, the next digit decides: anything above <code>7</code> overflows,
+    anything &le; 7 is fine (because <code>INT_MAX</code> itself ends in <code>7</code>).</li>
+    <li><b>Negative side is symmetric but not identical.</b> <code>INT_MIN</code> is <code>-2147483648</code>: the
+    last digit magnitude is <code>8</code>, one bigger than <code>INT_MAX</code>'s <code>7</code>. This asymmetry is
+    why the two bounds have different cutoff digits (<code>7</code> vs <code>-8</code>).</li>
+    <li><b>C++'s <code>%</code> is sign-preserving.</b> <code>-123 % 10</code> is <code>-3</code>, not <code>7</code>.
+    So we don't need to split on sign; the same loop handles negatives.</li>
+  </ul>
+</div>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Testing overflow after the multiply.</b> Classic trap. The multiply has already invoked undefined behaviour,
+    so the test may lie (and on strict compilers may be optimised away). Always check first.</li>
+    <li><b>Forgetting one bound.</b> People check <code>r &gt; INT_MAX/10</code> and skip the <code>INT_MIN/10</code>
+    side. For most tests this works because <code>x = -1534236469</code> is rare, but LeetCode has such tests.</li>
+    <li><b><code>x = 0</code>.</b> Loop never runs; return <code>0</code>.</li>
+    <li><b>Trailing zeros.</b> <code>120 &rarr; 21</code>, not <code>021</code>. Falls out naturally because
+    <code>r*10 + 0 = 0</code> on the first push.</li>
+    <li><b><code>x = INT_MIN</code>.</b> <code>-2147483648</code> reversed is <code>-8463847412</code> which overflows,
+    so the answer is <code>0</code>. Don't try <code>-x</code> up front; <code>-INT_MIN</code> is itself UB.</li>
+    <li><b>Palindromes.</b> <code>1221 &rarr; 1221</code>. Not a special case, but a good sanity check.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I keep a running result <code>r</code> and peel digits off <code>x</code> with <code>x % 10</code> and <code>x / 10</code>.
+  C++'s <code>%</code> preserves sign, so the same loop handles negatives. Before each <code>r = r * 10 + d</code>, I
+  check overflow against <code>INT_MAX/10</code> (digit cutoff <code>7</code>) and <code>INT_MIN/10</code> (digit cutoff
+  <code>-8</code>). If the check fails, return <code>0</code>. The loop runs at most 10 times for a 32-bit int, so
+  it's O(log<sub>10</sub> x) time, O(1) space, and uses no wider type."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 8 String to Integer (atoi)</td><td>Same overflow check against <code>INT_MAX/10</code> while building a number digit by digit from a string.</td></tr>
+  <tr><td>LC 9 Palindrome Number</td><td>Reverse half the digits and compare &mdash; same digit-peel loop, no overflow concern because we stop at the middle.</td></tr>
+  <tr><td>LC 29 Divide Two Integers</td><td>Division without <code>*</code> or <code>/</code>; same INT_MIN overflow pitfall when negating.</td></tr>
+  <tr><td>LC 190 Reverse Bits</td><td>Same shape with bits instead of digits: <code>r = (r &lt;&lt; 1) | (x &amp; 1); x &gt;&gt;= 1</code>.</td></tr>
+  <tr><td>LC 258 Add Digits</td><td>Repeatedly extracts digits with <code>% 10</code> and <code>/ 10</code>.</td></tr>
+</table>
+
+<script>
+/* 1. Static idea diagram: 123 -> 321, digit by digit. */
+(function () {
+  const V = VIZ;
+  // Show three snapshots of (x, r) side by side.
+  function cell(txt, cls) { return `<div class="cell small ${cls || ''}" style="min-width:32px">${txt}</div>`; }
+  function row(x, r, note) {
+    return `<div style="display:inline-flex;flex-direction:column;align-items:center;margin:0 14px">
+      <div style="display:flex;gap:14px;align-items:center">
+        <div><div style="font-size:11px;color:#616e7c">x</div>${cell(x, 'in')}</div>
+        <div style="font-size:13px;color:#616e7c">&rarr;</div>
+        <div><div style="font-size:11px;color:#616e7c">r</div>${cell(r, 'keep')}</div>
+      </div>
+      <div style="font-size:12px;color:#616e7c;margin-top:4px">${note}</div></div>`;
+  }
+  const html = `<div class="figure" style="display:flex;flex-wrap:wrap;align-items:center">
+    ${row('123', '0', 'start')}
+    ${row('12', '3', 'pop 3 &rarr; r=3')}
+    ${row('1', '32', 'pop 2 &rarr; r=32')}
+    ${row('0', '321', 'pop 1 &rarr; r=321')}
+  </div>
+  <div class="caption">Each step: <code>d = x % 10</code>, <code>x = x / 10</code>, <code>r = r * 10 + d</code>.</div>`;
+  document.getElementById('idea').innerHTML = html;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Pop a digit', lines: ['d = x % 10', 'x = x / 10'], color: 'yellow' },
+  { title: '2. Check overflow', lines: ['r > INT_MAX/10 ?', 'r == INT_MAX/10 && d > 7 ?', '(symmetric for min)'], color: 'red' },
+  { title: '3. Push the digit', lines: ['r = r * 10 + d'], color: 'green' },
+  { title: '4. Done when x == 0', lines: ['return r'], color: 'blue' },
+], { loop: 'while x != 0' });
+
+/* Interactive trace. The JavaScript here mirrors the C++ exactly: 32-bit signed overflow checks
+   using INT_MAX = 2147483647 and INT_MIN = -2147483648. JS numbers are doubles so no actual
+   overflow occurs; we simulate by testing the same bounds. */
+VIZ.controls('trace', [
+  { id: 'x', label: 'x =', value: '1534236469', size: 14 },
+], v => {
+  const INT_MAX = 2147483647, INT_MIN = -2147483648;
+  const QMAX = Math.trunc(INT_MAX / 10);           // 214748364
+  const QMIN = -Math.trunc(-INT_MIN / 10) - 0;     // -214748364 (C++ truncation toward zero)
+  const x0 = parseInt(v.x, 10);
+  if (Number.isNaN(x0)) throw new Error('x must be an integer');
+  if (x0 < INT_MIN || x0 > INT_MAX) throw new Error('x out of 32-bit range');
+
+  let x = x0, r = 0, step = 0, html = '';
+  html += VIZ.step('Init', renderPair(x, r, null, []), `Start with <code>x = ${x0}</code>, <code>r = 0</code>. Peel digits off <code>x</code> on the right and glue them onto <code>r</code>.`);
+
+  const digitsPushed = [];
+  let overflowed = false;
+
+  while (x !== 0 && step < 20) {
+    const d = (x > 0 ? x % 10 : -((-x) % 10));     // emulate C++ truncated modulo
+    const xNext = (x - d) / 10;                     // same as C++ trunc division
+    // check overflow BEFORE the push
+    const willOverflow =
+      (r > QMAX) || (r === QMAX && d > 7) ||
+      (r < QMIN) || (r === QMIN && d < -8);
+    if (willOverflow) {
+      html += VIZ.step(
+        `Step ${step + 1}: pop ${d}`,
+        renderPair(x, r, d, digitsPushed, true),
+        `<code>d = ${x} % 10 = ${d}</code>, <code>x &rarr; ${xNext}</code>. Overflow check: current <code>r = ${r}</code>, which is at the edge <code>${r === QMAX ? 'INT_MAX/10' : r === QMIN ? 'INT_MIN/10' : (r > QMAX ? '> INT_MAX/10' : '< INT_MIN/10')}</code>${r === QMAX && d > 7 ? ' with next digit > 7' : r === QMIN && d < -8 ? ' with next digit < -8' : ''}. Pushing would overflow &rarr; <b>return 0</b>.`);
+      overflowed = true;
+      break;
+    }
+    r = r * 10 + d;
+    digitsPushed.push(d);
+    html += VIZ.step(
+      `Step ${step + 1}: pop ${d}`,
+      renderPair(xNext, r, d, digitsPushed),
+      `<code>d = ${x} % 10 = ${d}</code>, <code>x &rarr; ${xNext}</code>. Overflow check passes (<code>|r| &lt; INT_MAX/10</code>). Push: <code>r = ${r - d} * 10 + ${d} = ${r}</code>.`);
+    x = xNext;
+    step++;
+  }
+
+  if (!overflowed) {
+    html += VIZ.step('Done', renderPair(x, r, null, digitsPushed, false, true),
+      `<code>x = 0</code>, loop ends. Answer: <b>${r}</b>.`);
+  }
+
+  document.getElementById('answer').innerHTML = overflowed
+    ? `<b>Reversed <code>${x0}</code> &rarr; 0</b> (would overflow 32-bit signed range).`
+    : `<b>Reversed <code>${x0}</code> &rarr; ${r}</b>.`;
+  return html;
+}, 'Try 123, -123, 120, 1534236469 (overflow), -2147483648 (overflow).');
+
+function renderPair(x, r, poppedDigit, pushedList, isOverflow, isDone) {
+  const V = VIZ;
+  const xStr = String(x);
+  const rStr = String(r);
+  // Render x digits: last digit highlighted (new) if we are popping it.
+  const xChars = xStr === '0' ? [] : [...xStr];
+  const xHtml = xChars.length
+    ? V.strip(xChars, { cls: (i) => (poppedDigit !== null && i === xChars.length - 1 ? 'new' : (i === 0 && xChars[0] === '-' ? 'dim' : 'in')), small: true, index: false })
+    : '<div class="caption">(x = 0)</div>';
+  // Render r digits: all keep, last one pushed highlighted new.
+  const rChars = [...rStr];
+  const rCls = (i) => {
+    if (isDone) return 'keep';
+    if (isOverflow) return 'gone';
+    if (poppedDigit !== null && i === rChars.length - 1) return 'new';
+    return 'in';
+  };
+  const rHtml = V.strip(rChars, { cls: rCls, small: true, index: false });
+  return `<div style="display:flex;gap:24px;align-items:flex-start">
+    <div><div style="font-size:12px;color:#616e7c;margin-bottom:2px"><code>x</code></div>${xHtml}</div>
+    <div style="padding-top:14px;color:#475569">&rarr;</div>
+    <div><div style="font-size:12px;color:#616e7c;margin-bottom:2px"><code>r</code>${pushedList.length ? ' (pushed: ' + pushedList.join(', ') + ')' : ''}</div>${rHtml}</div>
+  </div>`;
+}
+</script>
+
+</body>
+</html>

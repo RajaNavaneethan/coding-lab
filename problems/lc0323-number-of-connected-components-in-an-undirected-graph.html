@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 323 - Number of Connected Components in an Undirected Graph</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#shortest-path-union-find">Pattern lesson</a><span>Pattern 11: Graphs - Shortest Path / Union-Find</span></div>
+
+<h1>Number of Connected Components in an Undirected Graph</h1>
+<p class="sub">LeetCode 323 &middot; Medium &middot; Pattern: Union-Find (DSU) &middot; O(E &alpha;(N)) time, O(N) space</p>
+
+<div class="box">
+  <b>Problem.</b> <code>n</code> nodes labelled <code>0..n-1</code>, and a list of undirected <code>edges</code>.
+  Return the number of connected components.
+  <br><code>n=5, edges=[[0,1],[1,2],[3,4]] &rarr; 2</code>
+  <br>Link: <a href="https://leetcode.com/problems/number-of-connected-components-in-an-undirected-graph/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Start with <code>n</code> components (every node is a singleton). Walk the edges. Each edge is one of two cases:</p>
+
+<ul>
+  <li><b>Different components:</b> merge them. Total count drops by 1.</li>
+  <li><b>Same component already:</b> the edge forms a cycle inside the component. Count stays the same.</li>
+</ul>
+
+<p>So the answer is <code>n &minus; (number of edges that actually merged two different components)</code>.</p>
+
+<p><b>Union-Find</b> (also called a Disjoint Set Union / DSU) is the data structure that answers "same component?" and
+"merge these two components" each in near-constant amortised time. It stores a <code>parent[]</code> array where each node
+points to a parent in its component; a component's <i>root</i> points to itself. Two nodes are in the same component iff
+walking parents from each ends at the same root.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Represent each component by a tree rooted at one of its nodes. <code>find(x)</code> walks parent pointers to
+  the root; <code>union(a, b)</code> attaches one root to the other. Two speed tricks (<b>path compression</b> in
+  <code>find</code> and <b>union by rank</b> in <code>union</code>) keep each operation at an inverse Ackermann factor
+  &alpha;(N), effectively O(1).
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>Path compression: whenever <code>find</code> walks a long chain, it flattens the chain by pointing nodes directly
+closer to the root. Union by rank: attach the shorter tree under the taller one so trees stay shallow. The two tricks are
+independent and both are needed for the amortised bound.</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Each step consumes one edge <code>[a, b]</code>. The picture shows the forest (each tree = one component), the
+<code>parent</code> array below, and the current component count on the right.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>root changed this step</span>
+  <span><i style="background:var(--win)"></i>touched by find / union</span>
+  <span><i style="background:var(--keep)"></i>root of a component</span>
+  <span><i style="background:var(--gone)"></i>edge rejected (already same component)</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> UF {
+    vector&lt;<span class="t">int</span>&gt; parent, rk;
+<span class="k">public</span>:
+    UF(<span class="t">int</span> n) : parent(n), rk(n, <span class="n">0</span>) {
+        iota(parent.begin(), parent.end(), <span class="n">0</span>);     <span class="c">// parent[i] = i</span>
+    }
+    <span class="t">int</span> find(<span class="t">int</span> x) {
+        <span class="k">while</span> (parent[x] != x) {
+            parent[x] = parent[parent[x]];      <span class="c">// path compression (halving)</span>
+            x = parent[x];
+        }
+        <span class="k">return</span> x;
+    }
+    <span class="t">bool</span> unite(<span class="t">int</span> a, <span class="t">int</span> b) {
+        <span class="t">int</span> ra = find(a), rb = find(b);
+        <span class="k">if</span> (ra == rb) <span class="k">return</span> <span class="k">false</span>;             <span class="c">// already connected</span>
+        <span class="k">if</span> (rk[ra] &lt; rk[rb]) swap(ra, rb);         <span class="c">// smaller tree under bigger</span>
+        parent[rb] = ra;
+        <span class="k">if</span> (rk[ra] == rk[rb]) rk[ra]++;
+        <span class="k">return</span> <span class="k">true</span>;
+    }
+};
+
+<span class="t">int</span> countComponents(<span class="t">int</span> n, vector&lt;vector&lt;<span class="t">int</span>&gt;&gt;&amp; edges) {
+    UF uf(n);
+    <span class="t">int</span> components = n;
+    <span class="k">for</span> (<span class="k">auto</span>&amp; e : edges) {
+        <span class="k">if</span> (uf.unite(e[<span class="n">0</span>], e[<span class="n">1</span>])) components--;
+    }
+    <span class="k">return</span> components;
+}</pre>
+
+<p><b>Complexity:</b> O(E &middot; &alpha;(N)) time, O(N) space. With both path compression and union by rank the amortised
+cost per operation is &alpha;(N) &le; 4 for any practical input, so this is effectively O(E).</p>
+
+<h3>Alternative: BFS or DFS on the adjacency list</h3>
+
+<pre>vector&lt;vector&lt;<span class="t">int</span>&gt;&gt; adj(n);
+<span class="k">for</span> (<span class="k">auto</span>&amp; e : edges) { adj[e[<span class="n">0</span>]].push_back(e[<span class="n">1</span>]); adj[e[<span class="n">1</span>]].push_back(e[<span class="n">0</span>]); }
+vector&lt;<span class="t">bool</span>&gt; seen(n, <span class="k">false</span>);
+<span class="t">int</span> cnt = <span class="n">0</span>;
+<span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt; n; i++) <span class="k">if</span> (!seen[i]) {
+    cnt++;
+    <span class="c">// BFS/DFS from i, mark everything reachable</span>
+}
+<span class="k">return</span> cnt;</pre>
+
+<p>Also O(N + E). Prefer BFS/DFS when the problem later asks for things <i>inside</i> a component (list its nodes, measure
+its diameter). Prefer Union-Find when the problem is "same-set?" queries, incremental connectivity, Kruskal's MST, or
+"first redundant edge" style questions (LC 684).</p>
+
+<h2>5. The part interviewers ask about: why path compression + union by rank is &alpha;(N)</h2>
+
+<div class="box insight">
+  <b>Intuition.</b> Union by rank alone keeps the tree height &le; log<sub>2</sub>(size), so <code>find</code> is
+  O(log N) worst case. Path compression alone also gets to O(log N) amortised. Together they interact: compression
+  flattens the longest chains, rank keeps future unions from re-growing them. The combined cost of any sequence of
+  <code>m</code> operations on <code>n</code> elements is O(m &middot; &alpha;(n)) &mdash; the inverse Ackermann function,
+  &le; 4 for any <code>n</code> that fits in the universe.
+  <br><br>
+  You do not have to prove this in an interview. Say "amortised &alpha;(N), effectively constant" and keep moving.
+</div>
+
+<h3>Common variants of each trick</h3>
+
+<ul>
+  <li><b>Path compression (recursive):</b> <code>return parent[x] = find(parent[x]);</code>. One line, same bound, risks
+  stack overflow on a pathological chain. The iterative halving above is safer.</li>
+  <li><b>Union by size</b> instead of rank: track component size, attach smaller under larger. Same complexity. If the
+  problem also asks for component sizes, pick union by size &mdash; you get the sizes for free.</li>
+</ul>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Forgetting to initialise <code>parent[i] = i</code>.</b> Then every <code>find</code> walks to a bogus root.
+    Use <code>iota</code> or a loop.</li>
+    <li><b>Comparing nodes, not roots.</b> <code>if (a == b) return false</code> is wrong. Call <code>find</code> on
+    both and compare roots.</li>
+    <li><b>Returning <code>void</code> from <code>unite</code>.</b> You need the "did it actually merge?" signal to
+    decrement the component count. Return a bool.</li>
+    <li><b>Node labels not 0..n-1.</b> If the problem gives string labels or sparse integers, map them to
+    <code>0..n-1</code> first.</li>
+    <li><b>n = 0.</b> Return 0; no nodes, no components.</li>
+    <li><b>Self-loop <code>[i, i]</code>.</b> <code>unite(i, i)</code> returns false, count stays correct.</li>
+    <li><b>Duplicate edges.</b> The second copy is rejected by <code>unite</code>, count stays correct.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I start with <code>n</code> components and walk the edges with a Union-Find. Each edge either merges two different
+  components (count drops by one) or joins two nodes already in the same component (count stays). <code>find</code> walks
+  parent pointers to the root with path compression, <code>union</code> attaches smaller rank under larger rank. Both
+  tricks give amortised &alpha;(N), effectively constant per operation, so the total is O(E) time and O(N) space."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 684 Redundant Connection</td><td>Same loop; return the first edge whose endpoints are already connected.</td></tr>
+  <tr><td>LC 547 Number of Provinces</td><td>Same problem on an adjacency-matrix input.</td></tr>
+  <tr><td>LC 1319 Minimum Operations to Make Network Connected</td><td>Count components with UF, then merge using "spare" extra edges.</td></tr>
+  <tr><td>LC 721 Accounts Merge</td><td>Email -&gt; index; UF across all shared emails.</td></tr>
+  <tr><td>LC 1584 Min Cost to Connect All Points</td><td>Kruskal's MST: sort edges by weight, union in order.</td></tr>
+</table>
+
+<script>
+/* 1. Static idea diagram: n=5, edges=[[0,1],[1,2],[3,4]] -> two components. */
+(function () {
+  const left = VIZ.circleLayout([0, 1, 2], 90, 110, 55);
+  const right = VIZ.circleLayout([3, 4], 240, 110, 40);
+  // adjust x so both clusters share the SVG
+  const nodes = [...left, ...right];
+  const edges = [[0, 1], [1, 2], [3, 4]];
+  const g = VIZ.graph(nodes, edges, {
+    nodeCls: { 0: 'in', 1: 'in', 2: 'in', 3: 'keep', 4: 'keep' },
+    edgeCls: { '0-1': 'in', '1-2': 'in', '3-4': 'keep' },
+    w: 330, h: 220,
+  });
+  document.getElementById('idea').innerHTML =
+    g + '<div class="caption">n=5, edges=[[0,1],[1,2],[3,4]]. Two connected components: {0,1,2} and {3,4}.</div>';
+})();
+
+/* 2. Flow */
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Init', lines: ['parent[i] = i', 'rank[i] = 0', 'components = n'], color: 'green' },
+  { title: '2. For each edge (a,b)', lines: ['ra = find(a)', 'rb = find(b)'], color: 'yellow' },
+  { title: '3. Merge if different', lines: ['if ra != rb:', '  attach smaller rank', '  under larger', '  components--'], color: 'blue' },
+], { loop: 'next edge' });
+
+/* 3. Interactive trace */
+(function () {
+  function layout(n) {
+    // Place nodes in a horizontal line so the forest can grow upward naturally.
+    const pos = [];
+    const gap = Math.max(60, 420 / Math.max(1, n));
+    for (let i = 0; i < n; i++) pos.push({ id: i, x: 40 + i * gap, y: 260 });
+    return pos;
+  }
+
+  function renderForest(parent, rank, n, basePos, highlight, newRoot) {
+    // Compute depth of each node by walking parent pointers to root.
+    const depth = Array(n).fill(0);
+    for (let i = 0; i < n; i++) {
+      let d = 0, cur = i;
+      while (parent[cur] !== cur) { cur = parent[cur]; d++; }
+      depth[i] = d;
+    }
+    // position: child above parent — climb up by (depth[root] - depth[i]) steps? Simpler: y = 260 - depth[i]*60
+    const nodes = basePos.map(p => ({ id: p.id, x: p.x, y: 260 - depth[p.id] * 55 }));
+    const edges = [];
+    for (let i = 0; i < n; i++) if (parent[i] !== i) edges.push([i, parent[i]]);
+    const nodeCls = {};
+    for (let i = 0; i < n; i++) {
+      if (parent[i] === i) nodeCls[i] = 'keep';
+    }
+    if (highlight) for (const h of highlight) nodeCls[h] = 'in';
+    if (newRoot !== undefined && newRoot !== null) nodeCls[newRoot] = 'new';
+    const notes = {};
+    for (let i = 0; i < n; i++) if (parent[i] === i) notes[i] = 'rk=' + rank[i];
+    return VIZ.graph(nodes, edges, {
+      directed: true, nodeCls, notes,
+      w: Math.max(300, 60 + n * Math.max(60, 420 / Math.max(1, n))),
+      h: 300,
+    });
+  }
+  function parentRow(parent, n, highlight) {
+    return VIZ.strip(parent.slice(0, n), {
+      labels: Array.from({length: n}, (_, i) => i),
+      cls: (i) => highlight && highlight.has(i) ? 'new' : (parent[i] === i ? 'keep' : 'in'),
+      small: true,
+    });
+  }
+
+  function run(input) {
+    const n = VIZ.parse.int(input.n);
+    const edges = VIZ.parse.mat(input.edges);
+    if (n < 1 || n > 10) return '<div class="box trap">Use 1 &le; n &le; 10 for a readable trace.</div>';
+    if (edges.length > 15) return '<div class="box trap">Keep &le; 15 edges for a readable trace.</div>';
+
+    const parent = Array.from({length: n}, (_, i) => i);
+    const rk = Array(n).fill(0);
+    const base = layout(n);
+
+    function find(x) {
+      const touched = new Set();
+      while (parent[x] !== x) {
+        touched.add(x);
+        parent[x] = parent[parent[x]];
+        x = parent[x];
+      }
+      touched.add(x);
+      return { root: x, touched };
+    }
+
+    let components = n;
+    let html = '';
+    html += VIZ.step('Init',
+      renderForest(parent, rk, n, base, new Set(), null),
+      `Every node is its own root. <code>components = ${n}</code>.` +
+      '<div style="margin-top:8px">' + parentRow(parent, n, new Set()) + '</div>',
+      true);
+
+    let stepN = 0;
+    for (const e of edges) {
+      if (e.length < 2) continue;
+      const [a, b] = e;
+      if (a < 0 || a >= n || b < 0 || b >= n) {
+        html += '<div class="box trap">Edge [' + a + ',' + b + '] out of range.</div>';
+        break;
+      }
+      stepN++;
+      if (stepN > 20) { html += '<div class="caption">&hellip; trace cut off at 20 edges.</div>'; break; }
+      const fa = find(a), fb = find(b);
+      const touched = new Set([...fa.touched, ...fb.touched]);
+      if (fa.root === fb.root) {
+        html += VIZ.step(`Step ${stepN}: edge [${a}, ${b}]`,
+          renderForest(parent, rk, n, base, touched, null),
+          `find(${a}) = ${fa.root}, find(${b}) = ${fb.root}. Same root &rarr; ignore (would form a cycle). <code>components = ${components}</code>.` +
+          '<div style="margin-top:8px">' + parentRow(parent, n, touched) + '</div>',
+          true);
+      } else {
+        let ra = fa.root, rb = fb.root, note;
+        if (rk[ra] < rk[rb]) { const t = ra; ra = rb; rb = t; }
+        parent[rb] = ra;
+        if (rk[ra] === rk[rb]) { rk[ra]++; note = `ranks equal (${rk[ra] - 1} = ${rk[ra] - 1}), attach ${rb} under ${ra} and bump rank[${ra}] to ${rk[ra]}`; }
+        else note = `smaller rank (${rk[rb]}) under larger (${rk[ra]}), attach ${rb} under ${ra}`;
+        components--;
+        html += VIZ.step(`Step ${stepN}: edge [${a}, ${b}]`,
+          renderForest(parent, rk, n, base, touched, rb),
+          `find(${a}) = ${fa.root}, find(${b}) = ${fb.root}. Different roots &rarr; union: ${note}. <code>components = ${components}</code>.` +
+          '<div style="margin-top:8px">' + parentRow(parent, n, new Set([rb])) + '</div>',
+          true);
+      }
+    }
+    document.getElementById('answer').innerHTML = `<b>Answer:</b> ${components} connected component${components === 1 ? '' : 's'}.`;
+    return html;
+  }
+
+  VIZ.controls('trace', [
+    { id: 'n', label: 'n =', value: '5', size: 3 },
+    { id: 'edges', label: 'edges =', value: '[[0,1],[1,2],[3,4]]', size: 24 },
+  ], run);
+})();
+</script>
+
+</body>
+</html>

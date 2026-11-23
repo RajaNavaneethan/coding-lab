@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 207 - Course Schedule</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#graphs-bfs-dfs">Pattern lesson</a><span>Pattern 10: Graphs - BFS/DFS</span></div>
+
+<h1>Course Schedule</h1>
+<p class="sub">LeetCode 207 &middot; Medium &middot; Pattern: topological sort (Kahn's BFS) over a directed graph, cycle detection &middot; O(V + E) time, O(V + E) space</p>
+
+<div class="box">
+  <b>Problem.</b> You have <code>numCourses</code> courses labelled <code>0 &hellip; numCourses - 1</code>. Each
+  <code>prerequisites[i] = [a, b]</code> means "you must take <code>b</code> before <code>a</code>", i.e. the
+  directed edge <code>b &rarr; a</code>. Return <code>true</code> if you can finish all courses, <code>false</code>
+  if the prerequisite graph has a cycle.
+  <br><code>numCourses = 2, prerequisites = [[1,0]] &rarr; true</code>
+  <br><code>numCourses = 2, prerequisites = [[1,0],[0,1]] &rarr; false</code> (cycle)
+  <br>Link: <a href="https://leetcode.com/problems/course-schedule/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Model the courses as a directed graph: edge <code>b &rarr; a</code> for each <code>[a, b]</code>. "Can I finish
+all courses?" is "<b>is this graph a DAG?</b>" (no directed cycle). A DAG always has at least one vertex with
+<b>in-degree 0</b>, which is a course with no prerequisites. Take that course, erase it from the graph (which drops
+the in-degree of its successors by 1), and repeat. If you drain every course this way, there is no cycle; if you get
+stuck with courses still unresolved, those remaining ones form a cycle.</p>
+
+<p>This is Kahn's algorithm. The queue holds "ready-to-take" courses, in-degree 0, and the loop pops one at a time.
+The count of courses that come out of the queue tells you the answer: <code>taken == numCourses</code>.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Build the directed graph with an <b>in-degree array</b>. Start by enqueuing every course whose
+  in-degree is 0. Pop one, "take" it, and decrement each successor's in-degree; a successor hitting 0 goes into the
+  queue. If every course is taken, no cycle; otherwise the leftover courses sit on a cycle.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>Why does "all in-degrees stuck above 0" prove a cycle? Because a DAG has a topological order, and the first vertex
+in any topological order has in-degree 0. If no vertex has in-degree 0, the remaining subgraph is not a DAG, so by
+definition it contains a cycle. Kahn's is a constructive version of that proof.</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Each step shows the directed graph with the <b>in-degree</b> written beside every node, the current queue,
+and the running "taken" count. The <span style="color:#d97706;font-weight:700">yellow</span> node is the one popped
+this step; <span style="color:#15803d;font-weight:700">green</span> is already taken;
+<span style="color:#2563eb;font-weight:700">blue</span> is sitting in the queue.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>course being taken this step</span>
+  <span><i style="background:var(--keep)"></i>already taken</span>
+  <span><i style="background:var(--win)"></i>in the queue (in-degree 0)</span>
+  <span><i style="background:#f8fafc;border:1px solid #cbd5e1"></i>waiting (in-degree &gt; 0)</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">bool</span> canFinish(<span class="t">int</span> numCourses, <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt;&amp; prerequisites) {
+        <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt; adj(numCourses);
+        <span class="t">vector</span>&lt;<span class="t">int</span>&gt; indeg(numCourses, <span class="n">0</span>);
+        <span class="k">for</span> (<span class="k">auto</span>&amp; p : prerequisites) {              <span class="c">// [a, b] means b -> a</span>
+            adj[p[<span class="n">1</span>]].push_back(p[<span class="n">0</span>]);
+            indeg[p[<span class="n">0</span>]]++;
+        }
+        <span class="t">queue</span>&lt;<span class="t">int</span>&gt; q;
+        <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt; numCourses; i++)
+            <span class="k">if</span> (indeg[i] == <span class="n">0</span>) q.push(i);           <span class="c">// seed with no-prereq courses</span>
+        <span class="t">int</span> taken = <span class="n">0</span>;
+        <span class="k">while</span> (!q.empty()) {
+            <span class="t">int</span> u = q.front(); q.pop();
+            taken++;
+            <span class="k">for</span> (<span class="t">int</span> v : adj[u])
+                <span class="k">if</span> (--indeg[v] == <span class="n">0</span>) q.push(v);
+        }
+        <span class="k">return</span> taken == numCourses;
+    }
+};</pre>
+
+<p><b>Complexity.</b> Building the graph is <code>O(V + E)</code>. Each vertex enters the queue at most once, and each
+edge is traversed exactly once when its source is popped. Total <code>O(V + E)</code> time, <code>O(V + E)</code>
+space for the adjacency list, plus <code>O(V)</code> for the in-degree array and the queue.</p>
+
+<h3>Alternative: DFS with 3-colour cycle detection</h3>
+
+<pre><span class="t">vector</span>&lt;<span class="t">int</span>&gt; colour(numCourses, <span class="n">0</span>);          <span class="c">// 0 white, 1 grey (on stack), 2 black (done)</span>
+<span class="t">function</span>&lt;<span class="t">bool</span>(<span class="t">int</span>)&gt; dfs = [&amp;](<span class="t">int</span> u) -&gt; <span class="t">bool</span> {
+    colour[u] = <span class="n">1</span>;
+    <span class="k">for</span> (<span class="t">int</span> v : adj[u]) {
+        <span class="k">if</span> (colour[v] == <span class="n">1</span>) <span class="k">return</span> <span class="k">false</span>;   <span class="c">// back-edge: cycle</span>
+        <span class="k">if</span> (colour[v] == <span class="n">0</span> &amp;&amp; !dfs(v)) <span class="k">return</span> <span class="k">false</span>;
+    }
+    colour[u] = <span class="n">2</span>;
+    <span class="k">return</span> <span class="k">true</span>;
+};
+<span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt; numCourses; i++)
+    <span class="k">if</span> (colour[i] == <span class="n">0</span> &amp;&amp; !dfs(i)) <span class="k">return</span> <span class="k">false</span>;
+<span class="k">return</span> <span class="k">true</span>;
+</pre>
+
+<p>Same complexity. The three colours make the cycle test precise: a grey neighbour (on the current DFS path) is a
+back-edge and proves a cycle; a black one (fully explored, no cycle found below it) is safe to skip. Prefer DFS when
+you also want the <b>topological order</b> for free (reverse post-order); prefer Kahn's when the question is just
+"is there a cycle?" and you want to explain the algorithm in one sentence.</p>
+
+<h2>5. The part interviewers ask about: direction of the edge</h2>
+
+<div class="box insight">
+  The input is <code>[a, b]</code> meaning "<code>b</code> is a prerequisite of <code>a</code>". The edge in a
+  prerequisite graph points <b>from the prerequisite to the dependent course</b>: <code>b &rarr; a</code>. "I take
+  <code>b</code>, so <code>a</code>'s in-degree drops by one." Getting this backwards is the single most common bug;
+  Kahn's still runs, but it answers a different question (whether every course has a <i>successor</i>, not whether
+  every course can be reached).
+</div>
+
+<p>Second question: why count rather than compare sets? Because a counter is a one-word mental model: "if I took every
+course, there was no cycle". A set comparison also works but is noisier. The equality <code>taken == numCourses</code>
+is the clean termination condition.</p>
+
+<p>Third: what if the input has <b>duplicate edges</b>? <code>[[1,0], [1,0]]</code> inflates <code>indeg[1]</code>
+to 2, and the decrement path still works &mdash; course 0 fires both decrements and only then does course 1 become
+ready. Kahn's survives duplicates. Only a <i>self-loop</i> (<code>[1,1]</code>) is a problem: <code>indeg[1] &ge; 1</code>
+forever, so course 1 is never taken, Kahn's correctly flags a cycle.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Edge direction.</b> <code>[a, b]</code> is <code>b &rarr; a</code>. Flipping it answers the wrong
+    question.</li>
+    <li><b>No prerequisites.</b> <code>prerequisites = []</code>, every <code>indeg = 0</code>, every course goes into
+    the queue, <code>taken == numCourses</code>. Return <code>true</code>.</li>
+    <li><b>Self-loop.</b> <code>[1,1]</code> means course 1 is its own prerequisite &mdash; a cycle of length 1.
+    Kahn's handles this correctly: <code>indeg[1] &ge; 1</code>, never reaches 0.</li>
+    <li><b>Forgetting to seed every zero in-degree.</b> If you start Kahn's from just one source, you can miss parallel
+    components with their own zero in-degree starts, and conclude "cycle" when there is none.</li>
+    <li><b>DFS stack overflow.</b> On <code>numCourses = 2 &times; 10<sup>5</sup></code> arranged as a long chain, the
+    recursive 3-colour DFS can overflow. Convert to an explicit stack or use Kahn.</li>
+    <li><b>Returning <code>!taken</code>.</b> The predicate is <code>taken == numCourses</code>, not "any course
+    taken". Easy to swap in a hurry.</li>
+    <li><b>Mutating the input <code>prerequisites</code>.</b> Build your own <code>adj</code> and <code>indeg</code>;
+    do not sort or dedup the parameter in place.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "Model it as a directed graph: edge from each prerequisite to the course that needs it. Compute every course's
+  in-degree. Seed a queue with the zero-in-degree courses, and run Kahn's: pop one, bump a <code>taken</code> counter,
+  decrement each successor's in-degree, enqueue the ones that just hit zero. At the end, if <code>taken</code> equals
+  <code>numCourses</code> there is no cycle, so I can finish; otherwise the unseen courses sit on a cycle. O(V + E)
+  time, O(V + E) space. I would mention the DFS alternative with the 3-colour scheme if they want the order itself."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 210 Course Schedule II</td><td>Return the actual topological order, not just existence. Same Kahn, record each pop.</td></tr>
+  <tr><td>LC 269 Alien Dictionary</td><td>Build the DAG from pairwise constraints first, then run the same Kahn.</td></tr>
+  <tr><td>LC 802 Find Eventual Safe States</td><td>Reverse graph + Kahn from leaves of the reverse (out-degree 0 in original).</td></tr>
+  <tr><td>LC 310 Minimum Height Trees</td><td>"Peel leaves" is Kahn with in-degree 1 instead of 0 on an undirected tree.</td></tr>
+  <tr><td>LC 2050 Parallel Courses III</td><td>Kahn with per-course time; propagate <code>finish[v] = max(finish[u] + t[v])</code>.</td></tr>
+</table>
+
+<script>
+/* 1. Idea diagram: a DAG (3 courses, OK) + a cycle (3 courses). */
+(function () {
+  const okNodes  = [{id:0,x:60,y:140,label:'0'},{id:1,x:160,y:60,label:'1'},{id:2,x:260,y:140,label:'2'}];
+  const okEdges  = [[0,1],[1,2]];
+  const badNodes = [{id:'A',x:60,y:140,label:'A'},{id:'B',x:160,y:60,label:'B'},{id:'C',x:260,y:140,label:'C'}];
+  const badEdges = [['A','B'],['B','C'],['C','A']];
+
+  const okSvg  = VIZ.graph(okNodes, okEdges, { directed: true, w: 320, h: 200, nodeCls:{0:'keep',1:'keep',2:'keep'}, notes:{0:'in=0',1:'in=1',2:'in=1'} });
+  const badSvg = VIZ.graph(badNodes, badEdges, { directed: true, w: 320, h: 200, nodeCls:{A:'gone',B:'gone',C:'gone'}, notes:{A:'in=1',B:'in=1',C:'in=1'} });
+  document.getElementById('idea').innerHTML =
+    '<div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">' +
+    '<div><h4 style="margin:0 0 4px">DAG: can finish</h4>' + okSvg +
+    '<div class="caption">Zero-in-degree node 0 starts; Kahn drains the graph.</div></div>' +
+    '<div><h4 style="margin:0 0 4px">Cycle: cannot finish</h4>' + badSvg +
+    '<div class="caption">All in-degrees &ge; 1 forever; nothing enters the queue.</div></div>' +
+    '</div>';
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Build graph', lines: ['adj[b].push(a)', 'indeg[a]++', 'for each [a, b]'], color: 'green' },
+  { title: '2. Seed queue', lines: ['for i in 0..n:', '  if indeg[i] == 0:', '    q.push(i)'], color: 'yellow' },
+  { title: '3. Pop & decrement', lines: ['u = q.pop()', 'taken++', 'for v in adj[u]:', '  if --indeg[v] == 0:', '    q.push(v)'], color: 'blue' },
+  { title: '4. Verify', lines: ['taken == numCourses?', 'yes -> no cycle', 'no -> cycle'], color: 'red' },
+]);
+
+/* Interactive trace: Kahn's with the directed graph drawn each step. Input:
+   numCourses = 6
+   prerequisites = [[1,0],[2,0],[3,1],[3,2],[4,3],[5,4]]
+*/
+VIZ.controls('trace', [
+  { id: 'n',    label: 'numCourses =', value: '6', size: 3 },
+  { id: 'pre',  label: 'prerequisites =', value: '[[1,0],[2,0],[3,1],[3,2],[4,3],[5,4]]', size: 42 },
+], v => {
+  let n, pre;
+  try { n = parseInt(v.n, 10); if (isNaN(n)) throw new Error('n must be an integer'); }
+  catch (e) { return '<div class="box trap">numCourses must be an integer.</div>'; }
+  try { pre = JSON.parse(v.pre.trim()); }
+  catch (e) { return '<div class="box trap">Could not parse prerequisites as JSON. Example: <code>[[1,0],[2,0]]</code>.</div>'; }
+  if (!Array.isArray(pre) || pre.some(p => !Array.isArray(p) || p.length !== 2))
+    return '<div class="box trap">prerequisites must be a list of [a, b] pairs.</div>';
+  if (n < 1 || n > 10) return '<div class="box trap">Keep numCourses between 1 and 10 for a readable trace.</div>';
+  for (const [a, b] of pre) if (a < 0 || a >= n || b < 0 || b >= n) return '<div class="box trap">pair values must be in [0, numCourses).</div>';
+
+  // Build adj + indeg
+  const adj = Array.from({length:n},()=>[]);
+  const indeg = Array(n).fill(0);
+  const edgesDraw = [];
+  const seenEdge = new Set();
+  for (const [a, b] of pre) {
+    adj[b].push(a); indeg[a]++;
+    const key = b + '-' + a;
+    if (!seenEdge.has(key)) { seenEdge.add(key); edgesDraw.push([b, a]); }
+  }
+
+  // Layout: circle for cleanliness
+  const ids = Array.from({length:n},(_,i)=>i);
+  const positions = VIZ.circleLayout(ids, 180, 150, 110);
+  const nodes = positions.map(p => ({ id: p.id, x: p.x, y: p.y }));
+
+  const steps = [];
+  const q = [];
+  const indegLocal = indeg.slice();
+  const taken = new Set();
+  let justPopped = null;
+
+  function snapshot(title, text) {
+    const nodeCls = {};
+    for (let i = 0; i < n; i++) {
+      if (taken.has(i)) nodeCls[i] = (i === justPopped) ? 'new' : 'keep';
+      else if (q.includes(i)) nodeCls[i] = 'in';
+      else if (indegLocal[i] > 0) nodeCls[i] = 'dim';
+    }
+    const notes = {};
+    for (let i = 0; i < n; i++) notes[i] = 'in=' + indegLocal[i];
+    const svg = VIZ.graph(nodes, edgesDraw, { directed: true, nodeCls, notes, w: 400, h: 320 });
+    const qLine = '<b>queue:</b> [' + q.map(x=>'<code>'+x+'</code>').join(', ') + ']';
+    const tLine = '<b>taken:</b> ' + taken.size + ' / ' + n;
+    steps.push(VIZ.step(title, svg, qLine + '<br>' + tLine + '<br>' + text, true));
+  }
+
+  for (let i = 0; i < n; i++) if (indegLocal[i] === 0) q.push(i);
+  snapshot('Initial state',
+    'Built in-degree array; enqueued every course with no prerequisites (<code>indeg == 0</code>).');
+
+  while (q.length && steps.length < 25) {
+    const u = q.shift();
+    taken.add(u);
+    justPopped = u;
+    const touched = [];
+    const promoted = [];
+    for (const v of adj[u]) {
+      indegLocal[v]--;
+      touched.push(v);
+      if (indegLocal[v] === 0) { q.push(v); promoted.push(v); }
+    }
+    snapshot('Pop ' + u,
+      'Take course <code>' + u + '</code>. ' +
+      (touched.length
+        ? 'Decrement in-degree of ' + touched.map(x=>'<code>'+x+'</code>').join(', ') + '. '
+        : 'No successors.<br>') +
+      (promoted.length ? 'Reached zero: ' + promoted.map(x=>'<code>'+x+'</code>').join(', ') + ' enqueued.' : (touched.length ? 'None reached zero yet.' : '')));
+    justPopped = null;
+  }
+
+  const ok = taken.size === n;
+  if (!ok && steps.length < 25) {
+    // Report leftover cycle nodes
+    const leftover = [];
+    for (let i = 0; i < n; i++) if (!taken.has(i)) leftover.push(i);
+    snapshot('Stuck',
+      'Queue empty but <code>taken = ' + taken.size + ' &lt; ' + n + '</code>. Courses ' +
+      leftover.map(x=>'<code>'+x+'</code>').join(', ') + ' sit on a cycle.');
+  }
+
+  document.getElementById('answer').innerHTML =
+    ok ? '<b>Answer: true.</b> All ' + n + ' courses were taken, so the prerequisite graph is a DAG.'
+       : '<b>Answer: false.</b> Only ' + taken.size + ' / ' + n + ' courses could be taken; the rest form a cycle.';
+  return steps.join('');
+}, 'Set numCourses and the list of [a, b] pairs. Each pop ticks the "taken" counter and may unblock successors.');
+</script>
+
+</body>
+</html>

@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 295 - Find Median from Data Stream</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#heaps">Pattern lesson</a><span>Pattern 7: Heaps / Priority Queue</span></div>
+
+<h1>Find Median from Data Stream</h1>
+<p class="sub">LeetCode 295 &middot; Hard &middot; Pattern: two balanced heaps &middot; O(log n) add, O(1) median</p>
+
+<div class="box">
+  <b>Problem.</b> Design a data structure that supports:
+  <ul>
+    <li><code>addNum(num)</code> &mdash; add an integer to the stream.</li>
+    <li><code>findMedian()</code> &mdash; return the median so far. If the count is even, return the mean of the two
+    middle values.</li>
+  </ul>
+  <code>add 1, add 2, median = 1.5, add 3, median = 2.0</code>. &nbsp;&nbsp;
+  Link: <a href="https://leetcode.com/problems/find-median-from-data-stream/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Split the stream into two halves: the <b>lower half</b> (every number &le; median) and the <b>upper half</b>
+(every number &ge; median). If you can always access the <i>largest of the lower half</i> and the <i>smallest of
+the upper half</i>, the median is one of them (odd count) or their mean (even count).</p>
+
+<p>So keep two heaps: a <b>max-heap</b> for the lower half (so its root is the largest of the lower half) and a
+<b>min-heap</b> for the upper half (so its root is the smallest of the upper half). Keep them balanced:
+<code>|lower| == |upper|</code> or <code>|lower| == |upper| + 1</code>. Each add is O(log n); the median is O(1).</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Lower half = max-heap, upper half = min-heap. Rebalance after every add so the max-heap has as many
+  elements as the min-heap, or exactly one more. Median = max-heap root (odd), or average of both roots (even).
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>The two heaps face each other: the max-heap's root is the <i>biggest</i> of the lower half, the min-heap's root
+is the <i>smallest</i> of the upper half. Those two numbers sit side by side at the "spine" of the structure &mdash;
+that spine is the median.</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Input is an operation sequence. <code>add N</code> inserts <code>N</code>; <code>median</code> queries. After
+each op, the two heaps are drawn as binary trees side by side with their sizes.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>just inserted / moved</span>
+  <span><i style="background:var(--keep)"></i>root contributes to the median</span>
+  <span><i style="background:#fff;border:1px solid #cbd5e1"></i>in the heap</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> MedianFinder {
+    priority_queue&lt;<span class="t">int</span>&gt; lo;                                   <span class="c">// max-heap: lower half</span>
+    priority_queue&lt;<span class="t">int</span>, vector&lt;<span class="t">int</span>&gt;, greater&lt;<span class="t">int</span>&gt;&gt; hi;        <span class="c">// min-heap: upper half</span>
+
+<span class="k">public</span>:
+    <span class="t">void</span> addNum(<span class="t">int</span> num) {
+        <span class="k">if</span> (lo.empty() || num &lt;= lo.top()) lo.push(num);    <span class="c">// belongs to lower half</span>
+        <span class="k">else</span>                               hi.push(num);    <span class="c">// strictly greater -&gt; upper</span>
+
+        <span class="c">// Rebalance: keep |lo| == |hi| or |lo| == |hi| + 1</span>
+        <span class="k">if</span> (lo.size() &gt; hi.size() + <span class="n">1</span>) { hi.push(lo.top()); lo.pop(); }
+        <span class="k">else</span> <span class="k">if</span> (hi.size() &gt; lo.size()) { lo.push(hi.top()); hi.pop(); }
+    }
+
+    <span class="t">double</span> findMedian() {
+        <span class="k">if</span> (lo.size() &gt; hi.size()) <span class="k">return</span> (<span class="t">double</span>)lo.top();           <span class="c">// odd count</span>
+        <span class="k">return</span> ((<span class="t">double</span>)lo.top() + (<span class="t">double</span>)hi.top()) / <span class="n">2.0</span>;         <span class="c">// even count</span>
+    }
+};</pre>
+
+<p><b>Complexity:</b> each <code>addNum</code> does O(1) heap pushes/pops, each O(log n), so O(log n) time.
+<code>findMedian</code> reads one or two roots, O(1). Space O(n) for the two heaps.</p>
+
+<p><b>About the two comparators.</b> <code>priority_queue&lt;int&gt;</code> is the default max-heap (uses
+<code>less&lt;int&gt;</code>; the "top" is whatever the comparator calls biggest, so the actual maximum). To get the
+min-heap on the upper half, you must spell out the full template: <code>priority_queue&lt;int, vector&lt;int&gt;,
+greater&lt;int&gt;&gt;</code>. The template parameters are <code>&lt;T, Container, Compare&gt;</code>, so you cannot
+omit the middle one. The rule: <b>top is the element the comparator deems largest; pass
+<code>greater&lt;int&gt;</code> to invert.</b></p>
+
+<h3>Alternative: ordered multiset with a middle iterator</h3>
+
+<pre><span class="k">class</span> MedianFinder {
+    multiset&lt;<span class="t">int</span>&gt; s;
+    multiset&lt;<span class="t">int</span>&gt;::iterator mid;                             <span class="c">// points at (n/2)-th element</span>
+<span class="k">public</span>:
+    <span class="t">void</span> addNum(<span class="t">int</span> num) {
+        s.insert(num);
+        <span class="k">if</span> (s.size() == <span class="n">1</span>) mid = s.begin();
+        <span class="k">else</span> <span class="k">if</span> (num &lt; *mid)                           <span class="c">// inserted on the left</span>
+            { <span class="k">if</span> (s.size() % <span class="n">2</span> == <span class="n">0</span>) --mid; }
+        <span class="k">else</span>                                        <span class="c">// inserted on the right</span>
+            { <span class="k">if</span> (s.size() % <span class="n">2</span> == <span class="n">1</span>) ++mid; }
+    }
+    <span class="t">double</span> findMedian() {
+        <span class="k">if</span> (s.size() % <span class="n">2</span>) <span class="k">return</span> (<span class="t">double</span>)*mid;
+        <span class="k">auto</span> next = mid; ++next;
+        <span class="k">return</span> ((<span class="t">double</span>)*mid + (<span class="t">double</span>)*next) / <span class="n">2.0</span>;
+    }
+};</pre>
+
+<p>Prefer when the interviewer also asks for <b>deletion of arbitrary elements</b> (<code>multiset::erase</code> is
+O(log n)); the two-heap version struggles with removes because <code>priority_queue</code> can't delete by value.
+Default to two heaps otherwise &mdash; simpler, same asymptotics.</p>
+
+<h2>5. The part interviewers ask about: the balance invariant</h2>
+
+<div class="box insight">
+  Two invariants make the whole thing work:
+  <ol>
+    <li><b>Order.</b> Every element of <code>lo</code> is &le; every element of <code>hi</code>. This is what makes
+    <code>lo.top()</code> actually be the biggest of the lower half.</li>
+    <li><b>Size.</b> <code>lo.size() &isin; { hi.size(), hi.size() + 1 }</code>. This is what makes the median land
+    exactly on <code>lo.top()</code> (odd) or on the pair <code>(lo.top(), hi.top())</code> (even).</li>
+  </ol>
+  Every call to <code>addNum</code> restores both: insert into the correct side (preserves order), then move one
+  element across if the sizes went out of range (restores balance). After the two rebalance <code>if</code>s, both
+  invariants hold again.
+</div>
+
+<p>A common follow-up: <b>can the median be the mean of two <i>equal</i> values?</b> Yes &mdash; e.g. after adding
+<code>[1,1,2,2]</code>, the median is <code>(1+2)/2 = 1.5</code>. The code is correct because it never relies on the
+two roots being different; it averages them regardless.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Which side is max-heap, which is min-heap?</b> Lower half is max-heap (we want its biggest), upper half
+    is min-heap (we want its smallest). Flip one, and <code>top()</code> gives the wrong number.</li>
+    <li><b>Default <code>priority_queue&lt;int&gt;</code> is max-heap.</b> If you forget <code>greater&lt;int&gt;</code>
+    on the upper half, you accidentally compare the wrong roots and get a near-random "median".</li>
+    <li><b>Convention of which heap can be bigger.</b> Pick one &mdash; "<code>lo</code> has at most one more than
+    <code>hi</code>" is the usual choice. The <code>findMedian</code> code must match: when the sizes differ, return
+    the root of the larger heap.</li>
+    <li><b>Integer overflow when averaging two <code>int</code>s.</b> On the full LeetCode range, <code>INT_MAX +
+    INT_MAX</code> overflows. Cast to <code>double</code> (or use <code>long long</code>) before adding, as the code
+    above does.</li>
+    <li><b>Query before any add.</b> Undefined by the problem, but if you handle it, return <code>0.0</code> or NaN
+    rather than reading <code>lo.top()</code> on an empty heap.</li>
+    <li><b>Equality should go to the lower half.</b> <code>num &le; lo.top()</code>, not <code>&lt;</code>. A new
+    value equal to <code>lo.top()</code> belongs with it, and sending it to the upper half can skew the balance.</li>
+    <li><b>Rebalance is at most one move.</b> You never move more than one element across. If your rebalance uses a
+    <code>while</code> loop, the invariant was already broken before the add.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I split the stream into two halves. The lower half is a max-heap, so I can read its biggest in O(1); the upper
+  half is a min-heap, so I can read its smallest in O(1). I keep the max-heap at the same size as the min-heap, or
+  one bigger. On <code>addNum</code>, I push the new value into the correct side (lower if &le; the lower's root,
+  else upper), then move one element across if the sizes drift out of range. On <code>findMedian</code>, if sizes
+  differ I return the max-heap root; otherwise I average the two roots. O(log n) add, O(1) median. In C++ the min-heap
+  needs the full <code>priority_queue&lt;int, vector&lt;int&gt;, greater&lt;int&gt;&gt;</code> template because the
+  default is max-heap."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 480 Sliding Window Median</td><td>Same two-heap idea, but values also leave the window; needs lazy deletion.</td></tr>
+  <tr><td>LC 1825 Finding MK Average</td><td>Three sorted multisets (bottom / middle / top). Same "two sides plus a middle" trick.</td></tr>
+  <tr><td>LC 215 Kth Largest</td><td>Size-k min-heap tracks a running threshold; this problem tracks a running centre.</td></tr>
+  <tr><td>LC 23 Merge k Sorted Lists</td><td>Heap stores iterators-into-streams; this problem stores values but the pattern of "root is the number I need now" is the same.</td></tr>
+  <tr><td>LC 703 Kth Largest in a Stream</td><td>Online streaming + heap; identical shape to <code>addNum</code>.</td></tr>
+</table>
+
+<script>
+const V = VIZ;
+
+/* 1. Idea diagram: show the two heaps for [1,2,3,4,5]. Lower = {3,1,2} (max-heap level order), Upper = {4,5}. */
+(function () {
+  const loTree = V.tree([3, 1, 2], { cls: { 0: 'keep' }, notes: { 0: 'max = 3' } });
+  const hiTree = V.tree([4, 5], { cls: { 0: 'keep' }, notes: { 0: 'min = 4' } });
+  document.getElementById('idea').innerHTML =
+    '<div class="figure" style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start">' +
+    '<div><div class="caption"><b>lower half</b> (max-heap, size 3)</div>' + loTree + '</div>' +
+    '<div><div class="caption"><b>upper half</b> (min-heap, size 2)</div>' + hiTree + '</div>' +
+    '</div>' +
+    '<p class="caption">After streaming <code>1,2,3,4,5</code>: lower holds {1,2,3} as a max-heap (root 3); upper holds {4,5} as a min-heap (root 4). Count is 5 (odd), so the median is the bigger heap\'s root: <b>3</b>.</p>';
+})();
+
+/* 2. Flow */
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Route', lines: ['num <= lo.top() ?', 'yes: lo.push', 'no: hi.push'], color: 'yellow' },
+  { title: '2. Rebalance', lines: ['|lo| > |hi|+1 ?', 'move lo.top -> hi', '|hi| > |lo| ?', 'move hi.top -> lo'], color: 'blue' },
+  { title: '3. Query', lines: ['sizes equal ?', 'avg of both roots', 'else lo.top'], color: 'green' },
+], { loop: 'per op' });
+
+/* 3. Interactive trace. */
+VIZ.controls('trace', [
+  { id: 'ops', label: 'ops =', value: 'add 1 add 2 median add 3 median add 4 add 5 median', size: 60 },
+], v => {
+  // Parse ops.
+  const toks = v.ops.trim().split(/\s+/);
+  const ops = [];
+  for (let i = 0; i < toks.length; i++) {
+    const t = toks[i].toLowerCase();
+    if (t === 'add') {
+      if (i + 1 >= toks.length) throw new Error('add needs a number');
+      const n = parseInt(toks[++i], 10);
+      if (isNaN(n)) throw new Error('add expected a number, got ' + toks[i]);
+      ops.push({ op: 'add', n });
+    } else if (t === 'median' || t === 'find' || t === 'findmedian') {
+      ops.push({ op: 'median' });
+    } else throw new Error('unknown op: ' + t);
+  }
+  if (!ops.length) throw new Error('no ops. try: add 1 add 2 median');
+  if (ops.length > 20) throw new Error('keep ops <= 20');
+
+  // Two heaps as arrays. Max-heap lo (parent >= children). Min-heap hi (parent <= children).
+  const lo = [], hi = [];
+  const sift = (heap, cmp) => {
+    const siftUp = i => {
+      while (i > 0) {
+        const p = (i - 1) >> 1;
+        if (cmp(heap[i], heap[p])) { [heap[i], heap[p]] = [heap[p], heap[i]]; i = p; } else break;
+      }
+    };
+    const siftDown = i => {
+      const n = heap.length;
+      while (true) {
+        const l = 2*i+1, r = 2*i+2; let s = i;
+        if (l < n && cmp(heap[l], heap[s])) s = l;
+        if (r < n && cmp(heap[r], heap[s])) s = r;
+        if (s === i) break;
+        [heap[i], heap[s]] = [heap[s], heap[i]]; i = s;
+      }
+    };
+    return { siftUp, siftDown };
+  };
+  const loOps = sift(lo, (a, b) => a > b);  // max-heap: child "larger" bubbles up
+  const hiOps = sift(hi, (a, b) => a < b);  // min-heap
+  const push = (heap, ops, x) => { heap.push(x); ops.siftUp(heap.length - 1); };
+  const pop = (heap, ops) => {
+    const top = heap[0];
+    const last = heap.pop();
+    if (heap.length) { heap[0] = last; ops.siftDown(0); }
+    return top;
+  };
+
+  const render = (title, note, hiLo, hiHi, highlightRoots) => {
+    const clsLo = {};
+    if (hiLo !== undefined && hiLo !== null && hiLo >= 0) clsLo[hiLo] = 'new';
+    if (highlightRoots && lo.length) clsLo[0] = clsLo[0] || 'keep';
+    const clsHi = {};
+    if (hiHi !== undefined && hiHi !== null && hiHi >= 0) clsHi[hiHi] = 'new';
+    if (highlightRoots && hi.length) clsHi[0] = clsHi[0] || 'keep';
+    const loTree = lo.length ? V.tree(lo, { cls: clsLo }) : '<div class="caption">(empty)</div>';
+    const hiTree = hi.length ? V.tree(hi, { cls: clsHi }) : '<div class="caption">(empty)</div>';
+    const vis =
+      '<div class="figure" style="display:flex;flex-wrap:wrap;gap:30px;align-items:flex-start">' +
+      '<div><div class="caption"><b>lower</b> (max-heap), size ' + lo.length + '</div>' + loTree + '</div>' +
+      '<div><div class="caption"><b>upper</b> (min-heap), size ' + hi.length + '</div>' + hiTree + '</div>' +
+      '</div>' +
+      '<div class="caption">lower (level order): [' + lo.join(', ') + '] &nbsp;&middot;&nbsp; upper (level order): [' + hi.join(', ') + ']</div>';
+    return V.step(title, vis, note, true);
+  };
+
+  let html = render('Init', 'Both heaps empty.', null, null, false);
+  const answers = [];
+  let steps = 1;
+  const cap = 24;
+
+  for (let i = 0; i < ops.length; i++) {
+    if (steps >= cap) {
+      html += '<p class="caption">... ' + (ops.length - i) + ' more ops.</p>';
+      break;
+    }
+    const o = ops[i];
+    if (o.op === 'add') {
+      let placed = '';
+      if (lo.length === 0 || o.n <= lo[0]) { push(lo, loOps, o.n); placed = 'lower'; }
+      else { push(hi, hiOps, o.n); placed = 'upper'; }
+      let noteRebalance = '';
+      if (lo.length > hi.length + 1) {
+        const mv = pop(lo, loOps); push(hi, hiOps, mv);
+        noteRebalance = ` Lower had ${lo.length + 1}, upper ${hi.length - 1} &rarr; moved <b>${mv}</b> across so lower is at most one bigger.`;
+      } else if (hi.length > lo.length) {
+        const mv = pop(hi, hiOps); push(lo, loOps, mv);
+        noteRebalance = ` Upper had ${hi.length + 1}, lower ${lo.length - 1} &rarr; moved <b>${mv}</b> across so lower &ge; upper in size.`;
+      }
+      const loIdx = lo.indexOf(o.n), hiIdx = hi.indexOf(o.n);
+      html += render(
+        `add(${o.n})`,
+        `<b>${o.n}</b> ${placed === 'lower' ? '&le; lower\'s root (or lower empty), so push into <b>lower</b>' : '&gt; lower\'s root, so push into <b>upper</b>'}.${noteRebalance}`,
+        loIdx, hiIdx, false
+      );
+    } else {
+      // median
+      let med;
+      if (lo.length > hi.length) med = lo[0];
+      else med = (lo[0] + hi[0]) / 2;
+      answers.push(med);
+      html += render(
+        `median &rarr; ${med}`,
+        lo.length > hi.length
+          ? `Sizes differ (${lo.length} vs ${hi.length}). Median = lower\'s root = <b>${med}</b>.`
+          : `Sizes equal (${lo.length} and ${hi.length}). Median = average of both roots = (${lo[0]} + ${hi[0]}) / 2 = <b>${med}</b>.`,
+        null, null, true
+      );
+    }
+    steps++;
+  }
+
+  document.getElementById('answer').innerHTML = '<b>median results, in order:</b> [' + answers.join(', ') + ']';
+  return html;
+}, 'Ops: "add N" or "median". Each op shows both heaps as trees.');
+</script>
+
+</body>
+</html>

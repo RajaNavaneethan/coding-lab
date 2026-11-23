@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 84 - Largest Rectangle in Histogram</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#stacks-monotonic">Pattern lesson</a><span>Pattern 6: Stacks &amp; Monotonic Stacks</span></div>
+
+<h1>Largest Rectangle in Histogram</h1>
+<p class="sub">LeetCode 84 &middot; Hard &middot; Pattern: monotonic increasing stack of indices &middot; O(n) time, O(n) space</p>
+
+<div class="box">
+  <b>Problem.</b> <code>heights[i]</code> is the height of bar <code>i</code>, each 1 unit wide. Return the area of the
+  largest rectangle that fits entirely inside the histogram.
+  <br><code>[2,1,5,6,2,3] &rarr; 10</code> &nbsp; <code>[2,4] &rarr; 4</code> &nbsp; <code>[1,1,1,1] &rarr; 4</code>
+  <br>Link: <a href="https://leetcode.com/problems/largest-rectangle-in-histogram/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Fix the <b>shortest bar</b> of the rectangle and let it set the height. The best rectangle whose shortest bar is
+<code>h[k]</code> extends left and right as far as it can without hitting anything shorter. So the key quantities for
+each bar <code>k</code> are:</p>
+
+<ul>
+  <li><code>L[k]</code>: index of the first bar to the left that is strictly shorter than <code>h[k]</code> (or
+  <code>-1</code> if none).</li>
+  <li><code>R[k]</code>: index of the first bar to the right that is strictly shorter than <code>h[k]</code> (or
+  <code>n</code> if none).</li>
+</ul>
+
+<p>Then the max rectangle anchored at bar <code>k</code> has width <code>R[k] &minus; L[k] &minus; 1</code> and area
+<code>h[k] &middot; (R[k] &minus; L[k] &minus; 1)</code>. Take the max over all <code>k</code>.</p>
+
+<p>A single scan with a <b>monotonic increasing stack of indices</b> computes both bounds on the fly. The stack is kept
+so that heights from bottom to top are strictly increasing. When bar <code>i</code> arrives and is shorter than the top,
+the top <code>k</code> has finally hit a shorter bar on its right: <code>R[k] = i</code>. And <code>L[k]</code> is the
+new top <i>after</i> popping <code>k</code> &mdash; the stack below <code>k</code> is strictly shorter, by invariant. So
+the width is <code>i &minus; st.top() &minus; 1</code> (or just <code>i</code> if the stack is empty, meaning no shorter
+bar exists to the left of <code>k</code>).</p>
+
+<div id="idea"></div>
+
+<p>Append a sentinel bar of height 0 at the end so the final pass flushes every remaining bar in the stack. Without it
+you have to run a second cleanup loop with <code>R[k] = n</code>; the sentinel folds that into the main loop.</p>
+
+<div class="box insight">
+  <b>Idea.</b> Monotonic increasing stack of indices. When bar <code>i</code> is shorter than the stack top <code>k</code>,
+  pop <code>k</code> and record its rectangle: height <code>h[k]</code>, left boundary = new stack top (or <code>-1</code>),
+  right boundary = <code>i</code>, so <b>width = <code>i &minus; st.top() &minus; 1</code></b> (or <code>i</code> if the
+  stack is empty). Sentinel 0 at the end flushes everything.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>The width formula is the whole trick. After popping <code>k</code>, the new stack top is the first index strictly left
+of <code>k</code> whose height is strictly less than <code>h[k]</code> (because the stack was increasing and we just
+removed <code>k</code>). The current index <code>i</code> is the first index strictly right of <code>k</code> whose
+height is strictly less than <code>h[k]</code> (that is exactly why we are popping). So the open interval
+<code>(st.top(), i)</code> contains every bar <code>&ge; h[k]</code>, with width <code>i &minus; st.top() &minus; 1</code>.</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Each step shows the histogram with the stack bars outlined in blue, bar <code>i</code> highlighted yellow, and the
+rectangle computed on this pop shaded orange. The width formula is written out below each pop.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>bar i being read</span>
+  <span><i style="background:var(--win)"></i>bar on the stack</span>
+  <span><i style="background:var(--gone)"></i>bar being popped</span>
+  <span><i style="background:#fdba74"></i>rectangle computed on this pop</span>
+  <span><i style="background:var(--keep)"></i>current best rectangle</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">int</span> largestRectangleArea(<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; h) {
+        <span class="t">int</span> n = (<span class="t">int</span>)h.size();
+        <span class="t">stack</span>&lt;<span class="t">int</span>&gt; st;                                 <span class="c">// strictly increasing bar heights</span>
+        <span class="t">int</span> best = <span class="n">0</span>;
+        <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt;= n; i++) {
+            <span class="t">int</span> cur = (i == n) ? <span class="n">0</span> : h[i];              <span class="c">// sentinel 0 flushes the stack</span>
+            <span class="k">while</span> (!st.empty() &amp;&amp; h[st.top()] &gt; cur) {
+                <span class="t">int</span> top = st.top(); st.pop();
+                <span class="t">int</span> w = st.empty() ? i : i - st.top() - <span class="n">1</span>;
+                best = max(best, h[top] * w);
+            }
+            st.push(i);
+        }
+        <span class="k">return</span> best;
+    }
+};</pre>
+
+<p><b>Complexity:</b> each index is pushed and popped at most once across the entire scan. O(n) time. The stack can hold
+up to <code>n</code> indices (strictly increasing input), so O(n) space.</p>
+
+<h3>Alternative: precompute left / right boundaries explicitly</h3>
+
+<pre><span class="t">vector</span>&lt;<span class="t">int</span>&gt; L(n), R(n);
+<span class="t">stack</span>&lt;<span class="t">int</span>&gt; s;
+<span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt; n; i++) {
+    <span class="k">while</span> (!s.empty() &amp;&amp; h[s.top()] &gt;= h[i]) s.pop();
+    L[i] = s.empty() ? -<span class="n">1</span> : s.top();
+    s.push(i);
+}
+<span class="k">while</span> (!s.empty()) s.pop();
+<span class="k">for</span> (<span class="t">int</span> i = n - <span class="n">1</span>; i &gt;= <span class="n">0</span>; i--) {
+    <span class="k">while</span> (!s.empty() &amp;&amp; h[s.top()] &gt;= h[i]) s.pop();
+    R[i] = s.empty() ? n : s.top();
+    s.push(i);
+}
+<span class="t">int</span> best = <span class="n">0</span>;
+<span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt; n; i++) best = max(best, h[i] * (R[i] - L[i] - <span class="n">1</span>));</pre>
+
+<p>Two passes, three arrays. Clearer about what <code>L</code> and <code>R</code> mean, so write it this way if the
+one-pass version does not click under pressure. Note the <code>&ge;</code> in the pop condition: it lets runs of equal
+heights be summarised by the last of them, which still gives the correct maximum (any equal-height prefix can be covered
+by anchoring at the rightmost one).</p>
+
+<h2>5. The part interviewers ask about: why the width is <code>i &minus; st.top() &minus; 1</code></h2>
+
+<div class="box insight">
+  When we pop <code>k</code>, two things are true because of the increasing-stack invariant:
+  <ul>
+    <li>The index now on top of the stack, call it <code>p</code>, has <code>h[p] &lt; h[k]</code> (it sat below
+    <code>k</code> while the stack was strictly increasing, so <code>h[p]</code> was strictly less than <code>h[k]</code>).
+    Every index between <code>p</code> and <code>k</code> was popped earlier for the same reason, so bars
+    <code>p+1 .. k-1</code> are all <code>&ge; h[k]</code>.</li>
+    <li>Bars <code>k+1 .. i-1</code> that were on the stack at some point were themselves <code>&ge; h[k]</code> (they
+    sat on top of <code>k</code> in a strictly increasing stack) and have already been popped.</li>
+  </ul>
+  So the entire open interval <code>(p, i)</code> contains bars all at least <code>h[k]</code>: its width is
+  <code>i &minus; p &minus; 1</code>. If the stack is empty, there is no bar strictly shorter than <code>h[k]</code> on
+  the left, so the rectangle starts at index 0 and the width is <code>i &minus; 0 = i</code>.
+</div>
+
+<p>A second subtlety: the pop condition uses strict <code>&gt;</code>. Equal heights are left on the stack. That is fine
+because when a run of equal heights finally meets a shorter bar, each equal bar in the run gets popped in turn, and the
+first one to be popped gets a small (correct) width, while the last one popped gets the full run as its width &mdash;
+exactly the maximal rectangle for that height.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Forgetting the sentinel.</b> Without the extra <code>i == n</code> iteration with <code>cur = 0</code>, bars
+    that are never popped during the normal loop (a strictly increasing suffix) have no final answer. Either run a
+    second cleanup loop or append the sentinel as shown.</li>
+    <li><b>Using <code>i - top</code> instead of <code>i - st.top() - 1</code>.</b> That is the width "between <code>top</code>
+    and <code>i</code>" counting <code>top</code>, but <code>top</code> has just been popped; the <i>new</i> top is the
+    left boundary. The right fencepost: an open interval <code>(newTop, i)</code> has width <code>i - newTop - 1</code>.</li>
+    <li><b>Using <code>i - top - 1</code> after popping (so <code>top</code> is now a stale local).</b> This is actually
+    wrong because <code>top</code> is the <i>index that was just popped</i>, not the left boundary. The left boundary
+    is the stack's new top, not the thing you popped.</li>
+    <li><b>Comparing heights with <code>&ge;</code> in the main loop.</b> Runs of equal heights pop each other with
+    tiny widths and you under-count. Use <code>&gt;</code> and let the sentinel flush them later with the full run as
+    width.</li>
+    <li><b>Empty input or single bar.</b> <code>[]</code> &rarr; <code>0</code> (loop body does not execute if
+    <code>n == 0</code>, since <code>i &le; n</code> gives <code>i == 0 == n</code>, cur = 0, stack empty, nothing happens).
+    <code>[7]</code> &rarr; <code>7</code>, via one pop at the sentinel.</li>
+    <li><b>Monotone shapes.</b> <code>[1,2,3,4,5]</code> &rarr; <code>9</code> (height 3, width 3 anchored at index 2 or
+    equivalently height 2 width 4 at index 1 &mdash; take the max). <code>[5,4,3,2,1]</code> &rarr; <code>9</code> by
+    symmetry. Both reach their answer only at the sentinel.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I maintain a monotonic increasing stack of indices. When the new bar is shorter than the top, I pop until the top is
+  not taller, and for each popped index <code>k</code> I compute a rectangle: height <code>h[k]</code>, width
+  <code>i &minus; stack.top() &minus; 1</code> after popping, or <code>i</code> if the stack is empty. That width is
+  valid because the new stack top is the first shorter bar on the left of <code>k</code>, and <code>i</code> is the
+  first shorter bar on the right. I append a sentinel 0 so the final pass flushes everything. Each index is pushed and
+  popped once, so O(n) time, O(n) space."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 85 Maximal Rectangle</td><td>Treat each row of the grid as a histogram (consecutive 1s above each column)
+  and reuse LC 84 row by row.</td></tr>
+  <tr><td>LC 42 Trapping Rain Water</td><td>Also indices-on-a-stack over bars, but the popped area is a trapped
+  <i>pool</i> between walls, not a bounded rectangle.</td></tr>
+  <tr><td>LC 739 Daily Temperatures</td><td>Same stack idiom with the opposite monotonicity (strictly decreasing) and a
+  distance as the answer instead of an area.</td></tr>
+  <tr><td>LC 1793 Maximum Score of a Good Subarray</td><td>Mirror structure: find the largest rectangle crossing a
+  fixed index.</td></tr>
+</table>
+
+<script>
+/* --- Idea diagram: show [2,1,5,6,2,3] with the max rectangle (10 = 5*2) shaded. --- */
+document.getElementById('idea').innerHTML = (function () {
+  const H = [2, 1, 5, 6, 2, 3];
+  // Best rectangle: indices 2..3 (heights 5,6), bounded by indices 1 (h=1) and 4 (h=2). Height = min(5,6) = 5, width = 2.
+  return renderHistogram(H, {
+    rect: { height: 5, L: 1, R: 4 }, // open interval (1,4) -> indices 2 and 3
+    captionHtml: 'Shaded rectangle: height <code>5</code>, bounded on the left by bar 1 (height 1) and on the right by bar 4 (height 2). Width = <code>4 &minus; 1 &minus; 1 = 2</code>. Area = <b>10</b>.',
+  });
+})();
+
+/* Draw a histogram with optional shaded rectangle, stack indices highlighted, current i yellow, and index-under-pop red.
+   opts: { rect?: {height, L, R}, iHighlight?, popped?, stackIdxs?: Set, popNote?, captionHtml? }
+   The shaded rectangle spans indices (L, R) exclusive, drawn at `height`.
+*/
+function renderHistogram(H, opts) {
+  const n = H.length;
+  const CW = 44, PAD = 22, BASE = 180, UNIT = 24;
+  const W = PAD * 2 + CW * n, HGT = BASE + 46;
+  const stackIdxs = opts.stackIdxs || new Set();
+  const popped = opts.popped !== undefined ? opts.popped : -1;
+  const iH = opts.iHighlight !== undefined ? opts.iHighlight : -1;
+  let s = '';
+
+  // Shaded rectangle (behind the bars) -- height can straddle multiple bars
+  if (opts.rect) {
+    const { height, L, R } = opts.rect;
+    const xL = PAD + (L + 1) * CW + 2;
+    const xR = PAD + R * CW - 2;
+    const yTop = BASE - height * UNIT;
+    const h = height * UNIT;
+    if (xR > xL && h > 0) {
+      s += `<rect x="${xL}" y="${yTop}" width="${xR - xL}" height="${h}" fill="#fdba74" fill-opacity="0.55" stroke="#ea580c" stroke-width="2" stroke-dasharray="5,3"/>`;
+    }
+  }
+
+  // Bars
+  for (let i = 0; i < n; i++) {
+    const x = PAD + i * CW;
+    const barH = H[i] * UNIT;
+    let fill = '#334155';
+    if (i === popped) fill = '#b91c1c';
+    else if (i === iH) fill = '#d97706';
+    else if (stackIdxs.has(i)) fill = '#3b82f6';
+    if (barH > 0) s += `<rect x="${x + 3}" y="${BASE - barH}" width="${CW - 6}" height="${barH}" fill="${fill}" rx="2"/>`;
+    // index
+    const idxCol = (i === iH || i === popped || stackIdxs.has(i)) ? '#1f2933' : '#616e7c';
+    s += `<text x="${x + CW / 2}" y="${BASE + 14}" text-anchor="middle" font-size="11" fill="${idxCol}">${i}</text>`;
+    // height label
+    s += `<text x="${x + CW / 2}" y="${BASE - barH - 3}" text-anchor="middle" font-size="10" fill="#1f2933">${H[i]}</text>`;
+  }
+  // Sentinel marker at i=n
+  if (iH === n) {
+    const x = PAD + n * CW;
+    s += `<line x1="${x + CW / 2}" y1="${BASE - 8}" x2="${x + CW / 2}" y2="${BASE}" stroke="#d97706" stroke-width="2"/>`;
+    s += `<text x="${x + CW / 2}" y="${BASE + 14}" text-anchor="middle" font-size="11" fill="#d97706">i=n (sentinel 0)</text>`;
+  }
+
+  const totalW = PAD * 2 + CW * (iH === n ? n + 1 : n);
+  const svg = `<svg class="figure" width="100%" style="max-width:${totalW}px" viewBox="0 0 ${totalW} ${HGT}">${s}</svg>`;
+  return svg + (opts.captionHtml ? `<div class="caption">${opts.captionHtml}</div>` : '');
+}
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Read i (or sentinel)', lines: ['cur = h[i] or 0 if i==n'], color: 'yellow' },
+  { title: '2. Pop while top &gt; cur', lines: ['top = st.pop()', 'w = empty ? i : i - st.top() - 1', 'best = max(best, h[top]*w)'], color: 'red' },
+  { title: '3. Push i', lines: ['stack stays increasing'], color: 'blue' },
+], { loop: 'next i' });
+
+/* --- Interactive trace --- */
+VIZ.controls('trace', [
+  { id: 'h', label: 'heights =', value: '[2,1,5,6,2,3]', size: 28 },
+], v => {
+  let H;
+  try { H = VIZ.parse.arr(v.h); }
+  catch (e) { throw new Error(e.message); }
+  if (!Array.isArray(H)) throw new Error('expected an array');
+  if (H.length === 0) throw new Error('empty array');
+  if (H.length > 10) throw new Error('keep length <= 10 for a readable trace');
+  if (H.some(x => typeof x !== 'number' || x < 0)) throw new Error('heights must be non-negative integers');
+
+  const n = H.length;
+  const st = [];
+  let best = 0;
+  let bestRect = null;         // {height, L, R}
+  const steps = [];
+
+  for (let i = 0; i <= n; i++) {
+    const cur = (i === n) ? 0 : H[i];
+    while (st.length && H[st[st.length - 1]] > cur) {
+      const top = st.pop();
+      const w = st.length === 0 ? i : i - st[st.length - 1] - 1;
+      const area = H[top] * w;
+      const L = st.length === 0 ? -1 : st[st.length - 1];
+      const R = i;
+      const widthExpr = st.length === 0 ? `${i}` : `${i} - ${st[st.length - 1]} - 1 = ${w}`;
+      let newBest = best, newBestRect = bestRect;
+      if (area > best) { newBest = area; newBestRect = { height: H[top], L, R }; }
+      steps.push({
+        kind: 'pop', i, top, L, R, w, h: H[top], area,
+        widthExpr, best: newBest, bestRect: newBestRect,
+        stackSnapshot: [...st],
+        note: `<code>h[${top}]=${H[top]}</code> &gt; <code>cur=${cur}</code>${i === n ? ' (sentinel)' : ''}. Pop ${top}. ` +
+              `Left boundary = ${L === -1 ? 'none (stack empty)' : `index ${L} with h[${L}]=${H[L]}`}. ` +
+              `Right boundary = index ${R}${i === n ? ' (sentinel)' : ` with h[${R}]=${cur}`}. ` +
+              `<b>width = ${widthExpr}</b>, area = ${H[top]} &middot; ${w} = <b>${area}</b>. ` +
+              (area > best ? `<span class="ok">new best</span>.` : `best stays ${best}.`),
+      });
+      best = newBest; bestRect = newBestRect;
+    }
+    st.push(i);
+    const topBelow = st.length >= 2 ? st[st.length - 2] : -1;
+    const reason = topBelow < 0
+      ? 'stack is empty, nothing to pop'
+      : `h[${topBelow}]=${H[topBelow]} &le; cur=${cur}, so stack stays increasing`;
+    steps.push({
+      kind: 'push', i, stackSnapshot: [...st], best, bestRect,
+      note: i === n
+        ? 'Push sentinel index <code>n</code>. (Last step of the loop.)'
+        : `Push index ${i}: ${reason}.`,
+    });
+  }
+
+  const MAX = 25;
+  const shown = steps.slice(0, MAX);
+  let html = '';
+  shown.forEach((s, k) => {
+    const stackIdxs = new Set(s.stackSnapshot);
+    // The pop step draws the rectangle computed on this pop (orange).
+    const rect = (s.kind === 'pop') ? { height: s.h, L: s.L, R: s.R } : null;
+    const iH = (s.i === n && s.kind === 'push') ? -1 : s.i; // when pushing sentinel, don't label i again
+    const chart = renderHistogram(H, {
+      iHighlight: s.i < n ? s.i : (s.kind === 'pop' ? n : -1),
+      popped: s.kind === 'pop' ? s.top : -1,
+      stackIdxs,
+      rect,
+    });
+    // Stack column
+    const stkVals = s.stackSnapshot.map(idx => `i=${idx} (h=${H[idx]})`);
+    const stkCls = {};
+    stkVals.forEach((_, idx) => { stkCls[idx] = 'in'; });
+    if (s.kind === 'push' && stkVals.length) stkCls[stkVals.length - 1] = 'new';
+    let extra = '';
+    if (s.kind === 'pop') {
+      stkVals.push(`i=${s.top} (h=${H[s.top]})`);
+      stkCls[stkVals.length - 1] = 'gone';
+    }
+    const stk = VIZ.stack(stkVals, { title: 'stack (top up)', cls: stkCls });
+
+    const bestLine = `<div class="caption" style="margin-top:6px">current best = <b>${s.best}</b>${s.bestRect ? ` (height ${s.bestRect.height}, width ${s.bestRect.R - s.bestRect.L - 1})` : ''}</div>`;
+
+    const title = s.kind === 'push'
+      ? (s.i === n ? `Step ${k + 1}: sentinel i = n` : `Step ${k + 1}: i = ${s.i}, push`)
+      : `Step ${k + 1}: i = ${s.i === n ? 'n (sentinel)' : s.i}, pop ${s.top}`;
+
+    html += VIZ.step(title,
+      '<div style="display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap">' + chart + stk + '</div>' + bestLine,
+      s.note, true);
+  });
+  if (steps.length > MAX) html += `<p class="caption">... ${steps.length - MAX} more steps, same pattern.</p>`;
+
+  document.getElementById('answer').innerHTML =
+    `<b>Answer for heights = [${H.join(',')}]: ${best}</b>` +
+    (bestRect ? ` <span class="caption">(height ${bestRect.height}, width ${bestRect.R - bestRect.L - 1})</span>` : '');
+  return html;
+}, 'Values are the bar heights, left to right. Try [6,2,5,4,5,1,6] or [2,4].');
+</script>
+
+</body>
+</html>

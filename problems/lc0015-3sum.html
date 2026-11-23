@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 15 - 3Sum</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#two-pointers">Pattern lesson</a><span>Pattern 1: Arrays &amp; Two Pointers</span></div>
+
+<h1>3Sum</h1>
+<p class="sub">LeetCode 15 &middot; Medium &middot; Pattern: sort + fix anchor + L/R two pointers &middot; O(n<sup>2</sup>) time, O(1) extra space</p>
+
+<div class="box">
+  <b>Problem.</b> Return every unique triple <code>[a, b, c]</code> from <code>nums</code> with <code>a + b + c = 0</code>.
+  The returned list cannot contain duplicate triples.
+  <br><code>[-1,0,1,2,-1,-4] &rarr; [[-1,-1,2], [-1,0,1]]</code> &nbsp;&nbsp; <code>[0,0,0] &rarr; [[0,0,0]]</code>
+  <br>Link: <a href="https://leetcode.com/problems/3sum/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Sort first. Then fix the leftmost element of the triple at index <code>i</code>, and the rest is <b>Two Sum II</b> on
+the suffix <code>nums[i+1..n-1]</code>: find pairs that sum to <code>-nums[i]</code> using two pointers <code>l</code> and
+<code>r</code>. The sorted order makes a hit, miss, and shift decision O(1) per step.</p>
+
+<div id="idea"></div>
+
+<p>Sorting pays for itself three times over:</p>
+<ol>
+  <li>Two pointers work only on a sorted suffix.</li>
+  <li>Duplicates sit next to each other, so skipping them is a one-line <code>while</code>.</li>
+  <li>We can stop early when <code>nums[i] &gt; 0</code>: the suffix is all positive, so no triple can sum to zero.</li>
+</ol>
+
+<div class="box insight">
+  <b>Idea.</b> Sort. For each anchor <code>i</code>, run L/R two pointers on <code>nums[i+1..]</code> looking for
+  <code>-nums[i]</code>. On a hit, record the triple, then skip over duplicates on both sides before advancing.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>The yellow cell is the current anchor <code>i</code>. Blue cells are the <code>L</code>/<code>R</code> window on the
+suffix. A hit is highlighted green and recorded. A dedup skip is drawn with red strike-through so you can see which
+indices got jumped over.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>anchor <code>i</code></span>
+  <span><i style="background:var(--win)"></i>pointers <code>L</code> / <code>R</code></span>
+  <span><i style="background:var(--keep)"></i>hit (triple recorded)</span>
+  <span><i style="background:var(--gone)"></i>dedup skip</span>
+  <span><i style="background:#e9d5ff"></i>anchor skipped (duplicate)</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt; threeSum(<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; nums) {
+        sort(nums.begin(), nums.end());
+        <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt; ans;
+        <span class="t">int</span> n = nums.size();
+        <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i + <span class="n">2</span> &lt; n; i++) {
+            <span class="k">if</span> (nums[i] &gt; <span class="n">0</span>) <span class="k">break</span>;                      <span class="c">// suffix all positive</span>
+            <span class="k">if</span> (i &gt; <span class="n">0</span> &amp;&amp; nums[i] == nums[i-<span class="n">1</span>]) <span class="k">continue</span>;  <span class="c">// skip duplicate anchor</span>
+            <span class="t">int</span> l = i + <span class="n">1</span>, r = n - <span class="n">1</span>;
+            <span class="k">while</span> (l &lt; r) {
+                <span class="t">long long</span> s = (<span class="t">long long</span>)nums[i] + nums[l] + nums[r];
+                <span class="k">if</span> (s &lt; <span class="n">0</span>) l++;
+                <span class="k">else if</span> (s &gt; <span class="n">0</span>) r--;
+                <span class="k">else</span> {
+                    ans.push_back({nums[i], nums[l], nums[r]});
+                    <span class="k">while</span> (l &lt; r &amp;&amp; nums[l] == nums[l+<span class="n">1</span>]) l++;  <span class="c">// skip dup l</span>
+                    <span class="k">while</span> (l &lt; r &amp;&amp; nums[r] == nums[r-<span class="n">1</span>]) r--;  <span class="c">// skip dup r</span>
+                    l++; r--;
+                }
+            }
+        }
+        <span class="k">return</span> ans;
+    }
+};</pre>
+
+<p><b>Complexity:</b> sort is O(n log n). Each anchor runs a linear two-pointer sweep, so the main work is O(n<sup>2</sup>).
+No extra data structure beyond the output: O(1) extra space (ignoring the output).</p>
+
+<h2>5. The part interviewers ask about: three dedup rules, not one</h2>
+
+<div class="box insight">
+  <ul>
+    <li><b>Anchor dedup.</b> <code>if (i &gt; 0 &amp;&amp; nums[i] == nums[i-1]) continue;</code>
+    This skips the second <code>-1</code> in <code>[-4,-1,-1,0,1,2]</code>: using it as an anchor would recreate every
+    triple the first <code>-1</code> already found.</li>
+    <li><b>L dedup on hit.</b> After recording a triple, <code>while (nums[l] == nums[l+1]) l++;</code> then <code>l++</code>.
+    This skips the second <code>0</code> in <code>[0,0,0,0]</code> so <code>[0,0,0]</code> is reported only once.</li>
+    <li><b>R dedup on hit.</b> Symmetric. Required for inputs with repeated large positives like <code>[-2,0,1,1,2,2]</code>:
+    without R dedup you report <code>[-2,0,2]</code> twice.</li>
+  </ul>
+  Dedup only matters <b>after a hit</b>. On <code>s &lt; 0</code> or <code>s &gt; 0</code> you just move one side; duplicates
+  there would never produce a hit either, so no need to skip pre-emptively.
+</div>
+
+<h3>Why not use a hash set to drop duplicates?</h3>
+
+<p>You can. Hash a triple's string key and insert into an <code>unordered_set</code>. It costs an extra O(n<sup>2</sup>)
+space, more allocations, and hides the structure of the problem. The three local <code>while</code> loops are tighter and
+make the dedup logic visible.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Forgetting one of the three dedup rules.</b> You will fail <code>[0,0,0,0]</code>, <code>[-2,0,0,2,2]</code>,
+    or similar. The failure is "triple appears twice", not a wrong triple.</li>
+    <li><b>Comparing <code>nums[i] == nums[i+1]</code> instead of <code>nums[i] == nums[i-1]</code>.</b> The former skips
+    the <i>first</i> occurrence of a duplicated anchor, which is the one you want to keep.</li>
+    <li><b>Overflow.</b> With <code>|nums[i]| &le; 10<sup>5</sup></code>, three ints sum fits in <code>int</code> on LC. The
+    <code>long long</code> cast above is defensive; you can drop it if constraints allow.</li>
+    <li><b><code>nums[i] &gt; 0</code> break.</b> Optional optimisation. Skipping it is still correct, just slower.</li>
+    <li><b>Returning indices.</b> This problem wants <i>values</i>, not indices. Sort is free, unlike in LC 1.</li>
+    <li><b>Empty or small input.</b> <code>n &lt; 3</code> &rarr; return <code>{}</code>. The loop bound <code>i + 2 &lt; n</code>
+    handles it with no special case.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "Sort, then fix each number as an anchor and run two pointers on the rest looking for pairs that sum to minus the
+  anchor. If the sum is too small advance L, too big retreat R, equal record and dedup both sides. Also dedup the anchor
+  itself. Sort is O(n log n), the two-pointer sweep is O(n) per anchor, so overall O(n<sup>2</sup>). The three dedup
+  <code>while</code> loops are what stop duplicate triples from appearing."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 1 Two Sum</td><td>The subroutine inside the anchor loop, done with a hash map for unsorted indices.</td></tr>
+  <tr><td>LC 167 Two Sum II (sorted)</td><td>Exact subroutine: L/R two pointers on a sorted array looking for a target.</td></tr>
+  <tr><td>LC 16 3Sum Closest</td><td>Same frame, but track the closest sum instead of equality.</td></tr>
+  <tr><td>LC 18 4Sum</td><td>Nest another anchor: two outer loops + two pointers. O(n<sup>3</sup>).</td></tr>
+  <tr><td>LC 259 3Sum Smaller</td><td>Count triples with sum below a target; L/R shrinks differently.</td></tr>
+</table>
+
+<script>
+/* Idea diagram: show sorted [-4,-1,-1,0,1,2] with anchor at index 1 (-1) and L/R on the suffix. */
+document.getElementById('idea').innerHTML =
+  VIZ.strip([-4,-1,-1,0,1,2], {
+    cls: { 0: 'dim', 1: 'new', 2: 'in', 5: 'in' },
+    ptrs: { 1: 'i', 2: 'L', 5: 'R' },
+    notes: { 1: 'need -(-1)=1' }
+  }) +
+  '<div class="caption">Anchor is <code>-1</code>. The suffix is sorted. L/R look for a pair summing to <code>1</code>. ' +
+  '<code>-1 + 2 = 1</code> &rarr; triple <code>[-1,-1,2]</code>.</div>';
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Fix anchor i', lines: ['sort first', 'skip dup anchor', 'target = -nums[i]'], color: 'yellow' },
+  { title: '2. L/R on suffix', lines: ['s < 0: L++', 's > 0: R--', 's == 0: record'], color: 'blue' },
+  { title: '3. On a hit', lines: ['skip dup L, dup R', 'L++, R--'], color: 'green' },
+], { loop: 'next anchor' });
+
+/* Interactive trace. */
+VIZ.controls('trace', [
+  { id: 'nums', label: 'nums =', value: '[-1,0,1,2,-1,-4]', size: 26 },
+], v => {
+  let nums;
+  try { nums = VIZ.parse.arr(v.nums); }
+  catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  if (!Array.isArray(nums) || nums.some(x => typeof x !== 'number'))
+    return '<div class="box trap">Expected a JSON / comma list of integers.</div>';
+  if (nums.length > 14) return '<div class="box trap">Pick at most 14 numbers to keep the trace readable.</div>';
+
+  nums = nums.slice().sort((a, b) => a - b);
+  const n = nums.length;
+  const steps = [];
+  const triples = [];
+
+  outer:
+  for (let i = 0; i + 2 < n; i++) {
+    if (nums[i] > 0) {
+      steps.push({ kind: 'stop', i, note: 'nums[i] > 0, suffix is all positive, no more triples' });
+      break;
+    }
+    if (i > 0 && nums[i] === nums[i-1]) {
+      steps.push({ kind: 'skipAnchor', i });
+      continue;
+    }
+    steps.push({ kind: 'anchor', i });
+    let l = i + 1, r = n - 1;
+    while (l < r) {
+      const s = nums[i] + nums[l] + nums[r];
+      if (s < 0) {
+        steps.push({ kind: 'moveL', i, l, r, s });
+        l++;
+      } else if (s > 0) {
+        steps.push({ kind: 'moveR', i, l, r, s });
+        r--;
+      } else {
+        const triple = [nums[i], nums[l], nums[r]];
+        triples.push(triple);
+        const dropL = [], dropR = [];
+        while (l < r && nums[l] === nums[l+1]) { dropL.push(l + 1); l++; }
+        while (l < r && nums[r] === nums[r-1]) { dropR.push(r - 1); r--; }
+        steps.push({ kind: 'hit', i, l, r, triple, dropL, dropR });
+        l++; r--;
+      }
+      if (steps.length > 60) { steps.push({ kind:'cut' }); break outer; }
+    }
+  }
+
+  const MAX = 25;
+  let html = '';
+  const limit = Math.min(steps.length, MAX);
+  for (let k = 0; k < limit; k++) {
+    const st = steps[k];
+    const ptrs = {};
+    const cls = idx => {
+      if (st.kind === 'skipAnchor' && idx === st.i) return 'hit';   // purple = skipped-anchor
+      if (st.kind === 'anchor'     && idx === st.i) return 'new';
+      if (st.kind === 'stop'       && idx === st.i) return 'gone';
+      if (st.kind === 'moveL' || st.kind === 'moveR') {
+        if (idx === st.i) return 'new';
+        if (idx === st.l || idx === st.r) return 'in';
+      }
+      if (st.kind === 'hit') {
+        if (idx === st.i) return 'new';
+        if (idx === st.l || idx === st.r) return 'keep';
+        if (st.dropL.includes(idx) || st.dropR.includes(idx)) return 'gone';
+      }
+      return 'dim';
+    };
+    if (st.kind === 'anchor') ptrs[st.i] = 'i';
+    if (st.kind === 'moveL' || st.kind === 'moveR' || st.kind === 'hit') {
+      ptrs[st.i] = 'i';
+      ptrs[st.l] = st.l === st.r ? ['L','R'] : 'L';
+      if (st.l !== st.r) ptrs[st.r] = 'R';
+    }
+    if (st.kind === 'skipAnchor') ptrs[st.i] = 'skip';
+    const strip = VIZ.strip(nums, { cls, ptrs });
+
+    let title = '', text = '';
+    if (st.kind === 'anchor') {
+      title = `Anchor i = ${st.i}, nums[i] = ${nums[st.i]}`;
+      text = `New anchor. Look for pairs summing to <code>${-nums[st.i]}</code> in the suffix.`;
+    } else if (st.kind === 'skipAnchor') {
+      title = `Skip duplicate anchor i = ${st.i}`;
+      text = `<code>nums[${st.i}] = ${nums[st.i]}</code> equals <code>nums[${st.i-1}]</code>. Using it would re-emit the same triples. <b>Continue.</b>`;
+    } else if (st.kind === 'moveL') {
+      title = `s = ${st.s} &lt; 0, L++`;
+      text = `<code>${nums[st.i]} + ${nums[st.l]} + ${nums[st.r]} = ${st.s}</code>. Too small, move <code>L</code> right.`;
+    } else if (st.kind === 'moveR') {
+      title = `s = ${st.s} &gt; 0, R--`;
+      text = `<code>${nums[st.i]} + ${nums[st.l]} + ${nums[st.r]} = ${st.s}</code>. Too big, move <code>R</code> left.`;
+    } else if (st.kind === 'hit') {
+      title = `Hit: [${st.triple.join(', ')}]`;
+      const parts = [];
+      parts.push(`<code>${st.triple[0]} + ${st.triple[1]} + ${st.triple[2]} = 0</code>. Record triple.`);
+      if (st.dropL.length) parts.push(`Skip duplicate L at index${st.dropL.length>1?'es':''} ${st.dropL.join(', ')} (same value <code>${nums[st.dropL[0]]}</code>).`);
+      if (st.dropR.length) parts.push(`Skip duplicate R at index${st.dropR.length>1?'es':''} ${st.dropR.join(', ')} (same value <code>${nums[st.dropR[0]]}</code>).`);
+      parts.push(`Then <code>L++, R--</code>.`);
+      text = parts.join(' ');
+    } else if (st.kind === 'stop') {
+      title = `Stop at i = ${st.i}`;
+      text = st.note + '.';
+    } else if (st.kind === 'cut') {
+      title = ''; text = '';
+      continue;
+    }
+    html += VIZ.step(title, strip, text);
+  }
+  if (steps.length > MAX) html += `<p class="caption">... ${steps.length - MAX} more steps, same pattern.</p>`;
+
+  document.getElementById('answer').innerHTML =
+    `<b>Answer for nums = [${nums.join(',')}]: ${triples.length ? '[' + triples.map(t => '[' + t.join(',') + ']').join(', ') + ']' : '[]'}</b>`;
+  return html;
+}, 'Values are integers. The algorithm sorts first.');
+</script>
+
+</body>
+</html>

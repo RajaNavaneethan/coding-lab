@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 136 - Single Number</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#bit-manipulation">Pattern lesson</a><span>Pattern 18: Bit Manipulation</span></div>
+
+<h1>Single Number</h1>
+<p class="sub">LeetCode 136 &middot; Easy &middot; Pattern: XOR cancellation &middot; O(n) time, O(1) space</p>
+
+<div class="box">
+  <b>Problem.</b> Every element in <code>nums</code> appears exactly twice except one, which appears once. Find and
+  return that one. Must run in linear time and use constant extra space.
+  <br><code>[2,2,1] &rarr; 1</code> &nbsp;&nbsp;
+  <code>[4,1,2,1,2] &rarr; 4</code> &nbsp;&nbsp;
+  <code>[1] &rarr; 1</code>
+  <br>Link: <a href="https://leetcode.com/problems/single-number/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>XOR has three properties that fit this problem exactly:</p>
+<ul>
+  <li><code>x ^ x = 0</code> &mdash; a value XORed with itself cancels.</li>
+  <li><code>x ^ 0 = x</code> &mdash; zero is the identity.</li>
+  <li>XOR is commutative and associative &mdash; order does not matter.</li>
+</ul>
+
+<p>So if you XOR every element of the array together, every value that appears twice cancels to zero. The lonely value
+XORs with 0 and survives. One accumulator, one pass.</p>
+
+<div class="eq">answer = nums[0] ^ nums[1] ^ &hellip; ^ nums[n&minus;1]</div>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Fold all numbers with XOR. Duplicates pair up and vanish; whatever is left is the one that did not have
+  a partner.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>No sorting, no hash set. Just one integer that accumulates the running XOR.</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Each card shows the running accumulator <code>x</code> as a bit strip (bit 7 on the left, bit 0 on the right), then
+the next number, then the new <code>x</code> after XOR. Watch bits toggle: a 1 bit in the input flips the matching bit
+in the accumulator.</p>
+
+<div class="legend">
+  <span><i style="background:var(--win)"></i>bits that will flip this step</span>
+  <span><i style="background:var(--new)"></i>new value just computed</span>
+  <span><i style="background:var(--keep)"></i>final answer</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">int</span> singleNumber(<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; nums) {
+        <span class="t">int</span> x = <span class="n">0</span>;
+        <span class="k">for</span> (<span class="t">int</span> n : nums) x ^= n;
+        <span class="k">return</span> x;
+    }
+};</pre>
+
+<p><b>Complexity:</b> one pass, one XOR per element: O(n) time. One accumulator: O(1) extra space.</p>
+
+<h2>5. The part interviewers ask about: why XOR, not sum or hash</h2>
+
+<p>Three constraints push you toward XOR:</p>
+
+<div class="box insight">
+  <ul>
+    <li><b>O(1) extra space.</b> A hash set is O(n). Sorting with <code>nth_element</code> is O(1) extra but destroys the
+    input and is O(n) in a different way; the interviewer wants no auxiliary data structure at all.</li>
+    <li><b>Pairs cancel cleanly only in a group where <code>x + x = 0</code>.</b> With plain integer addition,
+    duplicates don't cancel &mdash; they double. You could compute <code>2 &middot; sum(set) &minus; sum(nums)</code>,
+    but that needs the set in the first place, so you have not saved space.</li>
+    <li><b>XOR is addition in <code>GF(2)</code>, bitwise.</b> Every bit is independent, and in each bit "two of the same"
+    sums to zero. That is exactly the structure of the problem.</li>
+  </ul>
+</div>
+
+<p>If you ever see "every element appears k times except one that appears m times", XOR alone is not enough: XOR only
+cancels pairs. Use bitwise counts mod k instead (LC 137 is this problem with k = 3). Still constant space, but you count
+each bit position mod k and reconstruct the odd one.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Starting the accumulator at anything other than 0.</b> <code>x = nums[0]</code> works but then you must start
+    the loop at index 1. Starting at <code>x = 0</code> is cleaner and uses the identity law.</li>
+    <li><b>Using <code>sum()</code> accidentally.</b> Addition does not cancel duplicates. You need XOR (<code>^</code>),
+    not <code>+</code>.</li>
+    <li><b>Negative numbers.</b> C++ XOR of signed <code>int</code> works bit for bit on the two's-complement
+    representation, which is what you want. <code>-1 ^ -1 = 0</code>. No special handling needed.</li>
+    <li><b>Array of one element.</b> The loop runs once: <code>0 ^ nums[0] = nums[0]</code>. Correct.</li>
+    <li><b>"Every number appears three times except one"</b> (LC 137). XOR alone fails: three XORs leave the value, not
+    zero. Switch to a per-bit mod 3 counter.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "XOR is associative and commutative, and <code>x ^ x = 0</code>. If I XOR every element together, every value that
+  appears twice cancels, and the odd one out survives. One pass, one <code>int</code> accumulator, O(n) time and O(1)
+  space. Works for negatives because XOR acts on the bit pattern. The trick does not generalise if a value appears three
+  times &mdash; there I would count each bit mod 3 instead."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 137 Single Number II</td><td>Every element appears three times except one. Bitwise mod-3 count per bit.</td></tr>
+  <tr><td>LC 260 Single Number III</td><td>Two unique elements. XOR gives their XOR, then split by any set bit.</td></tr>
+  <tr><td>LC 268 Missing Number</td><td>XOR all values and all indices; same cancellation idea.</td></tr>
+  <tr><td>LC 389 Find the Difference</td><td>Two strings differ by one letter. XOR all characters.</td></tr>
+</table>
+
+<script>
+/* Small idea diagram: [4,1,2,1,2] folded by XOR. */
+(function () {
+  const nums = [4, 1, 2, 1, 2];
+  const vals = [];
+  let acc = 0;
+  nums.forEach(n => { acc ^= n; vals.push(acc); });
+
+  const W = 760, H = 170, X0 = 40, DX = 130, BW = 110;
+  let s = '';
+  // input row
+  nums.forEach((v, i) => {
+    const x = X0 + i * DX;
+    s += `<rect x="${x}" y="18" width="${BW}" height="40" rx="6" fill="#f8fafc" stroke="#475569" stroke-width="2"/>`;
+    s += `<text x="${x + BW / 2}" y="44" text-anchor="middle" font-size="17" font-weight="700">${v}</text>`;
+    s += `<text x="${x + BW / 2}" y="12" text-anchor="middle" font-size="11" fill="#616e7c">nums[${i}]</text>`;
+    if (i < nums.length - 1) s += `<text x="${x + BW + DX / 2 - 65}" y="44" font-size="18" font-weight="700" fill="#334155">^</text>`;
+  });
+  // acc row
+  vals.forEach((v, i) => {
+    const x = X0 + i * DX;
+    const last = i === vals.length - 1;
+    const fill = last ? '#bbf7d0' : '#dbeafe';
+    const stroke = last ? '#15803d' : '#3b82f6';
+    s += `<rect x="${x}" y="100" width="${BW}" height="40" rx="6" fill="${fill}" stroke="${stroke}" stroke-width="2"/>`;
+    s += `<text x="${x + BW / 2}" y="126" text-anchor="middle" font-size="17" font-weight="700">${v}</text>`;
+    s += `<text x="${x + BW / 2}" y="94" text-anchor="middle" font-size="11" fill="#616e7c">x after step ${i}</text>`;
+  });
+  s += `<text x="${W / 2}" y="162" text-anchor="middle" font-size="12" fill="#616e7c">pairs 1^1 and 2^2 cancel; 4 is left</text>`;
+
+  document.getElementById('idea').innerHTML =
+    `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${H}">${s}</svg>`;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Init', lines: ['x = 0'], color: 'green' },
+  { title: '2. Fold with XOR', lines: ['for n in nums', 'x = x ^ n'], color: 'yellow' },
+  { title: '3. Answer', lines: ['return x'], color: 'blue' },
+]);
+
+/* Interactive trace. Show the running XOR as 8-bit strip for small inputs. */
+VIZ.controls('trace', [
+  { id: 'nums', label: 'nums =', value: '[4,1,2,1,2]', size: 20 },
+], v => {
+  let nums;
+  try { nums = VIZ.parse.arr(v.nums); }
+  catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  if (!Array.isArray(nums) || nums.length === 0) {
+    return '<div class="box trap">Give a non-empty array.</div>';
+  }
+  if (nums.length > 15) return '<div class="box trap">Keep nums at 15 elements or fewer for a readable trace.</div>';
+
+  const WIDTH = 8;
+  const bits = n => {
+    const u = (n & ((1 << WIDTH) - 1)) >>> 0;
+    const out = [];
+    for (let i = WIDTH - 1; i >= 0; i--) out.push((u >> i) & 1);
+    return out;
+  };
+  const labels = (() => { const a = []; for (let i = WIDTH - 1; i >= 0; i--) a.push('b' + i); return a; })();
+
+  let acc = 0;
+  const steps = [];
+  nums.forEach((n, i) => {
+    const before = acc;
+    const next = acc ^ n;
+    steps.push({ i, n, before, next });
+    acc = next;
+  });
+
+  // Build cards (cap at 25)
+  const MAX = 25;
+  const show = steps.length <= MAX ? steps : steps.slice(0, MAX);
+  let html = '';
+  show.forEach((st, k) => {
+    const nBits = bits(st.n);
+    const beforeBits = bits(st.before);
+    const nextBits = bits(st.next);
+    // highlight bits where n has a 1 (those flip in the accumulator)
+    const flipMask = i => (nBits[i] === 1);
+
+    const last = (k === steps.length - 1 && steps.length <= MAX);
+    const accCls = last ? 'keep' : 'new';
+
+    const stripAcc = VIZ.strip(beforeBits, { labels, cls: () => '', small: true });
+    const stripN = VIZ.strip(nBits, { labels, cls: i => flipMask(i) ? 'in' : '', small: true });
+    const stripNext = VIZ.strip(nextBits, { labels, cls: i => flipMask(i) ? accCls : '', small: true });
+
+    const visual =
+      `<div style="font-size:12px;color:#616e7c;margin-top:4px">x (before) = ${st.before}</div>` + stripAcc +
+      `<div style="font-size:12px;color:#616e7c;margin-top:8px">nums[${st.i}] = ${st.n}  &nbsp; (blue = bits that flip)</div>` + stripN +
+      `<div style="font-size:12px;color:#616e7c;margin-top:8px">x (after) = ${st.next}</div>` + stripNext;
+
+    const text = `XOR with <code>${st.n}</code>. Bits where the input is 1 toggle in the accumulator. New <code>x = ${st.next}</code>.`;
+    html += VIZ.step(`Step ${k + 1}: fold nums[${st.i}] = ${st.n}`, visual, text, true);
+  });
+  if (steps.length > MAX) html += `<p class="caption">... ${steps.length - MAX} more steps, same pattern.</p>`;
+
+  document.getElementById('answer').innerHTML = `<b>Answer: ${acc}</b> (the one element without a partner).`;
+  return html;
+}, 'Pick any array where every element appears twice except one.');
+</script>
+
+</body>
+</html>

@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 347 - Top K Frequent Elements</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#heaps">Pattern lesson</a><span>Pattern 7: Heaps / Priority Queue</span></div>
+
+<h1>Top K Frequent Elements</h1>
+<p class="sub">LeetCode 347 &middot; Medium &middot; Pattern: count + size-k min-heap (or bucket sort) &middot; O(n log k) or O(n)</p>
+
+<div class="box">
+  <b>Problem.</b> Given an array <code>nums</code> and an integer <code>k</code>, return the <code>k</code> most
+  frequent elements. The answer may be returned in any order.
+  <br><code>[1,1,1,2,2,3], k=2 &rarr; [1,2]</code>. &nbsp;&nbsp;
+  <code>[1], k=1 &rarr; [1]</code>.
+  <br>Link: <a href="https://leetcode.com/problems/top-k-frequent-elements/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Reduce the problem to "top-k of a list of (value, frequency) pairs". Count frequencies in one pass with a hash
+map, then apply the same size-<code>k</code> min-heap trick as LC 215 &mdash; but <b>key the heap by frequency</b>.
+Push every <code>(freq, value)</code> pair; whenever the heap exceeds <code>k</code>, pop the pair with the smallest
+frequency. What remains is the top-k by frequency.</p>
+
+<p>If the array is dense (many values, each appearing a bounded number of times), there is a <b>bucket sort</b>
+alternative that runs in O(n) by placing values into buckets indexed by their frequency.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Count once, then run size-<code>k</code> min-heap on <code>(freq, value)</code> pairs ordered by freq.
+  The heap's root is the <i>least frequent</i> element currently in the top-k, which is exactly the threshold a new
+  pair must beat.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>Nodes in the tree below show <code>freq:value</code>. The parent's frequency is always &le; its children's: that
+is the min-heap property applied to the first component of the pair.</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>The input is first counted into a frequency map. Then we scan the <i>unique</i> values and push each
+<code>(freq, value)</code> pair; whenever the heap size exceeds <code>k</code>, we pop the smallest-freq pair. The
+heap is drawn as a binary tree in level order with nodes labelled <code>freq:value</code>.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>just pushed</span>
+  <span><i style="background:var(--gone)"></i>popped (lowest freq)</span>
+  <span><i style="background:var(--keep)"></i>final top-k</span>
+  <span><i style="background:#fff;border:1px solid #cbd5e1"></i>in the heap</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre>vector&lt;<span class="t">int</span>&gt; topKFrequent(vector&lt;<span class="t">int</span>&gt;&amp; nums, <span class="t">int</span> k) {
+    unordered_map&lt;<span class="t">int</span>, <span class="t">int</span>&gt; cnt;
+    <span class="k">for</span> (<span class="t">int</span> x : nums) cnt[x]++;                        <span class="c">// O(n) counting</span>
+
+    <span class="c">// min-heap of pair&lt;freq, value&gt;; smallest freq on top</span>
+    priority_queue&lt;pair&lt;<span class="t">int</span>,<span class="t">int</span>&gt;,
+                   vector&lt;pair&lt;<span class="t">int</span>,<span class="t">int</span>&gt;&gt;,
+                   greater&lt;&gt;&gt; pq;
+    <span class="k">for</span> (<span class="k">auto</span>&amp; [v, c] : cnt) {
+        pq.push({c, v});                               <span class="c">// pair compares by first, then second</span>
+        <span class="k">if</span> ((<span class="t">int</span>)pq.size() &gt; k) pq.pop();              <span class="c">// drop current least-frequent</span>
+    }
+
+    vector&lt;<span class="t">int</span>&gt; ans;
+    <span class="k">while</span> (!pq.empty()) { ans.push_back(pq.top().second); pq.pop(); }
+    <span class="k">return</span> ans;                                        <span class="c">// any order allowed</span>
+}</pre>
+
+<p><b>Complexity:</b> counting is O(n). The heap holds at most <code>k</code> elements, so each push/pop is
+O(log k). If there are <code>u</code> unique values, the heap phase is O(u log k) &le; O(n log k). Space O(n) for the
+map plus O(k) for the heap.</p>
+
+<p><b>Why <code>greater&lt;&gt;</code> on <code>pair&lt;int,int&gt;</code> works.</b> <code>std::pair</code>'s default
+comparison is lexicographic: compare first, then second. <code>greater&lt;&gt;</code> flips the order on the first
+component (frequency), so the heap root is the pair with the <i>smallest</i> frequency. Ties go to the smaller value;
+that doesn't affect correctness because the problem accepts any order.</p>
+
+<h3>Alternative: bucket sort (O(n))</h3>
+
+<pre>vector&lt;<span class="t">int</span>&gt; topKFrequent(vector&lt;<span class="t">int</span>&gt;&amp; nums, <span class="t">int</span> k) {
+    unordered_map&lt;<span class="t">int</span>, <span class="t">int</span>&gt; cnt;
+    <span class="k">for</span> (<span class="t">int</span> x : nums) cnt[x]++;
+    <span class="t">int</span> n = (<span class="t">int</span>)nums.size();
+    vector&lt;vector&lt;<span class="t">int</span>&gt;&gt; buckets(n + <span class="n">1</span>);                  <span class="c">// buckets[f] = values with frequency f</span>
+    <span class="k">for</span> (<span class="k">auto</span>&amp; [v, c] : cnt) buckets[c].push_back(v);
+    vector&lt;<span class="t">int</span>&gt; ans;
+    <span class="k">for</span> (<span class="t">int</span> f = n; f &gt;= <span class="n">1</span> &amp;&amp; (<span class="t">int</span>)ans.size() &lt; k; f--)
+        <span class="k">for</span> (<span class="t">int</span> v : buckets[f]) {
+            ans.push_back(v);
+            <span class="k">if</span> ((<span class="t">int</span>)ans.size() == k) <span class="k">break</span>;
+        }
+    <span class="k">return</span> ans;
+}</pre>
+
+<p>Why it works: a frequency is at most <code>n</code>, so <code>n+1</code> buckets suffice. Scanning buckets from
+high to low collects the most frequent first. <b>O(n) time, O(n) space</b>. Prefer when:</p>
+<ul>
+  <li>You know <code>n</code> up front (bucket sort can't stream).</li>
+  <li>Interviewer asks for strictly O(n) &mdash; this beats the heap's O(n log k).</li>
+</ul>
+<p>Prefer the heap when: input arrives one element at a time, or when the universe of distinct values is huge but
+only <code>k</code> matter at any moment.</p>
+
+<h2>5. The part interviewers ask about: comparator direction for <code>pair</code></h2>
+
+<div class="box insight">
+  Everyone can write "min-heap of ints with <code>greater&lt;int&gt;</code>". The subtle one is <b>min-heap of
+  <code>pair&lt;int,int&gt;</code> keyed by frequency</b>. The pair's natural order is <code>(a.first, a.second)</code>
+  lexicographic; passing <code>greater&lt;&gt;</code> as the comparator inverts that order, so the root is the
+  <i>smallest</i> pair &mdash; smallest frequency first, with ties broken by smallest value. That is exactly what we
+  need: we want to kick out the <i>least frequent</i> element, so it must sit on top.
+</div>
+
+<p>If instead you wanted "most frequent on top" (the opposite, size-n max-heap approach), you would use the default
+<code>priority_queue&lt;pair&lt;int,int&gt;&gt;</code>. That also solves the problem (pop <code>k</code> times) but
+costs O(n log n) time and O(n) space, which is worse than both alternatives above.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Pair order matters.</b> Use <code>pair&lt;freq, value&gt;</code>, not <code>pair&lt;value, freq&gt;</code>.
+    Otherwise the heap orders by value, not frequency, and the whole algorithm breaks.</li>
+    <li><b>Default <code>priority_queue</code> is a max-heap.</b> If you forget <code>greater&lt;&gt;</code>, the heap
+    keeps the <i>most</i> frequent on top and pops them first &mdash; you throw away the answer.</li>
+    <li><b>Pushing then checking size.</b> Push first, then <code>if (size &gt; k) pop</code>. Flipping that order
+    loses one answer.</li>
+    <li><b><code>k</code> equals the number of unique values.</b> Then every unique value is in the answer and no
+    pops happen. The code handles this because the <code>size &gt; k</code> check is false.</li>
+    <li><b>Negative numbers.</b> Values can be any <code>int</code>. The counting map and heap are indifferent; the
+    bucket version uses frequency as the index, not value, so negative values are fine there too.</li>
+    <li><b>Bucket-sort off-by-one.</b> Buckets are indexed by frequency, which ranges 1..n (not 0..n-1). Size the
+    buckets as <code>n+1</code> so you can index <code>buckets[n]</code>.</li>
+    <li><b>Returning in sorted order.</b> The problem does not require order, but a careless test harness may
+    compare arrays directly. If you need deterministic order, sort <code>ans</code> at the end.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I count frequencies in a hash map in O(n). Then I run a size-<code>k</code> min-heap over
+  <code>(frequency, value)</code> pairs: push every pair, pop whenever the heap exceeds <code>k</code>. The pair at
+  the root is the current least-frequent candidate, so popping it keeps the top-k. In C++ I write
+  <code>priority_queue&lt;pair&lt;int,int&gt;, vector&lt;pair&lt;int,int&gt;&gt;, greater&lt;&gt;&gt;</code> &mdash;
+  <code>greater</code> flips the lexicographic order of pairs so the smallest frequency is on top. O(n log k) time,
+  O(n) space. If the interviewer asks for linear time, I switch to bucket sort: a vector of <code>n+1</code>
+  buckets indexed by frequency, scan from high to low until I have <code>k</code>."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 215 Kth Largest Element</td><td>Same size-k min-heap, but keyed by value instead of frequency.</td></tr>
+  <tr><td>LC 692 Top K Frequent Words</td><td>Same algorithm; tie-break by lexicographic order needs a custom comparator.</td></tr>
+  <tr><td>LC 973 K Closest Points</td><td>Size-k max-heap keyed by squared distance (we want smallest, so biggest sits on top).</td></tr>
+  <tr><td>LC 451 Sort Characters By Frequency</td><td>Count + bucket sort by frequency; same bucket trick.</td></tr>
+  <tr><td>LC 1046 Last Stone Weight</td><td>Pure max-heap use; good warm-up for comparator fluency.</td></tr>
+</table>
+
+<script>
+const V = VIZ;
+
+/* 1. Idea diagram: on [1,1,1,2,2,3], after counting, the (freq,value) heap of size 2 holds {(3,1),(2,2)}. */
+(function () {
+  // heap level order: [(2,2),(3,1)]  -- but min-heap by freq: (2,2) is root.
+  const t = V.tree(['2:2', '3:1'], { cls: { 0: 'keep', 1: 'keep' }, notes: { 0: 'root' } });
+  document.getElementById('idea').innerHTML =
+    '<div class="figure">' + t + '</div>' +
+    '<p class="caption">After counting <code>[1,1,1,2,2,3]</code>: value 1 has freq 3, value 2 has freq 2, value 3 has freq 1. ' +
+    'With <code>k=2</code>, the min-heap keeps the two highest-freq pairs. Root <code>2:2</code> is the <i>least</i> frequent of the top-k; it is what a new candidate must beat.</p>';
+})();
+
+/* 2. Flow */
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Count', lines: ['hash map', 'value -> freq'], color: 'yellow' },
+  { title: '2. Push pair', lines: ['pq.push({freq, val})', 'ordered by freq'], color: 'blue' },
+  { title: '3. Over size?', lines: ['size > k ?', 'yes: pop smallest-freq'], color: 'red' },
+  { title: '4. Collect', lines: ['drain heap', 'return values'], color: 'green' },
+], { loop: 'for each unique value' });
+
+/* 3. Interactive trace. */
+VIZ.controls('trace', [
+  { id: 'nums', label: 'nums =', value: '[1,1,1,2,2,3]', size: 24 },
+  { id: 'k', label: 'k =', value: '2', size: 3 },
+], v => {
+  const nums = V.parse.arr(v.nums);
+  const k = V.parse.int(v.k);
+  if (nums.length === 0) throw new Error('nums must be non-empty');
+  if (nums.length > 20) throw new Error('keep nums.length <= 20');
+
+  // Count.
+  const cnt = new Map();
+  for (const x of nums) cnt.set(x, (cnt.get(x) || 0) + 1);
+  const uniq = [...cnt.keys()];
+  if (k < 1 || k > uniq.length) throw new Error('need 1 <= k <= unique count (' + uniq.length + ')');
+
+  // Min-heap keyed by (freq, value) lex. Represented as array of [freq, val].
+  const heap = [];
+  const less = (a, b) => a[0] !== b[0] ? a[0] < b[0] : a[1] < b[1];
+  const siftUp = i => {
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (less(heap[i], heap[p])) { [heap[i], heap[p]] = [heap[p], heap[i]]; i = p; } else break;
+    }
+  };
+  const siftDown = i => {
+    const n = heap.length;
+    while (true) {
+      const l = 2 * i + 1, r = 2 * i + 2;
+      let s = i;
+      if (l < n && less(heap[l], heap[s])) s = l;
+      if (r < n && less(heap[r], heap[s])) s = r;
+      if (s === i) break;
+      [heap[i], heap[s]] = [heap[s], heap[i]];
+      i = s;
+    }
+  };
+  const push = x => { heap.push(x); siftUp(heap.length - 1); };
+  const pop = () => {
+    const top = heap[0];
+    const last = heap.pop();
+    if (heap.length) { heap[0] = last; siftDown(0); }
+    return top;
+  };
+
+  const labels = () => heap.map(p => p[0] + ':' + p[1]);
+  const legend = () => '<div class="caption">heap (level order, freq:value): [' +
+    labels().join(', ') + '], size = ' + heap.length + '</div>';
+
+  const render = (title, note, newIdx) => {
+    const cls = {};
+    if (newIdx !== undefined && newIdx !== null && newIdx >= 0) cls[newIdx] = 'new';
+    const tr = heap.length ? V.tree(labels(), { cls }) : '<div class="caption">(empty heap)</div>';
+    return V.step(title, '<div class="figure">' + tr + '</div>' + legend(), note, true);
+  };
+
+  // Build frequency table HTML.
+  let freqRows = '';
+  for (const [val, c] of cnt.entries()) freqRows += `<tr><td>${val}</td><td>${c}</td></tr>`;
+  const freqHtml = '<table style="width:auto;display:inline-block;margin:4px 0 10px;font-size:13px"><tr><th>value</th><th>freq</th></tr>' + freqRows + '</table>';
+  let html = V.step('Count frequencies', freqHtml, 'One pass over <code>nums</code> builds the frequency map.', true);
+
+  html += render('Init', `Empty min-heap keyed by frequency. We will keep its size &le; ${k}.`, null);
+
+  let steps = 2;
+  const cap = 22;
+  for (let i = 0; i < uniq.length; i++) {
+    if (steps >= cap) {
+      html += '<p class="caption">... ' + (uniq.length - i) + ' more unique values to process.</p>';
+      for (let j = i; j < uniq.length; j++) {
+        push([cnt.get(uniq[j]), uniq[j]]);
+        if (heap.length > k) pop();
+      }
+      break;
+    }
+    const val = uniq[i], freq = cnt.get(val);
+    push([freq, val]);
+    const pushedIdx = heap.findIndex(p => p[0] === freq && p[1] === val);
+    html += render(
+      `Push (${freq}, ${val})`,
+      `Push pair <b>(${freq}, ${val})</b>. Size is now ${heap.length}.` +
+      (heap.length <= k ? ' Under the cap, nothing to drop.' : ' Over the cap &rarr; pop the lowest-freq pair next.'),
+      pushedIdx
+    );
+    steps++;
+    if (heap.length > k) {
+      if (steps >= cap) break;
+      const popped = pop();
+      html += render(
+        `Pop (${popped[0]}, ${popped[1]})`,
+        `Heap exceeded <code>k=${k}</code>. Popping the root pair <b>(${popped[0]}, ${popped[1]})</b> keeps the top-${k} by frequency.`,
+        null
+      );
+      steps++;
+    }
+  }
+
+  // Final.
+  const finalCls = {};
+  for (let i = 0; i < heap.length; i++) finalCls[i] = 'keep';
+  const finalTree = heap.length ? V.tree(labels(), { cls: finalCls }) : '';
+  const answer = heap.map(p => p[1]);
+  html += V.step(
+    'Drain heap &rarr; answer',
+    '<div class="figure">' + finalTree + '</div><div class="caption">final heap pairs: [' + labels().join(', ') + ']</div>',
+    `Collect the values from the remaining ${heap.length} pairs. Order is not required.`,
+    true
+  );
+
+  document.getElementById('answer').innerHTML = '<b>Answer (any order):</b> [' + answer.join(', ') + ']';
+  return html;
+}, 'Enter nums and k. Count first, then push each unique value with its frequency.');
+</script>
+
+</body>
+</html>

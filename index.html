@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coding Interview Lab</title>
+<link rel="stylesheet" href="styles.css">
+<script>try { var t = localStorage.getItem("cil-theme"); if (/[?&]theme=dark/.test(location.search)) t = "dark"; if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+if (/[?&]debug/.test(location.search)) window.onerror = function (m, s, l) { var d = document.documentElement; d.setAttribute("data-errors", (d.getAttribute("data-errors") || "") + " | " + m + " @" + (s || "").split("/").pop() + ":" + l); };</script>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <svg viewBox="0 0 32 32" class="logo" aria-hidden="true"><rect x="3" y="5" width="26" height="22" rx="4"/><path d="M10 12l-4 4 4 4M22 12l4 4-4 4M18 10l-4 12"/></svg>
+    <span>Coding Interview <mark>Lab</mark></span>
+  </a>
+  <nav class="tabs" aria-label="Sections">
+    <a class="tab active" href="index.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 5h7a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H2zM22 5h-7a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h8z"/></svg>Learn</a>
+    <a class="tab" href="problems.html"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="7" height="7" rx="1.5"/><rect x="14" y="4" width="7" height="7" rx="1.5"/><rect x="3" y="15" width="7" height="7" rx="1.5"/><rect x="14" y="15" width="7" height="7" rx="1.5"/></svg>Problems</a>
+    <a class="tab" href="practice.html"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>Practice</a>
+  </nav>
+  <label class="search">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+    <input id="search" type="search" placeholder="Search patterns and tags…" autocomplete="off">
+    <kbd>/</kbd>
+  </label>
+  <div class="top-actions">
+    <div class="chip" id="top-progress"></div>
+    <button id="theme" class="icon-btn" title="Toggle dark mode" aria-label="Toggle dark mode"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg></button>
+  </div>
+</header>
+
+<div class="layout">
+  <aside id="sidebar" class="card">
+    <div class="side-head"><span class="folder-icon" style="--fc:var(--orange)"></span><b>Patterns</b><span class="muted" id="pattern-total"></span></div>
+    <ol id="nav"></ol>
+    <div class="side-progress" id="side-progress"></div>
+  </aside>
+
+  <main id="center">
+    <section class="card lesson-card" id="lesson"></section>
+    <section class="card quiz-card" id="quiz" hidden>
+      <div class="quiz-head">
+        <div><b>QUICK QUIZ</b><span class="muted" id="quiz-sub"></span></div>
+        <div class="quiz-actions"><span class="chip" id="quiz-score"></span><button class="btn" id="quiz-retry">↺ Retry</button></div>
+      </div>
+      <ol class="quiz-list" id="quiz-list"></ol>
+      <p class="quiz-result" id="quiz-result" hidden></p>
+    </section>
+  </main>
+</div>
+
+<script src="fields.js"></script>
+<script src="engine.js"></script>
+<script src="data/problems.js"></script>
+<script src="patterns/01-two-pointers.js"></script>
+<script src="patterns/02-sliding-window.js"></script>
+<script src="patterns/03-prefix-sum-hashing.js"></script>
+<script src="patterns/04-binary-search.js"></script>
+<script src="patterns/05-linked-lists.js"></script>
+<script src="patterns/06-stacks-monotonic.js"></script>
+<script src="patterns/07-heaps.js"></script>
+<script src="patterns/08-trees.js"></script>
+<script src="patterns/09-tries.js"></script>
+<script src="patterns/10-graphs-bfs-dfs.js"></script>
+<script src="patterns/11-shortest-path-union-find.js"></script>
+<script src="patterns/12-backtracking.js"></script>
+<script src="patterns/13-dp-1d.js"></script>
+<script src="patterns/14-dp-2d.js"></script>
+<script src="patterns/15-dp-knapsack.js"></script>
+<script src="patterns/16-greedy.js"></script>
+<script src="patterns/17-intervals.js"></script>
+<script src="patterns/18-bit-manipulation.js"></script>
+<script src="patterns/19-math-design.js"></script>
+<script src="patterns/20-advanced.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

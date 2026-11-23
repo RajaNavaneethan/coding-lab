@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 253 - Meeting Rooms II</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#intervals">Pattern lesson</a><span>Pattern 17: Intervals</span></div>
+
+<h1>Meeting Rooms II</h1>
+<p class="sub">LeetCode 253 (Premium) &middot; Medium &middot; Pattern: min-heap of ends / sweep line &middot; O(n log n) time, O(n) space</p>
+
+<div class="box">
+  <b>Problem.</b> Given a list of meeting intervals <code>intervals[i] = [start<sub>i</sub>, end<sub>i</sub>]</code>,
+  return the <b>minimum number of conference rooms</b> required to hold all meetings. A meeting that ends at
+  time <code>t</code> and another that starts at <code>t</code> can share a room (end is exclusive).
+  <br><code>[[0,30],[5,10],[15,20]] &rarr; 2</code>
+  <br><code>[[7,10],[2,4]] &rarr; 1</code>
+  <br><code>[[1,5],[5,10]] &rarr; 1</code> (touching ends share a room)
+  <br>LeetCode 253 is Premium; this problem is also called "Minimum Number of Conference Rooms".
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>At any instant, the number of rooms needed equals the number of meetings <b>currently in progress</b>. The answer
+is the maximum of this count over all time. Two clean ways to compute that maximum:</p>
+
+<ol>
+  <li><b>Min-heap of end times.</b> Sort meetings by start. Walk through them. The heap tracks "rooms currently in
+    use", each entry is one room's end time. For each new meeting: if the earliest-ending room is already free
+    (<code>heap.top() &le; start</code>), reuse it; push the new end. At the end, <code>heap.size()</code> is the
+    answer because the heap only ever grows to the peak overlap and never shrinks past it (we only ever push after
+    popping the one freed room).</li>
+  <li><b>Sweep line of +1 / &minus;1 events.</b> At every start, +1 room; at every end, &minus;1 room. Sort events
+    (<b>process &minus;1 before +1 at the same time</b>, because touching ends share a room). Running max of the
+    prefix sum is the answer.</li>
+</ol>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Rooms needed = peak concurrency. Min-heap of end times tracks "which room frees up first"; sweep line
+  counts "how many starts have happened minus how many ends have happened" at every moment. Both give the same answer.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<h3>The sweep-line view</h3>
+<p>Separate every meeting into a +1 start event and a &minus;1 end event, sort by time (end before start on ties),
+and watch the running sum rise and fall. The peak is the answer.</p>
+<div id="sweep"></div>
+
+<h2>3. Step-by-step trace (min-heap)</h2>
+
+<p>Each step draws meetings on a number line in start-sorted order, with a vertical stack on the right showing the
+min-heap of end times (smallest on top, that's the next room to free). A dashed vertical line marks the start time
+of the meeting under consideration.</p>
+
+<div class="legend">
+  <span><i style="background:#fde68a"></i>meeting being placed</span>
+  <span><i style="background:#bbf7d0"></i>in progress (room busy)</span>
+  <span><i style="background:#dbeafe"></i>already ended (room freed)</span>
+  <span><i style="background:#f1f5f9;border-style:dashed"></i>not yet started</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<p><b>Main approach: min-heap of end times.</b></p>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">int</span> minMeetingRooms(<span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt;&amp; intervals) {
+        <span class="k">if</span> (intervals.empty()) <span class="k">return</span> <span class="n">0</span>;
+        sort(intervals.begin(), intervals.end(),
+             [](<span class="k">const</span> <span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; a, <span class="k">const</span> <span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; b){ <span class="k">return</span> a[<span class="n">0</span>] &lt; b[<span class="n">0</span>]; });
+        priority_queue&lt;<span class="t">int</span>, <span class="t">vector</span>&lt;<span class="t">int</span>&gt;, greater&lt;<span class="t">int</span>&gt;&gt; busyEnds;  <span class="c">// min-heap</span>
+        <span class="k">for</span> (<span class="k">auto</span>&amp; iv : intervals) {
+            <span class="k">if</span> (!busyEnds.empty() &amp;&amp; busyEnds.top() &lt;= iv[<span class="n">0</span>]) busyEnds.pop();  <span class="c">// reuse a room</span>
+            busyEnds.push(iv[<span class="n">1</span>]);
+        }
+        <span class="k">return</span> (<span class="t">int</span>)busyEnds.size();
+    }
+};</pre>
+
+<p><b>Complexity:</b> sort is O(n log n), each meeting does O(log n) heap work, total O(n log n). O(n) space for the
+heap in the worst case (all meetings overlap).</p>
+
+<h3>Alternative: sweep line (separate start/end arrays)</h3>
+
+<pre><span class="t">int</span> minMeetingRooms(<span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt;&amp; iv) {
+    <span class="t">int</span> n = iv.size();
+    <span class="t">vector</span>&lt;<span class="t">int</span>&gt; st(n), en(n);
+    <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt; n; i++) { st[i] = iv[i][<span class="n">0</span>]; en[i] = iv[i][<span class="n">1</span>]; }
+    sort(st.begin(), st.end()); sort(en.begin(), en.end());
+    <span class="t">int</span> rooms = <span class="n">0</span>, j = <span class="n">0</span>;
+    <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt; n; i++) {
+        <span class="k">if</span> (st[i] &lt; en[j]) rooms++;   <span class="c">// a start before the next end: need a new room</span>
+        <span class="k">else</span> j++;                     <span class="c">// a room freed up before this start</span>
+    }
+    <span class="k">return</span> rooms;
+}</pre>
+
+<p>No heap at all; just two sorted arrays and two pointers. Prefer this when the end-times list is interesting on its
+own (e.g. you also want to answer "at time T, how many rooms?"). Same O(n log n).</p>
+
+<h2>5. The part interviewers ask about</h2>
+
+<div class="box insight">
+  <b>Why is the heap approach correct?</b> If the earliest-freed room (<code>heap.top()</code>) is not free yet, no
+  other busy room is either (its end time is larger). So the only room we could possibly reuse is the top. If it is
+  free we take it; if not we open a new one. The heap never shrinks past the peak overlap because for every pop (reuse)
+  we push once immediately after; the net effect of a reuse is zero change in size, and the net effect of a "no reuse"
+  is +1. Final size = max value size ever reached = peak overlap = minimum rooms.
+</div>
+
+<p><b>Why <code>&le;</code> and not <code>&lt;</code>?</b> A meeting ending at time <code>t</code> and another starting
+at <code>t</code> can share a room. If we used <code>&lt;</code>, we would wrongly open a second room for
+<code>[[1,5],[5,10]]</code>.</p>
+
+<p><b>Why sort events "end before start" at ties in the sweep?</b> Same reason: the room is freed <i>at</i> the end
+time, so at the shared instant the count must first drop (end) and then rise (start). Mix them the other way and
+touching meetings look like they overlap.</p>
+
+<p><b>Could we skip sorting and just use counting / difference array?</b> Yes, if time values are small bounded
+integers: increment <code>d[start]</code>, decrement <code>d[end]</code>, prefix sum, take max. O(T + n) where T is
+the time range. Great when times are small, bad when they can be up to 10<sup>9</sup>.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Using <code>&lt;</code> instead of <code>&le;</code> in <code>heap.top() &le; start</code>.</b> Wrong on
+      <code>[[1,5],[5,10]]</code> (should be 1 room).</li>
+    <li><b>Max-heap instead of min-heap.</b> You need the earliest-ending room, not the latest.</li>
+    <li><b>Forgetting to sort meetings by start.</b> The heap logic depends on seeing meetings in start order; without
+      it a late-starting meeting could claim a room that is not yet free.</li>
+    <li><b>Sweep-line tie-break reversed.</b> Mixing <code>start</code> before <code>end</code> at equal time breaks
+      the shared-room rule. Explicit tie: sort pairs (time, kind) with kind=0 for end, kind=1 for start.</li>
+    <li><b>Empty input.</b> Return 0.</li>
+    <li><b>Single meeting.</b> Return 1.</li>
+    <li><b>Returning <code>max(size)</code> during the loop vs <code>size</code> at the end.</b> Both work for the heap
+      version because we only pop before pushing, so size is monotone until the pop-then-push pattern; the final size
+      equals the maximum.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "Rooms needed is just peak concurrency. I sort meetings by start and run a min-heap of end times for rooms currently
+  in use. For each meeting I check the earliest-freeing room: if its end is <code>&le;</code> this start I pop it
+  (reuse that room); either way I push this meeting's end. The final heap size is the answer. The alternative is a
+  sweep line of +1/&minus;1 events sorted by time with ends tied before starts, and track the running max."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 252 Meeting Rooms</td><td>Does any meeting overlap? Sort by start and check adjacent pairs.</td></tr>
+  <tr><td>LC 2402 Meeting Rooms III</td><td>Same two-heap idea but rooms are indexed and ties break by index.</td></tr>
+  <tr><td>LC 1094 Car Pooling</td><td>Sweep line of +capacity / &minus;capacity at pick-up / drop-off.</td></tr>
+  <tr><td>LC 218 The Skyline Problem</td><td>Sweep line + max-heap of heights.</td></tr>
+  <tr><td>LC 1851 Minimum Interval to Include Each Query</td><td>Sort events, min-heap keyed on length.</td></tr>
+</table>
+
+<script>
+/* Draw horizontal interval bars on a shared number line. */
+function drawIntervals(items, title, cursor, heap) {
+  const n = items.length;
+  if (!n) return '';
+  const allX = items.flatMap(it => [it.iv[0], it.iv[1]]);
+  const minX = Math.min(...allX), maxX = Math.max(...allX);
+  const span = Math.max(1, maxX - minX);
+  const HEAP_W = heap ? 160 : 0;
+  const PAD_L = 50, PAD_R = 50, W = 760 + HEAP_W, H_PER = 28, HTOP = 36, HBOT = 32;
+  const H = HTOP + n * H_PER + HBOT;
+  const barsRight = W - PAD_R - HEAP_W;
+  const scale = x => PAD_L + (x - minX) / span * (barsRight - PAD_L);
+  const tickStep = Math.max(1, Math.ceil(span / 8));
+  let ticks = '';
+  for (let x = minX; x <= maxX; x += tickStep) {
+    const px = scale(x);
+    ticks += `<line x1="${px}" y1="${HTOP - 6}" x2="${px}" y2="${HTOP}" stroke="#94a3b8" stroke-width="1"/>`;
+    ticks += `<text x="${px}" y="${HTOP - 10}" text-anchor="middle" font-size="11" fill="#616e7c">${x}</text>`;
+  }
+  const axis = `<line x1="${PAD_L - 5}" y1="${HTOP}" x2="${barsRight + 5}" y2="${HTOP}" stroke="#334155" stroke-width="2"/>`;
+  const palette = {
+    checking: { fill: '#fde68a', stroke: '#d97706' },
+    busy:     { fill: '#bbf7d0', stroke: '#15803d' },
+    ended:    { fill: '#dbeafe', stroke: '#3b82f6' },
+    future:   { fill: '#f1f5f9', stroke: '#cbd5e1' },
+  };
+  let bars = '';
+  items.forEach((it, i) => {
+    const [a, b] = it.iv;
+    const x1 = scale(a), x2 = scale(b);
+    const y = HTOP + 8 + i * H_PER;
+    const h = H_PER - 10;
+    const col = palette[it.kind] || palette.future;
+    const dash = it.kind === 'future' ? ' stroke-dasharray="4,3"' : '';
+    bars += `<rect x="${x1}" y="${y}" width="${Math.max(2, x2 - x1)}" height="${h}" rx="4" fill="${col.fill}" stroke="${col.stroke}" stroke-width="2"${dash}/>`;
+    bars += `<text x="${(x1 + x2) / 2}" y="${y + h / 2 + 5}" text-anchor="middle" font-size="12" font-weight="700" fill="${col.stroke}">[${a},${b}]</text>`;
+    bars += `<text x="${PAD_L - 10}" y="${y + h / 2 + 5}" text-anchor="end" font-size="11" fill="#616e7c">${it.label || ''}</text>`;
+  });
+  let cursorLine = '';
+  if (cursor !== undefined && cursor !== null) {
+    const px = scale(cursor);
+    cursorLine = `<line x1="${px}" y1="${HTOP}" x2="${px}" y2="${H - HBOT + 10}" stroke="#d97706" stroke-width="2" stroke-dasharray="5,4"/>` +
+                 `<text x="${px + 4}" y="${H - HBOT + 10}" font-size="11" font-weight="700" fill="#d97706">t = ${cursor}</text>`;
+  }
+  let heapSvg = '';
+  if (heap) {
+    const hx = barsRight + 25;
+    heapSvg += `<text x="${hx + 50}" y="${HTOP - 10}" text-anchor="middle" font-size="12" font-weight="700" fill="#1f2933">heap (min on top)</text>`;
+    const CELL_H = 26, CELL_W = 100;
+    heap.forEach((e, k) => {
+      const y = HTOP + 4 + k * CELL_H;
+      const highlight = k === 0 ? { fill: '#fde68a', stroke: '#d97706' } : { fill: '#fff', stroke: '#475569' };
+      heapSvg += `<rect x="${hx}" y="${y}" width="${CELL_W}" height="${CELL_H - 4}" rx="4" fill="${highlight.fill}" stroke="${highlight.stroke}" stroke-width="2"/>`;
+      heapSvg += `<text x="${hx + CELL_W / 2}" y="${y + CELL_H / 2 + 1}" text-anchor="middle" font-size="13" font-weight="700" fill="#1f2933">end = ${e}</text>`;
+    });
+    if (!heap.length) {
+      heapSvg += `<text x="${hx + CELL_W / 2}" y="${HTOP + 18}" text-anchor="middle" font-size="11" fill="#94a3b8" font-style="italic">(empty)</text>`;
+    }
+    heapSvg += `<text x="${hx + CELL_W / 2}" y="${HTOP + 4 + Math.max(heap.length, 1) * CELL_H + 10}" text-anchor="middle" font-size="12" font-weight="700" fill="#15803d">size = ${heap.length}</text>`;
+  }
+  const t = title ? `<text x="${(barsRight) / 2}" y="18" text-anchor="middle" font-size="13" font-weight="700" fill="#1f2933">${title}</text>` : '';
+  return `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${H}">${t}${ticks}${axis}${cursorLine}${bars}${heapSvg}</svg>`;
+}
+
+/* Idea diagram: show overlap and peak. */
+(function () {
+  const ivs = [[0,30],[5,10],[15,20]];
+  const items = ivs.map((iv, i) => ({ iv, label: `m${i}`, kind: i === 1 ? 'busy' : 'busy' }));
+  document.getElementById('idea').innerHTML =
+    drawIntervals(items, 'at t=5..10, two meetings overlap &rarr; 2 rooms', 7) +
+    '<div class="caption">Three meetings; the number of concurrent ones peaks at 2 during the window [5,10]. ' +
+    'Everywhere else only one meeting is in progress. Answer = 2.</div>';
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Sort by start', lines: ['a[0] < b[0]'], color: 'yellow' },
+  { title: '2. For each iv', lines: ['heap.top() <= iv.start?'], color: 'blue' },
+  { title: '3a. Reuse', lines: ['heap.pop()'], color: 'green' },
+  { title: '3b. Always push', lines: ['heap.push(iv.end)'], color: 'purple' },
+  { title: '4. Return', lines: ['heap.size()'], color: 'red' },
+]);
+
+/* Sweep-line static picture. */
+(function () {
+  const ivs = [[0,30],[5,10],[15,20]];
+  const events = [];
+  ivs.forEach(iv => { events.push({ t: iv[0], d: +1 }); events.push({ t: iv[1], d: -1 }); });
+  // sort: time asc, end before start on tie
+  events.sort((a, b) => a.t - b.t || a.d - b.d);
+  // prefix sums
+  let sum = 0; let peak = 0;
+  const points = events.map(e => ({ t: e.t, d: e.d, before: sum, after: sum += e.d }));
+  peak = points.reduce((m, p) => Math.max(m, p.after), 0);
+
+  // SVG
+  const W = 760, H = 220;
+  const PAD_L = 50, PAD_R = 30, PAD_T = 24, PAD_B = 50;
+  const minT = Math.min(...events.map(e => e.t)), maxT = Math.max(...events.map(e => e.t));
+  const spanT = Math.max(1, maxT - minT);
+  const sx = t => PAD_L + (t - minT) / spanT * (W - PAD_L - PAD_R);
+  const maxY = peak + 1;
+  const sy = v => H - PAD_B - v / maxY * (H - PAD_T - PAD_B);
+
+  // axes
+  let svg = `<line x1="${PAD_L}" y1="${sy(0)}" x2="${W - PAD_R}" y2="${sy(0)}" stroke="#334155" stroke-width="2"/>`;
+  svg += `<line x1="${PAD_L}" y1="${sy(0)}" x2="${PAD_L}" y2="${PAD_T}" stroke="#334155" stroke-width="2"/>`;
+  // y gridlines
+  for (let v = 0; v <= peak; v++) {
+    svg += `<line x1="${PAD_L}" y1="${sy(v)}" x2="${W - PAD_R}" y2="${sy(v)}" stroke="#e5e7eb" stroke-width="1"/>`;
+    svg += `<text x="${PAD_L - 8}" y="${sy(v) + 4}" text-anchor="end" font-size="11" fill="#616e7c">${v}</text>`;
+  }
+  // x ticks
+  for (let t = minT; t <= maxT; t += 5) {
+    svg += `<line x1="${sx(t)}" y1="${sy(0)}" x2="${sx(t)}" y2="${sy(0) + 4}" stroke="#94a3b8" stroke-width="1"/>`;
+    svg += `<text x="${sx(t)}" y="${sy(0) + 18}" text-anchor="middle" font-size="11" fill="#616e7c">${t}</text>`;
+  }
+  // step function
+  let pathD = `M ${sx(minT)} ${sy(0)}`;
+  points.forEach(p => {
+    pathD += ` L ${sx(p.t)} ${sy(p.before)} L ${sx(p.t)} ${sy(p.after)}`;
+  });
+  pathD += ` L ${sx(maxT)} ${sy(0)}`;
+  svg += `<path d="${pathD}" fill="none" stroke="#3b82f6" stroke-width="2.5"/>`;
+  // event markers
+  points.forEach(p => {
+    const col = p.d > 0 ? '#15803d' : '#b91c1c';
+    const lbl = p.d > 0 ? '+1' : '-1';
+    svg += `<circle cx="${sx(p.t)}" cy="${sy(p.after)}" r="4" fill="${col}"/>`;
+    svg += `<text x="${sx(p.t) + 6}" y="${sy(p.after) - 6}" font-size="11" font-weight="700" fill="${col}">${lbl}</text>`;
+  });
+  // peak annotation
+  const peakPoint = points.find(p => p.after === peak);
+  if (peakPoint) {
+    svg += `<text x="${sx(peakPoint.t)}" y="${sy(peak) - 14}" text-anchor="middle" font-size="12" font-weight="700" fill="#d97706">peak = ${peak}</text>`;
+  }
+  svg += `<text x="${PAD_L - 30}" y="${PAD_T + 10}" font-size="12" font-weight="700" fill="#616e7c" transform="rotate(-90, ${PAD_L - 30}, ${PAD_T + 10})">rooms in use</text>`;
+  svg += `<text x="${(W - PAD_R + PAD_L) / 2}" y="${H - 8}" text-anchor="middle" font-size="12" font-weight="700" fill="#616e7c">time</text>`;
+
+  document.getElementById('sweep').innerHTML =
+    `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${H}">${svg}</svg>` +
+    `<div class="caption">Events for [[0,30],[5,10],[15,20]]: +1 at 0, +1 at 5, -1 at 10, +1 at 15, -1 at 20, -1 at 30. ` +
+    `The running count rises to 2 and comes back to 0. Peak = 2.</div>`;
+})();
+
+/* Trace. */
+VIZ.controls('trace', [
+  { id: 'ivs', label: 'intervals =', value: '[[0,30],[5,10],[15,20]]', size: 32 },
+], v => {
+  let intervals;
+  try { intervals = VIZ.parse.mat(v.ivs); }
+  catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  if (!Array.isArray(intervals) || !intervals.every(iv => Array.isArray(iv) && iv.length === 2))
+    return '<div class="box trap">intervals must be an array of [s,e] pairs.</div>';
+  if (intervals.length > 10) return '<div class="box trap">Keep intervals &le; 10 for a readable picture.</div>';
+  if (!intervals.length) {
+    document.getElementById('answer').innerHTML = `<b>Answer: 0</b>`;
+    return '<div class="box">Empty input &rarr; 0 rooms.</div>';
+  }
+
+  const sorted = intervals.slice().sort((a, b) => a[0] - b[0]);
+  // simulate
+  // heap is just an array sorted on insertion for display purposes
+  function heapInsert(h, x) { h.push(x); h.sort((a, b) => a - b); }
+  function heapPop(h) { h.shift(); }
+  let heap = [];
+  const steps = [];
+  sorted.forEach((iv, k) => {
+    const beforeHeap = heap.slice();
+    let reused = false;
+    if (heap.length && heap[0] <= iv[0]) {
+      reused = true;
+      heapPop(heap);
+    }
+    heapInsert(heap, iv[1]);
+    steps.push({ k, iv, reused, beforeHeap, afterHeap: heap.slice() });
+  });
+  const answer = heap.length;
+
+  const MAX = 25;
+  const show = steps.slice(0, MAX);
+  let html = '';
+
+  // Opening: sorted order
+  const initItems = sorted.map((iv, i) => ({ iv, label: `m${i}`, kind: 'future' }));
+  html += VIZ.step('Sort by start', drawIntervals(initItems, 'input, sorted by start', undefined, []),
+    `Sorted order: ${sorted.map(iv => '<code>[' + iv[0] + ',' + iv[1] + ']</code>').join(', ')}. Heap empty.`, true);
+
+  show.forEach((st, k) => {
+    const items = sorted.map((iv, idx) => {
+      let kind;
+      if (idx === st.k) kind = 'checking';
+      else if (idx < st.k) {
+        // meeting has already been placed; is it still in-progress at time st.iv[0]?
+        kind = iv[1] <= st.iv[0] ? 'ended' : 'busy';
+      } else kind = 'future';
+      return { iv, label: `m${idx}`, kind };
+    });
+
+    let note;
+    if (st.reused) {
+      note = `Meeting m${st.k} = <code>[${st.iv[0]}, ${st.iv[1]}]</code>. ` +
+             `<code>heap.top() = ${st.beforeHeap[0]} &le; start = ${st.iv[0]}</code>: that room is free. ` +
+             `Pop ${st.beforeHeap[0]}, push ${st.iv[1]}. Heap size stays at ${st.afterHeap.length}.`;
+    } else {
+      const topBefore = st.beforeHeap.length ? st.beforeHeap[0] : null;
+      note = `Meeting m${st.k} = <code>[${st.iv[0]}, ${st.iv[1]}]</code>. ` +
+             (topBefore === null
+               ? `Heap empty: open the first room.`
+               : `<code>heap.top() = ${topBefore} &gt; start = ${st.iv[0]}</code>: earliest-freeing room is still busy; need a new one.`) +
+             ` Push ${st.iv[1]}. Heap size now ${st.afterHeap.length}.`;
+    }
+
+    html += VIZ.step(`Step ${k + 1}: place m${st.k}`,
+      drawIntervals(items, '', st.iv[0], st.afterHeap), note, true);
+  });
+
+  if (steps.length > MAX) html += `<p class="caption">... ${steps.length - MAX} more meetings, same rule.</p>`;
+
+  // Final
+  html += VIZ.step('Result',
+    drawIntervals(sorted.map((iv, i) => ({ iv, label: `m${i}`, kind: 'busy' })),
+                  `all meetings placed; heap holds ${answer} room end-times`, undefined, heap),
+    `Minimum rooms = heap.size() = <b>${answer}</b>.`, true);
+
+  document.getElementById('answer').innerHTML = `<b>Answer: ${answer} room${answer === 1 ? '' : 's'}</b>`;
+  return html;
+}, 'Give a JSON array of [start, end] pairs, e.g. [[0,30],[5,10],[15,20]].');
+</script>
+
+</body>
+</html>

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 124 - Binary Tree Maximum Path Sum</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#trees">Pattern lesson</a><span>Pattern 8: Trees (DFS/BFS)</span></div>
+
+<h1>Binary Tree Maximum Path Sum</h1>
+<p class="sub">LeetCode 124 &middot; Hard &middot; Pattern: post-order DFS, two numbers per node &middot; O(n) time, O(h) space</p>
+
+<div class="box">
+  <b>Problem.</b> A path is any sequence of nodes connected by parent-child edges, visiting each node at most once. The
+  path need not go through the root. Return the maximum sum of node values over any path.
+  <br><code>[1,2,3] &rarr; 6</code> &nbsp;&nbsp; <code>[-10,9,20,null,null,15,7] &rarr; 42</code>
+  <br>Link: <a href="https://leetcode.com/problems/binary-tree-maximum-path-sum/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Any path in a binary tree has a highest node &mdash; the one point where it bends from going up to going down (or
+just the single node if the path doesn't bend). Fix that top. The path is then: a downward chain in the left subtree +
+the node itself + a downward chain in the right subtree. One side (or both) may be empty.</p>
+
+<p>So for every node, compute two numbers:</p>
+
+<ul>
+  <li><b>gain(n):</b> best sum of a chain starting at n and going <i>only downward</i>. This is what we can hand up to
+    our parent, who may extend it further.</li>
+  <li><b>candidate at n:</b> <code>n-&gt;val + max(0, gain(left)) + max(0, gain(right))</code>. This is the best path
+    that <i>bends at n</i>. We record it in a running maximum, but we do not return it &mdash; it already uses two
+    children, so the parent cannot extend it.</li>
+</ul>
+
+<p>Negative branches get clipped to zero: if a side is negative we drop it from the chain. The answer is the maximum
+candidate seen across all nodes.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> One post-order walk. Each call returns a straight-up chain gain; each call also updates a global best with
+  the bending-at-this-node candidate. Negative subtree gains are clipped to zero.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Each card shows the state after visiting one node. The note next to a node is <code>ret / cand</code> &mdash; what the
+call <b>returned</b> (the chain to pass up) and the <b>candidate</b> it recorded (the bending path through it). The running
+best is shown in the text.</p>
+
+<div class="legend">
+  <span><i style="background:#fde68a;border-color:#d97706"></i>computing now</span>
+  <span><i style="background:#dbeafe;border-color:#3b82f6"></i>on the stack</span>
+  <span><i style="background:#bbf7d0;border-color:#15803d"></i>finalised</span>
+  <span><i style="background:#e9d5ff;border-color:#7c3aed"></i>bend node of the current best</span>
+  <span style="color:#d97706">note = ret / cand</span>
+</div>
+
+<div id="trace"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="t">int</span> best;
+<span class="t">int</span> gain(<span class="t">TreeNode</span>* n) {
+    <span class="k">if</span> (!n) <span class="k">return</span> <span class="n">0</span>;
+    <span class="t">int</span> L = max(<span class="n">0</span>, gain(n-&gt;left));             <span class="c">// drop negative branches</span>
+    <span class="t">int</span> R = max(<span class="n">0</span>, gain(n-&gt;right));
+    best = max(best, n-&gt;val + L + R);          <span class="c">// candidate: path bending at n</span>
+    <span class="k">return</span> n-&gt;val + max(L, R);                 <span class="c">// return: must extend upward</span>
+}
+<span class="t">int</span> maxPathSum(<span class="t">TreeNode</span>* root) {
+    best = INT_MIN;
+    gain(root);
+    <span class="k">return</span> best;
+}</pre>
+
+<p><b>Complexity:</b> each node computes constant work after both children return, so O(n) time. Recursion depth equals
+the tree height, O(h) stack. The sum of node values can overflow <code>int</code> in theory; <code>LeetCode</code>'s
+constraints keep it within <code>int</code>, but defensive code could use <code>long long</code> for <code>best</code>.</p>
+
+<h2>5. The part interviewers ask about: why "return one side" is the whole trick</h2>
+
+<div class="box insight">
+  The returned value and the recorded candidate are <i>different</i>. The candidate is <code>val + L + R</code>, a path
+  that bends at this node and so cannot be extended by any ancestor without reusing a node. The return value is
+  <code>val + max(L, R)</code>, a straight chain that an ancestor can still extend. Confusing the two is the single most
+  common bug on 124 &mdash; "I return <code>val + L + R</code> and get wrong answers like 22 instead of 20".
+</div>
+
+<p>Clipping to zero is also easy to get wrong. If <code>gain(left)</code> is negative, the chain is better off ignoring
+that side &mdash; the ancestor would rather we return <code>val</code> than <code>val + (negative)</code>. So we take
+<code>max(0, gain(left))</code>. But do <b>not</b> clip <code>val</code> itself: a tree of all negatives still has an
+answer (the single largest value), which the candidate line captures because <code>best</code> starts at
+<code>INT_MIN</code>.</p>
+
+<p>What if the tree has one node? <code>gain(root)</code> clips L and R to 0, records <code>val + 0 + 0 = val</code> as a
+candidate, and returns <code>val</code>. The answer is <code>val</code>, including when it's negative. Perfect.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Returning <code>val + L + R</code>.</b> That path already bends, so an ancestor can't extend it. You must
+    return <code>val + max(L, R)</code>.</li>
+    <li><b>Initialising <code>best = 0</code>.</b> On a tree of all negatives you'd then return 0, which no path can
+    produce (every path has at least one node). Start at <code>INT_MIN</code>.</li>
+    <li><b>Clipping <code>val</code> to zero.</b> You'd miss the all-negative case. Only clip the subtree gains.</li>
+    <li><b>Edge: single node.</b> Return the node's value, even if negative. The code handles it with no special case.</li>
+    <li><b>Edge: a chain to the right.</b> <code>[-10,9,20,null,null,15,7]</code> &rarr; 42. The best path doesn't go
+    through the root: it is <code>15 &larr; 20 &rarr; 7</code>.</li>
+    <li><b>Overflow in theory.</b> With 10^4 nodes of value &plusmn;1000, the sum fits in <code>int</code>. LeetCode's
+    constraints are tight on purpose.</li>
+    <li><b>Using a member variable in a class without resetting.</b> If <code>best</code> is a field and the solution
+    object is reused, reset it at the top of <code>maxPathSum</code>.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "Every path has a highest node where it bends from going up to going down. So I post-order DFS: at each node I compute
+  the best straight-down chain gain from the left and the right, clipped at zero if negative. The candidate at this node
+  is <code>val + L + R</code>, which I compare against a running best. The call <i>returns</i> <code>val + max(L, R)</code>
+  so the parent can keep extending the chain, since a bent path can't go further. One pass, O(n) time, O(h) stack."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 543 Diameter of Binary Tree</td><td>Same shape: return "height" one way, record "left+right" as the diameter candidate.</td></tr>
+  <tr><td>LC 687 Longest Univalue Path</td><td>Same shape, counts same-value edges on each side.</td></tr>
+  <tr><td>LC 968 Binary Tree Cameras</td><td>Post-order with a richer per-node state and a running counter.</td></tr>
+  <tr><td>LC 236 LCA</td><td>Also "return something upward" from a post-order walk; the "something" is a witness pointer.</td></tr>
+  <tr><td>LC 1372 Longest ZigZag Path</td><td>Return two numbers per node (chain going left vs right), record the max.</td></tr>
+</table>
+
+<script>
+/* Idea: show the LC 124 example tree with the best path highlighted. */
+document.getElementById('idea').innerHTML =
+  VIZ.tree([-10,9,20,null,null,15,7], {
+    cls: { 5: 'keep', 2: 'hit', 6: 'keep' },     /* 15, 20 (bend), 7 */
+    edgeCls: { 5: 'keep', 6: 'keep' },
+    notes: { 2: 'bend', 5: 'left=15', 6: 'right=7' }
+  }) +
+  '<div class="caption">Best path is <code>15 - 20 - 7</code>, sum 42. The bend node (purple) is where the path turns; it is the only node whose <code>L</code> and <code>R</code> both contribute to the candidate.</div>';
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Base',    lines: ['n == null?', 'return 0'], color: 'blue' },
+  { title: '2. Children', lines: ['L = max(0, gain(left))', 'R = max(0, gain(right))'], color: 'yellow' },
+  { title: '3. Candidate', lines: ['best = max(best,', 'val + L + R)'], color: 'purple' },
+  { title: '4. Return',  lines: ['return val + max(L, R)'], color: 'green' },
+]);
+
+/* Trace: show return value vs recorded candidate at every node. */
+VIZ.controls('trace', [
+  { id: 'root', label: 'root =', value: '[-10,9,20,null,null,15,7]', size: 32 },
+], v => {
+  const arr = VIZ.parse.tree(v.root);
+  const root = VIZ.buildTree(arr);
+  if (!root) return '<div class="box">Empty tree &mdash; problem guarantees at least one node.</div>';
+
+  const steps = [];
+  const state = {}, notes = {};
+  const snap = (title, text) => steps.push({ title, text,
+    cls: Object.assign({}, state), notes: Object.assign({}, notes) });
+
+  let best = -Infinity;
+  let bestBendId = -1;
+
+  function gain(n) {
+    if (!n) return 0;
+    state[n.id] = 'new';
+    snap('enter ' + n.val, 'Enter <b>' + n.val + '</b>. Recurse left then right.');
+    state[n.id] = 'in';
+
+    const Lraw = gain(n.left);
+    const Rraw = gain(n.right);
+    const L = Math.max(0, Lraw);
+    const R = Math.max(0, Rraw);
+    const cand = n.val + L + R;
+    const ret  = n.val + Math.max(L, R);
+
+    const prevBest = best;
+    if (cand > best) { best = cand; bestBendId = n.id; }
+
+    // Mark previous bend blue, current bend purple
+    if (prevBest !== best) {
+      Object.keys(state).forEach(id => { if (state[id] === 'hit') state[id] = 'keep'; });
+      state[n.id] = 'hit';
+    } else {
+      state[n.id] = 'keep';
+    }
+    notes[n.id] = 'ret=' + ret + ' / cand=' + cand;
+
+    const Ltxt = n.left  ? ('L=max(0,' + Lraw + ')=' + L) : 'L=0';
+    const Rtxt = n.right ? ('R=max(0,' + Rraw + ')=' + R) : 'R=0';
+    const bestTxt = (cand > prevBest ? '. <b>New best = ' + best + '</b>' : '. best = ' + best);
+    snap('compute ' + n.val,
+      Ltxt + ', ' + Rtxt + '. candidate = ' + n.val + ' + ' + L + ' + ' + R + ' = <b>' + cand + '</b>' +
+      bestTxt + '. return = ' + n.val + ' + max(' + L + ',' + R + ') = <b>' + ret + '</b>.');
+    return ret;
+  }
+  gain(root);
+
+  // Mark final bend purple
+  if (bestBendId >= 0) {
+    Object.keys(state).forEach(id => { if (state[id] === 'hit') state[id] = 'keep'; });
+    state[bestBendId] = 'hit';
+    snap('final', 'The best bending path is at node <b>' + bestBendId_val(root, bestBendId) + '</b>, sum <b>' + best + '</b>.');
+  }
+
+  function bestBendId_val(r, id) {
+    let v = null;
+    (function f(n) { if (!n) return; if (n.id === id) v = n.val; f(n.left); f(n.right); })(r);
+    return v;
+  }
+
+  const html = steps.slice(0, 25).map(s =>
+    VIZ.step(s.title, VIZ.tree(root, { cls: s.cls, notes: s.notes }), s.text)
+  ).join('');
+  const extra = steps.length > 25 ? '<p class="caption">&hellip; ' + (steps.length - 25) + ' more steps</p>' : '';
+  return html + extra + '<div class="box good"><b>Answer: ' + best + '</b></div>';
+});
+</script>
+</body>
+</html>

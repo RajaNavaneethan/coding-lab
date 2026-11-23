@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 435 - Non-overlapping Intervals</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#intervals">Pattern lesson</a><span>Pattern 17: Intervals</span></div>
+
+<h1>Non-overlapping Intervals</h1>
+<p class="sub">LeetCode 435 &middot; Medium &middot; Pattern: greedy, sort by end &middot; O(n log n) time, O(1) extra space</p>
+
+<div class="box">
+  <b>Problem.</b> Given a list of intervals, return the minimum number you must <b>remove</b> so that the rest are
+  pairwise non-overlapping. Touching endpoints (<code>[1,2]</code> and <code>[2,3]</code>) do <b>not</b> overlap.
+  <br><code>[[1,2],[2,3],[3,4],[1,3]] &rarr; 1</code> (remove <code>[1,3]</code>)
+  <br><code>[[1,2],[1,2],[1,2]] &rarr; 2</code>
+  <br><code>[[1,2],[2,3]] &rarr; 0</code>
+  <br>Link: <a href="https://leetcode.com/problems/non-overlapping-intervals/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Flip the problem: instead of counting what to remove, <b>count the maximum number you can keep</b> such that none
+overlap, then answer is <code>n &minus; kept</code>. This is the classic <b>activity selection</b> problem.</p>
+
+<p>Greedy rule: <b>sort by end</b>. Walk left to right. Keep the first interval. For every next one, keep it if its
+start is <code>&ge;</code> the last kept interval's end; otherwise drop it.</p>
+
+<div id="idea"></div>
+
+<p>Sorting by end is what makes the greedy correct. The interval that ends earliest leaves the biggest tail of the
+number line still available, so picking it first can never hurt the final count. Sorting by start does not work:
+a long interval starting early can block many short intervals that would otherwise all fit.</p>
+
+<div class="box insight">
+  <b>Idea.</b> Keep as many as possible by always picking the compatible interval that ends earliest. Removed count
+  = <code>n &minus; kept</code>. Sort by end, then one left-to-right sweep.
+</div>
+
+<h3>Why sort by end is the right greedy</h3>
+
+<p><b>Exchange argument.</b> Let <code>G</code> be the greedy answer and <code>O</code> any optimal answer, both
+written in order. Compare them left to right. At the first index where they differ, <code>G</code> picked some interval
+<code>g</code> and <code>O</code> picked <code>o</code>. By construction <code>g.end &le; o.end</code> (greedy picks
+the earliest-ending compatible interval). Swap <code>o</code> for <code>g</code> in <code>O</code>: everything to the
+right of <code>o</code> in <code>O</code> starts at or after <code>o.end &ge; g.end</code>, so it is still compatible
+with <code>g</code>. The modified <code>O</code> has the same size as the original and now agrees with <code>G</code>
+one slot further. Repeat the swap and <code>G</code> itself is optimal.</p>
+
+<p><b>Why sort-by-start fails.</b> Take <code>[[1,100],[11,12],[12,13]]</code>. Sort by start: keep
+<code>[1,100]</code>, drop the other two. Answer says remove 2. Correct answer: keep <code>[11,12]</code> and
+<code>[12,13]</code>, remove only 1.</p>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Each step draws the intervals sorted by end on a number line. Green bars are kept; red strike-through bars are
+dropped. Yellow is the interval under consideration right now. A dashed vertical line marks the current <code>lastEnd</code>.</p>
+
+<div class="legend">
+  <span><i style="background:#fde68a"></i>interval being checked</span>
+  <span><i style="background:#bbf7d0"></i>kept</span>
+  <span><i style="background:#fecaca"></i>dropped</span>
+  <span><i style="background:#f1f5f9;border-style:dashed"></i>not yet reached</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">int</span> eraseOverlapIntervals(<span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt;&amp; intervals) {
+        <span class="k">if</span> (intervals.empty()) <span class="k">return</span> <span class="n">0</span>;
+        sort(intervals.begin(), intervals.end(),
+             [](<span class="k">const</span> <span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; a, <span class="k">const</span> <span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; b){ <span class="k">return</span> a[<span class="n">1</span>] &lt; b[<span class="n">1</span>]; });
+        <span class="t">int</span> removed = <span class="n">0</span>;
+        <span class="t">int</span> lastEnd = intervals[<span class="n">0</span>][<span class="n">1</span>];
+        <span class="k">for</span> (<span class="t">int</span> i = <span class="n">1</span>; i &lt; (<span class="t">int</span>)intervals.size(); i++) {
+            <span class="k">if</span> (intervals[i][<span class="n">0</span>] &lt; lastEnd) {
+                removed++;                     <span class="c">// overlaps the kept one; drop it</span>
+            } <span class="k">else</span> {
+                lastEnd = intervals[i][<span class="n">1</span>]; <span class="c">// disjoint; keep it, slide the window right</span>
+            }
+        }
+        <span class="k">return</span> removed;
+    }
+};</pre>
+
+<p><b>Complexity:</b> O(n log n) for the sort, O(n) for the sweep, O(1) extra space (ignoring the sort's). The sort
+dominates.</p>
+
+<h3>Alternative: count kept, then subtract</h3>
+
+<pre><span class="t">int</span> eraseOverlapIntervals(<span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt;&amp; iv) {
+    sort(iv.begin(), iv.end(), [](<span class="k">auto</span>&amp; a, <span class="k">auto</span>&amp; b){ <span class="k">return</span> a[<span class="n">1</span>] &lt; b[<span class="n">1</span>]; });
+    <span class="t">int</span> kept = <span class="n">0</span>, lastEnd = INT_MIN;
+    <span class="k">for</span> (<span class="k">auto</span>&amp; it : iv) <span class="k">if</span> (it[<span class="n">0</span>] &gt;= lastEnd) { kept++; lastEnd = it[<span class="n">1</span>]; }
+    <span class="k">return</span> iv.size() - kept;
+}</pre>
+
+<p>Same algorithm, cleaner initialisation using <code>INT_MIN</code> as a sentinel. Useful when you also want the kept
+set itself (interview follow-up: "which ones do you keep?").</p>
+
+<h2>5. The part interviewers ask about</h2>
+
+<div class="box insight">
+  <b>This IS activity selection.</b> Think of each interval as a meeting with a fixed room. "How many non-overlapping
+  meetings can one room host?" is answered by earliest-finish-time greedy. LC 435 is the same problem turned inside
+  out: remove the smallest number of meetings so the room is never double-booked.
+</div>
+
+<p><b>Weighted version?</b> If each interval had a value and you wanted the max total value of a non-overlapping
+subset, greedy fails. Use DP sorted by end: <code>dp[i] = max(dp[i-1], value[i] + dp[prev(i)])</code>, where
+<code>prev(i)</code> is the largest index whose end is <code>&le; intervals[i].start</code>, found by binary search.
+O(n log n). This is <b>LC 1235 Maximum Profit in Job Scheduling</b>.</p>
+
+<p><b>Touching endpoints.</b> LC 435 says touching is <i>not</i> overlap, so compare with <code>&lt;</code>
+(<code>start &lt; lastEnd</code> means overlap). If the variant said "closed intervals, touching overlaps", switch to
+<code>&le;</code>.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Sorting by start.</b> Fails on <code>[[1,100],[11,22],[1,11],[2,12]]</code>. Correct answer 2;
+      sort-by-start pick-first gives 3.</li>
+    <li><b>Using <code>&le;</code> instead of <code>&lt;</code> in the overlap check.</b> LC 435 explicitly says
+      <code>[1,2]</code> and <code>[2,3]</code> do not overlap. Strict inequality is required.</li>
+    <li><b>Keeping the longer interval on a tie.</b> When two intervals end at the same time, sorting by end alone can
+      put either first. It does not matter which: both have the same end, so the walk makes the same subsequent choices.</li>
+    <li><b>Empty input.</b> Return 0.</li>
+    <li><b>All intervals identical.</b> Keep one, remove the rest &rarr; <code>n &minus; 1</code>.</li>
+    <li><b>Updating <code>lastEnd</code> on a dropped interval.</b> Do not. The dropped interval has an end
+      <code>&ge; lastEnd</code> (because sort is by end), so updating would wrongly extend the barrier and lose
+      future keeps.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I flip the problem: maximise what I keep. Sort by end. Walk left to right. Keep the first interval. For each next
+  one, if its start is at least the last kept end, keep it and update <code>lastEnd</code>; otherwise count a removal.
+  Answer is removals, or <code>n &minus; kept</code>. The exchange argument says earliest-finish-time is optimal
+  because it leaves the biggest tail of the number line free. O(n log n)."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>Activity selection (classic)</td><td>Identical. Count the max compatible set.</td></tr>
+  <tr><td>LC 452 Minimum Arrows to Burst Balloons</td><td>Sort by end; shoot the earliest end, skip balloons it covers.</td></tr>
+  <tr><td>LC 646 Longest Chain of Pairs</td><td>Sort by second, greedy extend; same proof.</td></tr>
+  <tr><td>LC 1235 Max Profit Job Scheduling</td><td>Weighted version: greedy fails, DP + binary search instead.</td></tr>
+  <tr><td>LC 253 Meeting Rooms II</td><td>Different question (count rooms), but also sorted-by-time + sweep.</td></tr>
+</table>
+
+<script>
+/* Draw horizontal interval bars on a shared number line. */
+function drawIntervals(items, title, lastEnd) {
+  const n = items.length;
+  if (!n) return '';
+  const allX = items.flatMap(it => [it.iv[0], it.iv[1]]);
+  const minX = Math.min(...allX), maxX = Math.max(...allX);
+  const span = Math.max(1, maxX - minX);
+  const PAD_L = 60, PAD_R = 50, W = 760, H_PER = 28, HTOP = 36, HBOT = 32;
+  const H = HTOP + n * H_PER + HBOT;
+  const scale = x => PAD_L + (x - minX) / span * (W - PAD_L - PAD_R);
+  const tickStep = Math.max(1, Math.ceil(span / 8));
+  let ticks = '';
+  for (let x = minX; x <= maxX; x += tickStep) {
+    const px = scale(x);
+    ticks += `<line x1="${px}" y1="${HTOP - 6}" x2="${px}" y2="${HTOP}" stroke="#94a3b8" stroke-width="1"/>`;
+    ticks += `<text x="${px}" y="${HTOP - 10}" text-anchor="middle" font-size="11" fill="#616e7c">${x}</text>`;
+  }
+  const axis = `<line x1="${PAD_L - 5}" y1="${HTOP}" x2="${W - PAD_R + 5}" y2="${HTOP}" stroke="#334155" stroke-width="2"/>`;
+  const palette = {
+    kept:     { fill: '#bbf7d0', stroke: '#15803d' },
+    dropped:  { fill: '#fecaca', stroke: '#b91c1c' },
+    checking: { fill: '#fde68a', stroke: '#d97706' },
+    future:   { fill: '#f1f5f9', stroke: '#cbd5e1' },
+  };
+  let bars = '';
+  items.forEach((it, i) => {
+    const [a, b] = it.iv;
+    const x1 = scale(a), x2 = scale(b);
+    const y = HTOP + 8 + i * H_PER;
+    const h = H_PER - 10;
+    const col = palette[it.kind] || palette.future;
+    const dash = it.kind === 'future' ? ' stroke-dasharray="4,3"' : '';
+    const strike = it.kind === 'dropped' ? ' text-decoration="line-through"' : '';
+    bars += `<rect x="${x1}" y="${y}" width="${Math.max(2, x2 - x1)}" height="${h}" rx="4" fill="${col.fill}" stroke="${col.stroke}" stroke-width="2"${dash}/>`;
+    bars += `<text x="${(x1 + x2) / 2}" y="${y + h / 2 + 5}" text-anchor="middle" font-size="12" font-weight="700" fill="${col.stroke}"${strike}>[${a},${b}]</text>`;
+    bars += `<text x="${PAD_L - 10}" y="${y + h / 2 + 5}" text-anchor="end" font-size="11" fill="#616e7c">${it.label || ''}</text>`;
+  });
+  let barrier = '';
+  if (lastEnd !== undefined && lastEnd !== null) {
+    const px = scale(lastEnd);
+    barrier = `<line x1="${px}" y1="${HTOP}" x2="${px}" y2="${H - HBOT + 10}" stroke="#15803d" stroke-width="2" stroke-dasharray="5,4"/>` +
+              `<text x="${px + 4}" y="${HTOP + 12}" font-size="11" font-weight="700" fill="#15803d">lastEnd = ${lastEnd}</text>`;
+  }
+  const t = title ? `<text x="${W / 2}" y="18" text-anchor="middle" font-size="13" font-weight="700" fill="#1f2933">${title}</text>` : '';
+  return `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${H}">${t}${ticks}${axis}${barrier}${bars}</svg>`;
+}
+
+/* Idea diagram: show the sort-by-start failure next to the sort-by-end success. */
+(function () {
+  const raw = [[1,100],[11,12],[12,13]];
+  const byStart = [[1,100],[11,12],[12,13]];
+  const byEnd   = [[11,12],[12,13],[1,100]];
+  const byStartItems = byStart.map((iv, i) => ({
+    iv, label: `#${i}`,
+    kind: i === 0 ? 'kept' : 'dropped',
+  }));
+  const byEndItems = byEnd.map((iv, i) => ({
+    iv, label: `#${i}`,
+    kind: i < 2 ? 'kept' : 'dropped',
+  }));
+  document.getElementById('idea').innerHTML =
+    drawIntervals(byStartItems, 'sort by start: keep [1,100], drop two &rarr; removes 2 (wrong)') +
+    drawIntervals(byEndItems,   'sort by end: keep [11,12] & [12,13], drop [1,100] &rarr; removes 1 (optimal)') +
+    '<div class="caption">A long interval that starts early wrecks sort-by-start. Sort-by-end rewards the ' +
+    'earliest-finishing choice first, leaving the right side free for many more picks.</div>';
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Sort by end', lines: ['a[1] < b[1]'], color: 'yellow' },
+  { title: '2. Keep first', lines: ['lastEnd = iv[0].end'], color: 'green' },
+  { title: '3. Each next', lines: ['start < lastEnd?'], color: 'blue' },
+  { title: '4a. Drop', lines: ['removed++'], color: 'red' },
+  { title: '4b. Keep', lines: ['lastEnd = iv[i].end'], color: 'green' },
+]);
+
+/* Trace. */
+VIZ.controls('trace', [
+  { id: 'ivs', label: 'intervals =', value: '[[1,2],[2,3],[3,4],[1,3]]', size: 32 },
+], v => {
+  let intervals;
+  try { intervals = VIZ.parse.mat(v.ivs); }
+  catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  if (!Array.isArray(intervals) || !intervals.every(iv => Array.isArray(iv) && iv.length === 2))
+    return '<div class="box trap">intervals must be an array of [s,e] pairs.</div>';
+  if (intervals.length > 10) return '<div class="box trap">Keep intervals &le; 10 for a readable picture.</div>';
+
+  // sort by end, break tie by start for stability
+  const sorted = intervals.slice().sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+  const kept = new Array(sorted.length).fill(false);
+  const steps = [];
+  let removed = 0, lastEnd;
+  if (sorted.length) { kept[0] = true; lastEnd = sorted[0][1]; }
+  steps.push({ i: 0, decision: 'first', lastEndAfter: lastEnd });
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i][0] < lastEnd) {
+      removed++;
+      steps.push({ i, decision: 'drop', lastEndBefore: lastEnd, lastEndAfter: lastEnd, start: sorted[i][0] });
+    } else {
+      const before = lastEnd;
+      lastEnd = sorted[i][1];
+      kept[i] = true;
+      steps.push({ i, decision: 'keep', lastEndBefore: before, lastEndAfter: lastEnd, start: sorted[i][0] });
+    }
+  }
+
+  const MAX = 25;
+  const show = steps.slice(0, MAX);
+  let html = '';
+
+  // Opening: show input, then sorted-by-end order.
+  const inputItems = intervals.map((iv, i) => ({ iv, label: `#${i}`, kind: 'future' }));
+  html += VIZ.step('Input', drawIntervals(inputItems, 'input order'),
+    `${intervals.length} intervals (unsorted).`, true);
+
+  const sortedItems = sorted.map((iv, i) => ({ iv, label: `#${i}`, kind: 'future' }));
+  html += VIZ.step('Sort by end', drawIntervals(sortedItems, 'sorted by end'),
+    `Sorted order: ${sorted.map(iv => '<code>[' + iv[0] + ',' + iv[1] + ']</code>').join(', ')}. ` +
+    `Earliest-ending interval first.`, true);
+
+  // snapshot state over time
+  let decided = new Array(sorted.length).fill(false);  // true = already processed
+  let keptSoFar = new Array(sorted.length).fill(false);
+
+  show.forEach((st, k) => {
+    decided[st.i] = true;
+    if (st.decision !== 'drop') keptSoFar[st.i] = true;
+    const items = sorted.map((iv, idx) => {
+      let kind;
+      if (idx === st.i) kind = 'checking';
+      else if (!decided[idx]) kind = 'future';
+      else kind = keptSoFar[idx] ? 'kept' : 'dropped';
+      return { iv, label: `#${idx}`, kind };
+    });
+
+    let title, note;
+    if (st.decision === 'first') {
+      title = `Step 1: start`;
+      note = `Keep interval #0 = <code>[${sorted[0][0]}, ${sorted[0][1]}]</code>. Set <code>lastEnd = ${st.lastEndAfter}</code>.`;
+    } else if (st.decision === 'drop') {
+      title = `Step ${k + 1}: drop #${st.i}`;
+      note = `<code>start = ${st.start} &lt; lastEnd = ${st.lastEndBefore}</code>: overlaps. Drop ` +
+             `<code>[${sorted[st.i][0]}, ${sorted[st.i][1]}]</code>. <code>removed = ${steps.slice(0, k + 1).filter(s => s.decision === 'drop').length}</code>. ` +
+             `<code>lastEnd</code> stays at <code>${st.lastEndAfter}</code>.`;
+    } else {
+      title = `Step ${k + 1}: keep #${st.i}`;
+      note = `<code>start = ${st.start} &ge; lastEnd = ${st.lastEndBefore}</code>: disjoint. Keep ` +
+             `<code>[${sorted[st.i][0]}, ${sorted[st.i][1]}]</code>. Slide barrier to <code>lastEnd = ${st.lastEndAfter}</code>.`;
+    }
+
+    html += VIZ.step(title, drawIntervals(items, '', st.lastEndAfter), note, true);
+  });
+
+  if (steps.length > MAX) html += `<p class="caption">... ${steps.length - MAX} more steps, same rule.</p>`;
+
+  // Final
+  const finalItems = sorted.map((iv, i) => ({ iv, label: `#${i}`, kind: kept[i] ? 'kept' : 'dropped' }));
+  html += VIZ.step('Result', drawIntervals(finalItems, `kept ${kept.filter(Boolean).length}, dropped ${removed}`),
+    `Minimum removals = <b>${removed}</b>. Kept intervals: ${sorted.filter((_, i) => kept[i]).map(iv => '<code>[' + iv[0] + ',' + iv[1] + ']</code>').join(', ') || '(none)'}.`, true);
+
+  document.getElementById('answer').innerHTML = `<b>Answer: ${removed}</b>`;
+  return html;
+}, 'Give a JSON array of [start, end] pairs, e.g. [[1,2],[2,3]].');
+</script>
+
+</body>
+</html>

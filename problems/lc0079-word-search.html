@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 79 - Word Search</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#backtracking">Pattern lesson</a><span>Pattern 12: Backtracking</span></div>
+
+<h1>Word Search</h1>
+<p class="sub">LeetCode 79 &middot; Medium &middot; Pattern: backtracking on a grid (DFS with mark / unmark) &middot; O(R &middot; C &middot; 4<sup>L</sup>) time, O(L) extra space</p>
+
+<div class="box">
+  <b>Problem.</b> Given a 2-D grid of letters and a target <code>word</code>, return <code>true</code> if the word can
+  be spelled by walking through adjacent (up / down / left / right) cells. The same cell may not be used twice in one
+  spelling.
+  <br><code>board = [["A","B","C","E"],["S","F","C","S"],["A","D","E","E"]], word = "ABCCED" &rarr; true</code>
+  <br><code>same board, word = "SEE" &rarr; true</code> &nbsp;&nbsp; <code>word = "ABCB" &rarr; false</code>
+  <br>Link: <a href="https://leetcode.com/problems/word-search/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Try every cell as the starting letter. From there, run a depth-first search that matches one letter at a time. To
+avoid using a cell twice, temporarily overwrite that cell with a sentinel (<code>'#'</code>) before recursing and
+restore it after the recursion returns. This is backtracking in grid form: the "unchoose" step is "put the letter
+back".</p>
+
+<p>Four moves at each level (up, down, left, right). The index into the word acts like the depth of the recursion:
+when it reaches <code>word.size()</code> you have spelled the whole word and can return <code>true</code>.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> DFS from every starting cell. Walk the word's letters one by one; mark the current cell visited by
+  writing a sentinel in place; unmark it when the recursion returns. The visited-marker on the board is the
+  "<code>cur</code>" of this problem.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="algo-flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Each step shows the board at that moment. Cells coloured <span style="color:#15803d;font-weight:700">green</span>
+are the matched prefix (currently on the recursion stack). The <span style="color:#d97706;font-weight:700">yellow</span>
+cell is the one we are examining right now. A <span style="color:#b91c1c;font-weight:700">red</span> cell means the
+character we are standing on does not match <code>word[k]</code>, so we return <code>false</code> from this branch and
+unmark on the way out.</p>
+
+<div class="legend">
+  <span><i style="background:#bbf7d0"></i>matched prefix (on the stack, marked '#')</span>
+  <span><i style="background:#fde68a"></i>examining this cell</span>
+  <span><i style="background:#fecaca"></i>mismatch, backtrack</span>
+  <span><i style="background:#e9d5ff"></i>final match: whole word found</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">bool</span> exist(<span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">char</span>&gt;&gt;&amp; board, <span class="t">string</span> word) {
+        <span class="t">int</span> R = board.size(), C = R ? board[<span class="n">0</span>].size() : <span class="n">0</span>;
+        <span class="t">function</span>&lt;<span class="t">bool</span>(<span class="t">int</span>, <span class="t">int</span>, <span class="t">int</span>)&gt; dfs = [&amp;](<span class="t">int</span> r, <span class="t">int</span> c, <span class="t">int</span> k) -&gt; <span class="t">bool</span> {
+            <span class="k">if</span> (k == (<span class="t">int</span>)word.size()) <span class="k">return</span> <span class="k">true</span>;
+            <span class="k">if</span> (r &lt; <span class="n">0</span> || r &gt;= R || c &lt; <span class="n">0</span> || c &gt;= C) <span class="k">return</span> <span class="k">false</span>;
+            <span class="k">if</span> (board[r][c] != word[k]) <span class="k">return</span> <span class="k">false</span>;
+
+            <span class="t">char</span> save = board[r][c];
+            board[r][c] = <span class="n">'#'</span>;                                 <span class="c">// mark visited</span>
+            <span class="t">bool</span> ok = dfs(r+<span class="n">1</span>, c, k+<span class="n">1</span>) || dfs(r-<span class="n">1</span>, c, k+<span class="n">1</span>)
+                   || dfs(r, c+<span class="n">1</span>, k+<span class="n">1</span>) || dfs(r, c-<span class="n">1</span>, k+<span class="n">1</span>);
+            board[r][c] = save;                                 <span class="c">// unmark on the way out</span>
+            <span class="k">return</span> ok;
+        };
+        <span class="k">for</span> (<span class="t">int</span> r = <span class="n">0</span>; r &lt; R; r++)
+            <span class="k">for</span> (<span class="t">int</span> c = <span class="n">0</span>; c &lt; C; c++)
+                <span class="k">if</span> (dfs(r, c, <span class="n">0</span>)) <span class="k">return</span> <span class="k">true</span>;
+        <span class="k">return</span> <span class="k">false</span>;
+    }
+};</pre>
+
+<p><b>Complexity:</b> each DFS has four branches up to depth <code>L = word.size()</code>, so one DFS costs
+O(4<sup>L</sup>) in the worst case. The outer loop launches <code>R &middot; C</code> of them, giving
+O(R &middot; C &middot; 4<sup>L</sup>) time. Extra space is O(L) for the recursion stack; marking happens
+in-place.</p>
+
+<h3>Alternative: separate <code>visited</code> array</h3>
+
+<pre><span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">bool</span>&gt;&gt; vis(R, <span class="t">vector</span>&lt;<span class="t">bool</span>&gt;(C, <span class="k">false</span>));
+<span class="c">// then: vis[r][c] = true; ... vis[r][c] = false;</span>
+<span class="c">// and the mismatch check reads board[r][c] directly, not with a sentinel.</span></pre>
+
+<p>Same complexity, no mutation of the input. Prefer this when the function must be <code>const</code> on
+<code>board</code> or when you can't tolerate a scratch value colliding with a real letter. Prefer the in-place sentinel
+in interviews when the problem says "modifying is allowed" because it uses zero extra memory.</p>
+
+<h2>5. The part interviewers ask about: pruning and search order</h2>
+
+<p>LC 79 inputs can be up to 6&times;6 with a word of length 15, so a naive 4<sup>15</sup> &approx; 10<sup>9</sup> would
+TLE. Two small tweaks keep it fast in practice.</p>
+
+<div class="box insight">
+  <b>Starting-letter prune.</b> Only call <code>dfs(r, c, 0)</code> when <code>board[r][c] == word[0]</code>. Simple
+  and cuts out a lot of dead starts.
+  <br><br>
+  <b>Rare-end-first.</b> If <code>word</code>'s first letter is common on the board and its last letter is rare, reverse
+  <code>word</code> before searching. Fewer successful starts means fewer deep DFS trees. Interviewers like you to
+  notice this.
+</div>
+
+<p>A related subtle point: the "<i>same cell may not be used twice</i>" condition is the whole point of mark/unmark. If
+you forget to unmark, cells get stuck visited across sibling branches and you miss valid paths. If you forget to mark,
+the DFS can walk back onto itself and spell words that use a cell twice.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Forgetting to unmark.</b> After <code>dfs</code> returns false, the sentinel is still on the board. Later
+    DFS calls from a different starting cell see holes.</li>
+    <li><b>Returning early inside the four-direction OR.</b> You still need to restore <code>board[r][c]</code> before
+    returning <code>true</code>. The short-circuit in <code>||</code> handles that for you here, but a hand-rolled
+    version with early <code>return true</code> can leave the board dirty.</li>
+    <li><b>Index into <code>word</code> off by one.</b> The base case is <code>k == word.size()</code>, not
+    <code>k == word.size() - 1</code>. Checking <code>board[r][c] == word[k]</code> at <code>k = L</code> would read
+    past the string.</li>
+    <li><b>Single-cell board.</b> <code>board = [["A"]], word = "A"</code> must return true; <code>word = "AA"</code>
+    must return false (can't reuse the cell).</li>
+    <li><b>Word longer than the number of cells.</b> Return false immediately as a cheap prune, or just let the DFS
+    bottom out.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I try every cell as a starting point and run DFS matching one letter of the word at a time. Before recursing I
+  overwrite the current cell with a sentinel so my own path can't walk back onto it, then restore it when the call
+  returns, which is the backtrack step. Four neighbours at each depth, depth equals the word length, so per start it's
+  O(4<sup>L</sup>), total O(R &middot; C &middot; 4<sup>L</sup>). Space is O(L) for the recursion. The one
+  optimisation I'd mention is to skip starts whose letter doesn't match <code>word[0]</code>, and reverse the word
+  when its last letter is rarer than its first."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 212 Word Search II</td><td>Many words at once: put the words into a trie, DFS once, prune by trie node.</td></tr>
+  <tr><td>LC 200 Number of Islands</td><td>Grid DFS without a target string. Mark once (no unmark) because each visit is permanent.</td></tr>
+  <tr><td>LC 695 Max Area of Island</td><td>Same shape as 200, carrying a size counter down the DFS.</td></tr>
+  <tr><td>LC 51 N-Queens</td><td>Different grid problem but same backtracking skeleton (place, recurse, unplace).</td></tr>
+</table>
+
+<script>
+/* Tiny illustrative board for the "idea" picture: show one successful DFS path for a word on a 3x3. */
+(function () {
+  // Board:  C A T
+  //         O O S
+  //         D G H
+  // word = CAT  — a trivial top row path.
+  const b = [['C','A','T'],['O','O','S'],['D','G','H']];
+  // Highlight C, A, T as the path.
+  const path = { '0,0': 'keep', '0,1': 'keep', '0,2': 'keep' };
+  const notes = { '0,0': '1', '0,1': '2', '0,2': '3' };
+  const grid = VIZ.grid(b, {
+    cls: (r, c) => path[r + ',' + c] || '',
+    notes: notes,
+  });
+  document.getElementById('idea').innerHTML =
+    '<div class="figure" style="padding:6px 0">' + grid +
+    '<div class="caption">Spelling <code>"CAT"</code>: start at (0,0), move right twice. ' +
+    'The numbers on the cells show the order they were matched.</div></div>';
+})();
+
+document.getElementById('algo-flow').innerHTML = VIZ.flow([
+  { title: '1. Base: word done', lines: ['if k == word.size()', 'return true'], color: 'green' },
+  { title: '2. Reject', lines: ['out of bounds', 'or board[r][c] != word[k]', '(includes visited sentinel)'], color: 'red' },
+  { title: '3. Mark & recurse', lines: ['save = board[r][c]', "board[r][c] = '#'", 'try 4 neighbours'], color: 'yellow' },
+  { title: '4. Unmark & return', lines: ['board[r][c] = save', 'return hit'], color: 'blue' },
+]);
+
+/* Interactive trace: show the board at every DFS enter/leave. Cap to ~25 steps.
+   board is written row-per-slash, e.g. ABCE/SFCS/ADEE (no quotes needed, keeps the HTML attribute happy). */
+VIZ.controls('trace', [
+  { id: 'board', label: 'board =', value: 'ABCE/SFCS/ADEE', size: 24 },
+  { id: 'word',  label: 'word =',  value: 'ABCCED', size: 12 },
+], v => {
+  let board, word;
+  try {
+    const rows = v.board.trim().split(/[\/|,]/).map(r => r.trim()).filter(r => r.length);
+    if (!rows.length) throw new Error('empty board');
+    const C0 = rows[0].length;
+    for (const r of rows) if (r.length !== C0) throw new Error('rows must be the same length');
+    board = rows.map(r => [...r.toUpperCase()]);
+    word = v.word.trim().toUpperCase();
+    if (!word.length) throw new Error('empty word');
+  } catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '. Use the <code>ABCE/SFCS/ADEE</code> form (one row per <code>/</code>).</div>'; }
+  const R = board.length, C = board[0].length;
+  // Work on a copy.
+  const g = board.map(row => row.slice());
+  const CAP = 25;
+  const steps = [];
+  let hit = false;
+  let stepCount = 0;
+  let stopped = false;
+
+  function record(r, c, k, kind, extra) {
+    if (stopped) return;
+    if (stepCount >= CAP) { stopped = true; return; }
+    stepCount++;
+    const path = []; // cells currently marked '#'
+    for (let i = 0; i < R; i++)
+      for (let j = 0; j < C; j++)
+        if (g[i][j] === '#') path.push(i + ',' + j);
+    // Build grid with classes.
+    const display = g.map((row, i) => row.map((v, j) => {
+      // show the original letter but with marker class
+      return g[i][j] === '#' ? board[i][j] : v;
+    }));
+    const cls = (ri, ci) => {
+      const key = ri + ',' + ci;
+      if (kind === 'hit' && ri === r && ci === c) return 'hit';
+      if (kind === 'mismatch' && ri === r && ci === c) return 'gone';
+      if (kind === 'match' && ri === r && ci === c) return 'new';
+      if (kind === 'oob'  && ri === r && ci === c) return 'gone';
+      if (path.indexOf(key) >= 0) return 'keep';
+      return '';
+    };
+    const gridHtml = VIZ.grid(display, { cls });
+    let title = '';
+    let text = '';
+    if (kind === 'match') {
+      title = `dfs(${r}, ${c}, k=${k})  —  matches '${word[k]}'`;
+      text = 'Letter <code>' + word[k] + '</code> matches <code>board[' + r + '][' + c + ']</code>. Mark the cell visited and recurse into the four neighbours.';
+    } else if (kind === 'hit') {
+      title = `dfs — word fully matched`;
+      text = 'Reached <code>k == word.size()</code>. Return <code>true</code>; the stack unwinds without unmarking (we are done).';
+    } else if (kind === 'mismatch') {
+      title = `dfs(${r}, ${c}, k=${k})  —  mismatch`;
+      text = '<code>board[' + r + '][' + c + '] = ' + VIZ.esc(g[r][c] === '#' ? '#' : g[r][c]) + '</code> does not equal <code>word[' + k + '] = ' + VIZ.esc(word[k]) + '</code>. Return <code>false</code> from this branch.';
+    } else if (kind === 'oob') {
+      title = `dfs(${r}, ${c}, k=${k})  —  out of bounds`;
+      text = 'Index is outside the grid. Return <code>false</code>.';
+    } else if (kind === 'start') {
+      title = `Try starting cell (${r}, ${c})`;
+      text = extra || '';
+    } else if (kind === 'unmark') {
+      title = `backtrack from (${r}, ${c}, k=${k})`;
+      text = 'All four neighbours failed. Restore <code>board[' + r + '][' + c + ']</code> and return false.';
+    }
+    steps.push(VIZ.step(title, gridHtml, text, false));
+  }
+
+  function dfs(r, c, k) {
+    if (stopped) return false;
+    if (k === word.length) { record(r, c, k, 'hit'); return true; }
+    if (r < 0 || r >= R || c < 0 || c >= C) {
+      // Don't record out-of-bounds steps individually — too noisy. Just return.
+      return false;
+    }
+    if (g[r][c] !== word[k]) {
+      record(r, c, k, 'mismatch');
+      return false;
+    }
+    record(r, c, k, 'match');
+    const save = g[r][c];
+    g[r][c] = '#';
+    const ok = dfs(r+1, c, k+1) || dfs(r-1, c, k+1) || dfs(r, c+1, k+1) || dfs(r, c-1, k+1);
+    g[r][c] = save;
+    if (!ok && !stopped) record(r, c, k, 'unmark');
+    return ok;
+  }
+
+  outer:
+  for (let r = 0; r < R && !stopped; r++) {
+    for (let c = 0; c < C && !stopped; c++) {
+      if (g[r][c] !== word[0]) continue;
+      record(r, c, 0, 'start', 'board[' + r + '][' + c + '] = ' + word[0] + ' matches word[0]. Begin DFS here.');
+      if (dfs(r, c, 0)) { hit = true; break outer; }
+    }
+  }
+
+  if (!stepCount) {
+    steps.push(VIZ.step('No starting cell matches', VIZ.grid(g, {}),
+      'The first letter of the word does not appear anywhere on the board, so the search returns false immediately.'));
+  }
+  if (stopped) {
+    steps.push('<div class="box trap">... search continues beyond ' + CAP + ' recorded steps; stopping the trace here.</div>');
+  }
+  document.getElementById('answer').innerHTML =
+    '<b>Answer:</b> word <code>"' + word + '"</code> ' + (hit ? '<span class="ok">found</span>' : '<span class="bad">not found</span>') + '.';
+  return steps.join('');
+}, 'Change the board or word (rows separated by <code>/</code>, e.g. <code>ABCE/SFCS/ADEE</code>). The trace shows a snapshot of the board at every DFS enter / exit; it is cut off at 25 steps.');
+</script>
+
+</body>
+</html>

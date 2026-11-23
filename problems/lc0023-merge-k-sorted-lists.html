@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 23 - Merge k Sorted Lists</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#heaps">Pattern lesson</a><span>Pattern 7: Heaps / Priority Queue</span></div>
+
+<h1>Merge k Sorted Lists</h1>
+<p class="sub">LeetCode 23 &middot; Hard &middot; Pattern: min-heap of list heads &middot; O(N log k) time, O(k) space</p>
+
+<div class="box">
+  <b>Problem.</b> You are given an array of <code>k</code> sorted linked lists. Merge them into a single sorted
+  linked list and return its head. Let <code>N</code> be the total number of nodes.
+  <br><code>[[1,4,5],[1,3,4],[2,6]] &rarr; [1,1,2,3,4,4,5,6]</code>.
+  &nbsp;&nbsp; Link: <a href="https://leetcode.com/problems/merge-k-sorted-lists/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>At every step of the output, the next node is the <b>smallest value currently sitting at the head of any input
+list</b>. If you can find that smallest head in O(log k), each of the <code>N</code> nodes costs O(log k) to place,
+and the total is O(N log k).</p>
+
+<p>A min-heap keyed by the node's <code>val</code> gives you exactly that. Seed the heap with every non-empty list's
+head. Repeatedly pop the smallest, splice it to the output tail, and &mdash; crucially &mdash; <b>push its
+<code>next</code> back into the heap</b>. The heap always contains at most <code>k</code> nodes (one per input list),
+so push/pop is O(log k).</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> The heap stores one representative per input list: the current head. Pop the overall minimum, link
+  it to the output, then push that node's successor from the same list. Lists that run out simply stop contributing.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>The heap below shows the current heads. The input lists shrink as nodes are consumed; the heap tracks who is at
+the "front door" of each list.</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Enter up to 4 sorted lists. The trace shows the k input lists (consumed nodes greyed out), the heap of current
+heads as a binary tree in level order, and the output list being built.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>just popped / just linked</span>
+  <span><i style="background:var(--keep)"></i>in the output</span>
+  <span><i style="background:var(--gone)"></i>already consumed</span>
+  <span><i style="background:#fff;border:1px solid #cbd5e1"></i>still in the heap / list</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre>ListNode* mergeKLists(vector&lt;ListNode*&gt;&amp; lists) {
+    <span class="c">// min-heap on node value; a is "bigger" when its val is bigger</span>
+    <span class="k">auto</span> cmp = [](ListNode* a, ListNode* b) { <span class="k">return</span> a-&gt;val &gt; b-&gt;val; };
+    priority_queue&lt;ListNode*, vector&lt;ListNode*&gt;, decltype(cmp)&gt; pq(cmp);
+
+    <span class="k">for</span> (ListNode* h : lists) <span class="k">if</span> (h) pq.push(h);     <span class="c">// seed: one head per non-empty list</span>
+
+    ListNode dummy(<span class="n">0</span>);
+    ListNode* tail = &amp;dummy;
+    <span class="k">while</span> (!pq.empty()) {
+        ListNode* n = pq.top(); pq.pop();                  <span class="c">// smallest head overall</span>
+        tail-&gt;next = n; tail = n;                          <span class="c">// splice into output</span>
+        <span class="k">if</span> (n-&gt;next) pq.push(n-&gt;next);                      <span class="c">// advance that list</span>
+    }
+    <span class="k">return</span> dummy.next;
+}</pre>
+
+<p><b>Complexity:</b> each of the <code>N</code> nodes gets pushed once and popped once. Each heap op is O(log k)
+because the heap size is bounded by <code>k</code>. Total <b>O(N log k)</b> time, <b>O(k)</b> extra space.</p>
+
+<p><b>About the comparator direction.</b> <code>priority_queue</code>'s "top" is whatever the comparator calls
+<i>largest</i>. The default comparator <code>less&lt;T&gt;</code> (<code>a &lt; b</code>) gives you a max-heap. To
+get a min-heap you pass a comparator that returns true when <code>a</code> should sit <i>below</i> <code>b</code> in
+the final order &mdash; i.e. a comparator that behaves like <code>greater</code>. For custom types the lambda
+<code>return a-&gt;val &gt; b-&gt;val</code> is the exact min-heap recipe: it tells the heap "<code>a</code> is bigger
+than <code>b</code> when <code>a</code>'s value is bigger", so the smallest value lands at the top.</p>
+
+<h3>Alternative: pairwise merge (divide and conquer)</h3>
+
+<pre>ListNode* mergeTwo(ListNode* a, ListNode* b) {
+    ListNode dummy(<span class="n">0</span>); ListNode* t = &amp;dummy;
+    <span class="k">while</span> (a &amp;&amp; b) {
+        <span class="k">if</span> (a-&gt;val &lt;= b-&gt;val) { t-&gt;next = a; a = a-&gt;next; }
+        <span class="k">else</span>                  { t-&gt;next = b; b = b-&gt;next; }
+        t = t-&gt;next;
+    }
+    t-&gt;next = a ? a : b;
+    <span class="k">return</span> dummy.next;
+}
+ListNode* mergeKLists(vector&lt;ListNode*&gt;&amp; lists) {
+    <span class="k">if</span> (lists.empty()) <span class="k">return</span> <span class="k">nullptr</span>;
+    <span class="k">while</span> (lists.size() &gt; <span class="n">1</span>) {
+        vector&lt;ListNode*&gt; merged;
+        <span class="k">for</span> (<span class="t">size_t</span> i = <span class="n">0</span>; i &lt; lists.size(); i += <span class="n">2</span>)
+            merged.push_back(i + <span class="n">1</span> &lt; lists.size()
+                             ? mergeTwo(lists[i], lists[i + <span class="n">1</span>])
+                             : lists[i]);
+        lists = merged;
+    }
+    <span class="k">return</span> lists[<span class="n">0</span>];
+}</pre>
+
+<p>Same O(N log k) time, no heap. Each round halves the number of lists, and the total work per round is O(N),
+across log k rounds. Prefer when the interviewer wants to see merge-sort structure or when STL
+<code>priority_queue</code> isn't available. The heap version wins when lists arrive incrementally or when you want
+simpler code.</p>
+
+<h2>5. The part interviewers ask about: why "push next" is the whole algorithm</h2>
+
+<div class="box insight">
+  The heap is a <b>moving front</b>, not a snapshot. Every time a node leaves (popped), the <i>next</i> node from
+  <i>its</i> list takes its place in the heap. That one line &mdash; <code>if (n-&gt;next) pq.push(n-&gt;next)</code>
+  &mdash; keeps the invariant "heap contains the current head of every still-non-empty list". If you forget it, you
+  only ever output the <code>k</code> original heads and then stop.
+</div>
+
+<p>A natural follow-up: <b>why not put all <code>N</code> nodes into a heap at once?</b> You can, but then each op
+is O(log N) instead of O(log k) and space is O(N). Keeping only one per list is strictly cheaper when
+<code>k &lt;&lt; N</code>.</p>
+
+<p>Another follow-up: <b>stability.</b> Ties are broken by whichever list's head reached the top of the heap first,
+which is implementation-defined. If stability by input order matters, extend the heap key to
+<code>pair&lt;int, int&gt;</code> of <code>(val, list_index)</code>.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Null lists in the input.</b> Skip them when seeding. Pushing <code>nullptr</code> and later dereferencing
+    <code>a-&gt;val</code> inside the comparator crashes.</li>
+    <li><b>Forgetting <code>pq.push(n-&gt;next)</code>.</b> You only output <code>k</code> nodes (the originals) and
+    the result is wrong.</li>
+    <li><b>Comparator pointing the wrong way.</b> <code>a-&gt;val &lt; b-&gt;val</code> yields a <i>max</i>-heap on
+    values, so you keep extracting the largest head: output comes out backwards and wrong. Must be <code>&gt;</code>.</li>
+    <li><b>Using <code>std::less&lt;T&gt;</code> and expecting a min-heap.</b> Default <code>less</code> gives a
+    max-heap for <code>priority_queue</code>. Pass a comparator that behaves like <code>greater</code>.</li>
+    <li><b>Advancing <code>tail</code> but not resetting <code>n-&gt;next</code>.</b> It's fine to leave
+    <code>n-&gt;next</code> alone because the next assignment to <code>tail-&gt;next</code> overwrites it. Just make
+    sure <i>the last</i> popped node ends with <code>next = nullptr</code>. The simplest route: when the loop ends,
+    set <code>tail-&gt;next = nullptr</code>. The code above gets away without it because the last node's original
+    <code>next</code> is already <code>nullptr</code> (we popped it precisely because it had none to push).</li>
+    <li><b>Empty input <code>lists</code>.</b> Loop never runs; <code>dummy.next</code> is <code>nullptr</code>.
+    Correct.</li>
+    <li><b>Memory ownership.</b> We reuse the given nodes; no <code>new</code> calls. Don't delete the dummy &mdash;
+    it is stack-allocated.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I keep a min-heap of the current head of each list. I seed it with every non-null list head. Then I repeatedly
+  pop the smallest node, link it to the output tail, and push that node's <code>next</code> back into the heap.
+  Lists that run out stop contributing. The heap holds at most <code>k</code> nodes, so each push and pop is
+  O(log k); every one of the <code>N</code> nodes goes through once, so total time is O(N log k) and extra space
+  is O(k). In C++ I write the comparator as <code>return a-&gt;val &gt; b-&gt;val</code> &mdash; <code>priority_queue</code>'s
+  default is a max-heap, so a comparator that behaves like <code>greater</code> inverts it to a min-heap."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 21 Merge Two Sorted Lists</td><td>Same idea with <code>k=2</code>; a heap is overkill, two pointers suffice.</td></tr>
+  <tr><td>LC 378 Kth Smallest in a Sorted Matrix</td><td>Each row is a sorted "list"; min-heap of row heads, pop <code>k</code> times.</td></tr>
+  <tr><td>LC 373 Find K Pairs with Smallest Sums</td><td>Heap of <code>(i, j)</code> pointers into two arrays; same "push next after pop" trick.</td></tr>
+  <tr><td>LC 632 Smallest Range Covering Elements from K Lists</td><td>Min-heap of heads with current min/max tracking; same seeding and "push next" idiom.</td></tr>
+  <tr><td>LC 215 Kth Largest</td><td>Size-k heap tracks a sliding threshold; this problem's heap tracks a sliding front.</td></tr>
+</table>
+
+<script>
+const V = VIZ;
+
+/* 1. Idea diagram: the three input lists, and the heap of heads. */
+(function () {
+  const a = V.list([1, 4, 5], { cls: { 0: 'in' }, labels: { 0: 'head' }, title: 'list 0' });
+  const b = V.list([1, 3, 4], { cls: { 0: 'in' }, labels: { 0: 'head' }, title: 'list 1' });
+  const c = V.list([2, 6], { cls: { 0: 'in' }, labels: { 0: 'head' }, title: 'list 2' });
+  // Heap: three heads with values 1,1,2. Level order (min-heap): [1,1,2].
+  const t = V.tree([1, 1, 2], { cls: { 0: 'keep' }, notes: { 0: 'min = 1' } });
+  document.getElementById('idea').innerHTML =
+    a + b + c +
+    '<p class="caption">The heap stores one node per list: its current head. Seeded with 1, 1, 2.</p>' +
+    '<div class="figure">' + t + '</div>' +
+    '<p class="caption">Pop <b>1</b> (from list 0 or 1) &rarr; link to output &rarr; push that list\'s next node (4 or 3) back into the heap.</p>';
+})();
+
+/* 2. Flow */
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Seed', lines: ['push every', 'non-null head'], color: 'yellow' },
+  { title: '2. Pop min', lines: ['n = pq.top()', 'pq.pop()'], color: 'blue' },
+  { title: '3. Link out', lines: ['tail->next = n', 'tail = n'], color: 'green' },
+  { title: '4. Push next', lines: ['if n->next:', 'pq.push(n->next)'], color: 'red' },
+], { loop: 'while heap non-empty' });
+
+/* 3. Interactive trace. */
+VIZ.controls('trace', [
+  { id: 'l0', label: 'list 0 =', value: '[1,4,5]', size: 14 },
+  { id: 'l1', label: 'list 1 =', value: '[1,3,4]', size: 14 },
+  { id: 'l2', label: 'list 2 =', value: '[2,6]',   size: 14 },
+  { id: 'l3', label: 'list 3 =', value: '[]',      size: 14 },
+], v => {
+  const parseOne = s => {
+    s = s.trim();
+    if (!s || s === '[]') return [];
+    return V.parse.arr(s);
+  };
+  const inputs = [parseOne(v.l0), parseOne(v.l1), parseOne(v.l2), parseOne(v.l3)];
+  for (let i = 0; i < inputs.length; i++) {
+    if (inputs[i].length > 6) throw new Error('each list <= 6 elements');
+    for (let j = 1; j < inputs[i].length; j++) {
+      if (inputs[i][j] < inputs[i][j-1]) throw new Error(`list ${i} must be sorted`);
+    }
+  }
+  // Build node arrays with (val, src list, idx-in-list).
+  const lists = inputs.map((a, li) => a.map((val, idx) => ({ val, li, idx })));
+  const nonEmpty = lists.filter(l => l.length).length;
+  if (nonEmpty === 0) {
+    document.getElementById('answer').innerHTML = '<b>Answer:</b> []';
+    return '<div class="step wide"><div><h4>Nothing to merge</h4></div><div class="text">All input lists are empty, so the output is empty.</div></div>';
+  }
+
+  // Heap of node refs {val, li, idx}; min-heap by val.
+  const heap = [];
+  const less = (a, b) => a.val < b.val;
+  const siftUp = i => { while (i>0){const p=(i-1)>>1; if (less(heap[i],heap[p])){[heap[i],heap[p]]=[heap[p],heap[i]];i=p;} else break;} };
+  const siftDown = i => { const n=heap.length; while(true){const l=2*i+1,r=2*i+2;let s=i; if(l<n&&less(heap[l],heap[s]))s=l; if(r<n&&less(heap[r],heap[s]))s=r; if(s===i)break; [heap[i],heap[s]]=[heap[s],heap[i]];i=s;} };
+  const push = x => { heap.push(x); siftUp(heap.length - 1); };
+  const pop = () => { const t=heap[0]; const last=heap.pop(); if(heap.length){heap[0]=last; siftDown(0);} return t; };
+
+  // Head index per list (how many consumed).
+  const cursor = lists.map(() => 0);
+  const output = []; // {val, li, idx}
+
+  // Seed.
+  for (let i = 0; i < lists.length; i++) if (lists[i].length) push(lists[i][0]);
+
+  const renderInputs = (hiNode) => {
+    let html = '';
+    for (let li = 0; li < lists.length; li++) {
+      if (!lists[li].length) continue;
+      const cls = {};
+      for (let j = 0; j < cursor[li]; j++) cls[j] = 'gone';
+      if (hiNode && hiNode.li === li) cls[hiNode.idx] = 'new';
+      else if (cursor[li] < lists[li].length) cls[cursor[li]] = 'in';
+      const labels = {};
+      if (cursor[li] < lists[li].length) labels[cursor[li]] = 'head';
+      html += V.list(lists[li].map(n => n.val), { cls, labels, title: `list ${li}`, nullEnd: false });
+    }
+    return html;
+  };
+
+  const renderHeap = (hiVal) => {
+    if (!heap.length) return '<div class="caption">(empty heap)</div>';
+    const cls = {};
+    if (hiVal !== null && hiVal !== undefined) {
+      const idx = heap.findIndex(n => n.val === hiVal.val && n.li === hiVal.li && n.idx === hiVal.idx);
+      if (idx >= 0) cls[idx] = 'new';
+    }
+    return V.tree(heap.map(n => n.val), { cls });
+  };
+
+  const renderOutput = (justLinked) => {
+    const vals = ['D'].concat(output.map(n => n.val));
+    const cls = { 0: 'dim' };
+    for (let i = 1; i < vals.length; i++) cls[i] = (i === vals.length - 1 && justLinked) ? 'new' : 'keep';
+    const labels = { 0: 'dummy' };
+    if (vals.length > 1) labels[vals.length - 1] = 'tail';
+    return V.list(vals, { cls, labels, nullEnd: output.length === 0 || heap.length === 0, title: 'output' });
+  };
+
+  const stepCard = (title, note, hiNode, pushedNode, justLinked) => {
+    const inputs = renderInputs(hiNode);
+    const heapHtml = '<div class="figure">' + renderHeap(pushedNode || null) + '</div>' +
+      '<div class="caption">heap (level order): [' + heap.map(n => n.val).join(', ') + ']</div>';
+    const out = renderOutput(justLinked);
+    const vis = '<div>' + inputs + '</div>' + heapHtml + out;
+    return V.step(title, vis, note, true);
+  };
+
+  // Init step.
+  let html = stepCard(
+    'Init &mdash; seed the heap',
+    `Push the head of every non-empty list. Heap now has ${heap.length} nodes (one per non-empty list).`,
+    null, null, false
+  );
+  let steps = 1;
+  const cap = 22;
+
+  while (heap.length && steps < cap) {
+    const n = pop();
+    // mark the popped node consumed on its list.
+    cursor[n.li] = n.idx + 1;
+    output.push(n);
+    // Highlight state before push next.
+    html += stepCard(
+      `Pop ${n.val} (from list ${n.li})`,
+      `Smallest head is <b>${n.val}</b> on list ${n.li}. Splice it into the output; advance that list.`,
+      n, null, true
+    );
+    steps++;
+    if (steps >= cap) break;
+    if (n.idx + 1 < lists[n.li].length) {
+      const nx = lists[n.li][n.idx + 1];
+      push(nx);
+      html += stepCard(
+        `Push ${nx.val} (list ${n.li})`,
+        `List ${n.li} still has nodes; push its new head <b>${nx.val}</b> into the heap.`,
+        null, nx, false
+      );
+      steps++;
+    } else {
+      html += stepCard(
+        `List ${n.li} exhausted`,
+        `No successor to push. Heap now has ${heap.length} nodes.`,
+        null, null, false
+      );
+      steps++;
+    }
+  }
+  if (heap.length && steps >= cap) {
+    // finish silently
+    while (heap.length) {
+      const n = pop(); cursor[n.li] = n.idx + 1; output.push(n);
+      if (n.idx + 1 < lists[n.li].length) push(lists[n.li][n.idx + 1]);
+    }
+    html += '<p class="caption">... more steps elided; final answer still computed.</p>';
+  }
+
+  document.getElementById('answer').innerHTML = '<b>Answer:</b> [' + output.map(n => n.val).join(', ') + ']';
+  return html;
+}, 'Up to 4 sorted lists. Use [] for an empty list. Each pop and each push is a step.');
+</script>
+
+</body>
+</html>

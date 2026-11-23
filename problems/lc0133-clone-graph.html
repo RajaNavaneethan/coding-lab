@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 133 - Clone Graph</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#graphs-bfs-dfs">Pattern lesson</a><span>Pattern 10: Graphs - BFS/DFS</span></div>
+
+<h1>Clone Graph</h1>
+<p class="sub">LeetCode 133 &middot; Medium &middot; Pattern: BFS / DFS traversal with a <code>old &rarr; new</code> map &middot; O(V + E) time, O(V) space</p>
+
+<div class="box">
+  <b>Problem.</b> Given a reference to a node in a connected, undirected graph, return a <b>deep copy</b> of the whole
+  graph. Each node has an integer <code>val</code> and a list of neighbours. The copy must share no pointers with the
+  original.
+  <br><code>adjList = [[2,4],[1,3],[2,4],[1,3]] &rarr; a disjoint 4-node square with the same shape</code>
+  <br><code>adjList = [[]] &rarr; one isolated node</code> &nbsp;&nbsp; <code>adjList = [] &rarr; null</code>
+  <br>Link: <a href="https://leetcode.com/problems/clone-graph/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>A graph has cycles, so a naive "recurse into every neighbour and allocate" loops forever. The fix is a
+<b>hash map that remembers which original node you have already cloned</b>. Every time you visit a node, look it up
+in the map: if the clone already exists, use it; if not, allocate the clone and push the original node for later
+expansion. The map is both the visited set and the pointer bridge from the old world to the new one.</p>
+
+<p>With the map in place, BFS and DFS both work. You can think of it as "trace the original graph, and parallel to
+each step, wire up the identical edge in the clone".</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Maintain <code>unordered_map&lt;Node*, Node*&gt; clones</code>. Allocate the clone the first time an
+  original is seen; mirror every edge <code>u &rarr; v</code> as <code>clones[u] &rarr; clones[v]</code>. The map
+  turns the DAG-vs-cycle problem into a one-time-per-node walk.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>Why BFS? Because the clone's neighbour list is easier to reason about when all current-node neighbours are wired
+before you move on. DFS is just as valid; the recursion returns the clone pointer up the call stack, and the map
+guards against infinite descent. Pick the one you can defend without flinching.</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Below the original graph is drawn on the left of each step and the clone being built on the right. The
+<span style="color:#d97706;font-weight:700">yellow</span> original node is the one currently popped. Nodes already
+cloned are <span style="color:#15803d;font-weight:700">green</span> in both graphs; freshly allocated clones are
+<span style="color:#2563eb;font-weight:700">blue</span>. Each step enqueues any newly discovered neighbours and wires
+up the clone's edges.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>original being processed</span>
+  <span><i style="background:var(--keep)"></i>cloned already</span>
+  <span><i style="background:var(--win)"></i>freshly cloned this step</span>
+  <span><i style="background:#f8fafc;border:1px solid #cbd5e1"></i>not yet seen</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    Node* cloneGraph(Node* node) {
+        <span class="k">if</span> (!node) <span class="k">return</span> <span class="k">nullptr</span>;
+        <span class="t">unordered_map</span>&lt;Node*, Node*&gt; clones;
+        <span class="t">queue</span>&lt;Node*&gt; q;
+        clones[node] = <span class="k">new</span> Node(node-&gt;val);
+        q.push(node);
+        <span class="k">while</span> (!q.empty()) {
+            Node* u = q.front(); q.pop();
+            <span class="k">for</span> (Node* nb : u-&gt;neighbors) {
+                <span class="k">if</span> (!clones.count(nb)) {
+                    clones[nb] = <span class="k">new</span> Node(nb-&gt;val);
+                    q.push(nb);                            <span class="c">// discover this node</span>
+                }
+                clones[u]-&gt;neighbors.push_back(clones[nb]); <span class="c">// mirror the edge</span>
+            }
+        }
+        <span class="k">return</span> clones[node];
+    }
+};</pre>
+
+<p><b>Complexity.</b> Each node is pushed and popped once (map guards the push), so the outer work is
+<code>O(V)</code>. The inner loop walks every neighbour, totalling <code>O(2E)</code> work across the whole BFS. So
+<code>O(V + E)</code> time and <code>O(V)</code> space for the map and the queue.</p>
+
+<h3>Alternative: recursive DFS</h3>
+
+<pre><span class="t">unordered_map</span>&lt;Node*, Node*&gt; clones;
+Node* dfs(Node* u) {
+    <span class="k">if</span> (!u) <span class="k">return</span> <span class="k">nullptr</span>;
+    <span class="k">if</span> (clones.count(u)) <span class="k">return</span> clones[u];      <span class="c">// bridge back</span>
+    Node* c = <span class="k">new</span> Node(u-&gt;val);
+    clones[u] = c;                                   <span class="c">// insert BEFORE recursing</span>
+    <span class="k">for</span> (Node* nb : u-&gt;neighbors) c-&gt;neighbors.push_back(dfs(nb));
+    <span class="k">return</span> c;
+}
+</pre>
+
+<p>Same shape, same complexity. The crucial line is <code>clones[u] = c</code> <b>before</b> the recursive call: if you
+insert after, a cycle makes the recursion infinite. DFS is a little shorter; BFS avoids a tall recursion stack on big
+graphs.</p>
+
+<h2>5. The part interviewers ask about: map keyed by pointer vs. by value</h2>
+
+<div class="box insight">
+  Keys are <b>pointers to the originals</b>, not <code>val</code>s. The problem lets two different nodes carry the
+  same <code>val</code> under the constraints the problem gives (unique vals are a problem-specific comfort, not an
+  algorithmic requirement). Keying on the integer value creates subtle correctness bugs if the same algorithm is reused
+  on a graph with duplicate labels.
+</div>
+
+<p>Second question: order of the two writes inside the loop. Allocate-then-wire or wire-then-allocate? The code above
+allocates when the neighbour is seen for the first time, then unconditionally wires an edge from <code>clones[u]</code>
+to <code>clones[nb]</code>. If you wire before the allocation branch, you must still check-and-insert first; the two
+statements must not depend on each other's side effects.</p>
+
+<p>Third: <b>why do we not double-wire edges in an undirected graph?</b> Because the problem's adjacency list already
+stores each undirected edge twice (both endpoints list each other). We mirror whatever the input lists. If an interviewer
+asks you to normalise to a single-direction edge list, that is a separate pass on the clone, not the clone itself.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Null input.</b> <code>cloneGraph(nullptr)</code> must return <code>nullptr</code>, not segfault.</li>
+    <li><b>Isolated node.</b> One node, empty neighbour list: return a new <code>Node(val)</code> with an empty list;
+    the BFS pops it, finds no neighbours, exits.</li>
+    <li><b>Self-loops.</b> A node that lists itself as a neighbour. The map lookup inside the loop finds the clone and
+    wires it to itself. If you check <code>clones.count(nb)</code> and skip the edge wiring on hit, you lose the
+    self-loop. The code above wires unconditionally after the "discover" branch, so it is correct.</li>
+    <li><b>Insert into the map AFTER recursing (DFS).</b> On a cycle the second entry into the same original node
+    sees no map entry, allocates again, and recurses forever. Insert before.</li>
+    <li><b>Mutating the original.</b> Do not touch <code>u-&gt;neighbors</code>; only read it. The problem states the
+    original graph is unchanged.</li>
+    <li><b>Pointer sharing in the output.</b> If any clone's neighbour pointer still points to an original, the copy
+    is shallow. Every neighbour must be looked up through <code>clones</code>.</li>
+    <li><b>Disconnected graphs.</b> The problem guarantees connectivity. If asked to clone a possibly disconnected
+    graph, wrap the whole algorithm in an outer loop over all nodes.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I keep an <code>unordered_map</code> from original node pointers to their clones. BFS from the start: pop a node,
+  walk its neighbour list, and for each neighbour, either look up its existing clone or allocate one and enqueue it,
+  then wire an edge in the clone from the current node's clone to the neighbour's clone. The map is both the visited
+  set and the bridge from the old world to the new one. O(V + E) time, O(V) space. The key must be the pointer, not
+  the integer value, so the same code works on graphs with duplicate labels."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 138 Copy List with Random Pointer</td><td>Same old-to-new map idea on a linked list with a cross-pointer.</td></tr>
+  <tr><td>LC 1485 Clone N-ary Tree</td><td>No cycles, so the map is optional; pure recursion suffices.</td></tr>
+  <tr><td>LC 785 Is Graph Bipartite?</td><td>BFS carrying a per-node colour; the map is replaced by the colour array.</td></tr>
+  <tr><td>LC 200 Number of Islands</td><td>Grid BFS/DFS with a visited mark; same traversal skeleton on a grid graph.</td></tr>
+</table>
+
+<script>
+/* 1. Idea diagram: original (left) + clone (right) with the map arrows between them. */
+(function () {
+  const left  = [{id:1,x:60,y:50},{id:2,x:160,y:50},{id:3,x:160,y:150},{id:4,x:60,y:150}];
+  const right = [{id:'1\'',x:300,y:50},{id:'2\'',x:400,y:50},{id:'3\'',x:400,y:150},{id:'4\'',x:300,y:150}];
+  // Node position list combined, with labels and ids distinct
+  const nodes = left.concat(right);
+  const edges = [[1,2],[2,3],[3,4],[4,1],
+                 ['1\'','2\''],['2\'','3\''],['3\'','4\''],['4\'','1\'']];
+  // Map arrows (dashed) via directed graph helper applied twice? Simpler: build inline SVG for the map
+  // Easiest: use VIZ.graph for the nodes+edges, then overlay dashed arrows with inline SVG.
+  const base = VIZ.graph(nodes, edges, { w: 480, h: 220, nodeCls: {
+    1:'keep',2:'keep',3:'keep',4:'keep','1\'':'in','2\'':'in','3\'':'in','4\'':'in'
+  } });
+  // Append map arrows by appending to the SVG string just before </svg>
+  const mapArrows = `
+    <line x1="78" y1="50" x2="282" y2="50" stroke="#7c3aed" stroke-width="2" stroke-dasharray="4,4"/>
+    <line x1="178" y1="50" x2="382" y2="50" stroke="#7c3aed" stroke-width="2" stroke-dasharray="4,4"/>
+    <line x1="178" y1="150" x2="382" y2="150" stroke="#7c3aed" stroke-width="2" stroke-dasharray="4,4"/>
+    <line x1="78" y1="150" x2="282" y2="150" stroke="#7c3aed" stroke-width="2" stroke-dasharray="4,4"/>
+    <text x="240" y="20" text-anchor="middle" font-size="12" font-weight="700" fill="#7c3aed">clones[original] = copy</text>
+  `;
+  document.getElementById('idea').innerHTML = base.replace('</svg>', mapArrows + '</svg>') +
+    '<div class="caption">Original on the left, clone on the right. The dashed purple lines are the entries of ' +
+    '<code>unordered_map&lt;Node*, Node*&gt; clones</code>. Edges in the clone mirror the original one-to-one.</div>';
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Seed', lines: ['clones[start] = new Node(val)', 'queue.push(start)'], color: 'green' },
+  { title: '2. Pop original u', lines: ['look at each neighbour nb', 'in u->neighbors'], color: 'yellow' },
+  { title: '3. Clone if new', lines: ['if nb not in clones:', '  clones[nb] = new Node', '  queue.push(nb)'], color: 'blue' },
+  { title: '4. Wire edge', lines: ['clones[u]->neighbors', '  .push(clones[nb])'], color: 'purple' },
+], { loop: 'until queue empty' });
+
+/* Interactive trace: BFS clone. Input is an adjacency list in LeetCode format: [[2,4],[1,3],[2,4],[1,3]] (1-indexed).
+   Each step shows the original and clone side by side.
+*/
+VIZ.controls('trace', [
+  { id: 'adj', label: 'adjList =', value: '[[2,4],[1,3],[2,4],[1,3]]', size: 32 },
+], v => {
+  let adj;
+  try { adj = JSON.parse(v.adj.trim()); }
+  catch (e) { return '<div class="box trap">Could not parse adjList as JSON. Example: <code>[[2,4],[1,3],[2,4],[1,3]]</code>.</div>'; }
+  if (!Array.isArray(adj) || adj.some(r => !Array.isArray(r) || r.some(x => typeof x !== 'number')))
+    return '<div class="box trap">adjList must be a JSON array of arrays of integers (1-indexed).</div>';
+  const n = adj.length;
+  if (n === 0) {
+    document.getElementById('answer').innerHTML = '<b>Answer: null.</b> Empty input.';
+    return VIZ.step('Empty input', '<div class="caption">No nodes to clone.</div>', 'Return <code>null</code>.', true);
+  }
+  if (n > 8) return '<div class="box trap">Keep the graph at most 8 nodes to keep the trace readable.</div>';
+  for (const row of adj) for (const nb of row) if (nb < 1 || nb > n) return '<div class="box trap">neighbours must be between 1 and n (1-indexed).</div>';
+
+  // Positions for both original and clone: lay original in a circle, clone to the right.
+  const posL = VIZ.circleLayout(Array.from({length:n},(_,i)=>i+1), 110, 110, 70);
+  const posR = posL.map(p => ({ id: p.id + "'", x: p.x + 260, y: p.y }));
+  const edgesOrig = [];
+  const seenEdge = new Set();
+  for (let i = 0; i < n; i++) for (const nb of adj[i]) {
+    const u = i + 1, v = nb;
+    // Treat as directed in the drawing so each adjacency entry is a line (undirected input stores both directions).
+    const key = u + '-' + v;
+    if (!seenEdge.has(key)) { seenEdge.add(key); edgesOrig.push([u, v]); }
+  }
+
+  // BFS clone
+  const steps = [];
+  const clones = new Map();           // id -> true meaning cloned
+  const cloneEdges = [];              // [u', v']
+  const seenCloneEdge = new Set();
+  const q = [1];
+  clones.set(1, true);
+  let justCloned = new Set([1]);
+
+  function snapshot(title, text, cur) {
+    const nodes = [...posL, ...posR];
+    const nodeCls = {};
+    // Clone side: keep (already cloned) or new (just cloned this step) or dim (not yet)
+    for (let i = 1; i <= n; i++) {
+      if (clones.has(i)) {
+        nodeCls[i] = (cur === i) ? 'new' : 'keep';
+        nodeCls[i + "'"] = justCloned.has(i) ? 'in' : 'keep';
+      } else {
+        nodeCls[i] = 'dim';
+        nodeCls[i + "'"] = 'dim';
+      }
+    }
+    const edges = edgesOrig.concat(cloneEdges);
+    const svg = VIZ.graph(nodes, edges, {
+      directed: false, nodeCls, w: 520, h: 240
+    });
+    steps.push(VIZ.step(title, svg, text, true));
+  }
+
+  snapshot('Seed clone of node 1', 'Allocate <code>1\'</code>, map <code>1 &rarr; 1\'</code>, enqueue node 1.', 1);
+  justCloned = new Set();
+
+  while (q.length) {
+    const u = q.shift();
+    const newClones = [];
+    const newEdges = [];
+    for (const nb of adj[u-1]) {
+      if (!clones.has(nb)) {
+        clones.set(nb, true);
+        q.push(nb);
+        newClones.push(nb);
+      }
+      const key = u + "'-" + nb + "'";
+      if (!seenCloneEdge.has(key)) { seenCloneEdge.add(key); cloneEdges.push([u + "'", nb + "'"]); newEdges.push([u, nb]); }
+    }
+    justCloned = new Set(newClones);
+    let text = 'Walk <code>' + u + '</code>&apos;s neighbours. ';
+    text += newClones.length
+      ? 'Allocate <code>' + newClones.map(x => x + "'").join('</code>, <code>') + '</code> and enqueue. '
+      : 'All neighbours already cloned. ';
+    text += newEdges.length
+      ? 'Mirror edges ' + newEdges.map(([a,b]) => '<code>' + a + "' &rarr; " + b + "'" + '</code>').join(', ') + '.'
+      : 'No new edges to add.';
+    snapshot('Pop original ' + u, text, u);
+    justCloned = new Set();
+    if (steps.length >= 25) break;
+  }
+
+  document.getElementById('answer').innerHTML =
+    '<b>Answer:</b> deep copy with <b>' + clones.size + '</b> node' + (clones.size === 1 ? '' : 's') + ' and ' +
+    cloneEdges.length + ' edge' + (cloneEdges.length === 1 ? '' : 's') + ' (same shape as the original, zero shared pointers).';
+  return steps.join('');
+}, 'Change the adjacency list (LeetCode 1-indexed form). The trace runs BFS and clones one node per pop.');
+</script>
+
+</body>
+</html>

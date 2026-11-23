@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 494 - Target Sum</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#dp-knapsack">Pattern lesson</a><span>Pattern 15: DP - Knapsack / Partition</span></div>
+
+<h1>Target Sum</h1>
+<p class="sub">LeetCode 494 &middot; Medium &middot; Pattern: 0/1 Knapsack (count subsets) &middot; O(n &middot; P) time, O(P) space (P = (sum+target)/2)</p>
+
+<div class="box">
+  <b>Problem.</b> Given <code>nums</code> and an integer <code>target</code>, put a <code>+</code> or <code>-</code>
+  in front of each number so the signed total equals <code>target</code>. Return the number of ways to do it.
+  <br><code>nums = [1,1,1,1,1], target = 3 &rarr; 5</code> (<code>-1+1+1+1+1, +1-1+1+1+1, ...</code>)
+  &nbsp;&nbsp;<code>[1], target = 1 &rarr; 1</code>
+  <br>Link: <a href="https://leetcode.com/problems/target-sum/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Split the numbers into two groups: those that get a <b>+</b> sign (call their sum <code>P</code>) and those that get
+a <b>&minus;</b> sign (call their sum <code>N</code>). Then:</p>
+
+<div class="eq">P &minus; N = target &nbsp;&nbsp;and&nbsp;&nbsp; P + N = sum</div>
+
+<p>Add the two equations: <code>2P = sum + target</code>, so <code>P = (sum + target) / 2</code>. The problem becomes
+"how many subsets of <code>nums</code> sum to <code>P</code>?" which is 0/1 subset-sum, exactly the shape of the
+knapsack family.</p>
+
+<div id="idea"></div>
+
+<p>The reduction has three guards you must check first:</p>
+
+<ul>
+  <li><code>|target| &gt; sum</code> &rarr; impossible, return <code>0</code>.</li>
+  <li><code>(sum + target)</code> is odd &rarr; <code>P</code> is not an integer, no way, return <code>0</code>.</li>
+  <li>Nothing wrong with <code>P = 0</code>: the empty subset counts (one way).</li>
+</ul>
+
+<div class="box insight">
+  <b>Idea.</b> "Sign each number" has <code>2<sup>n</sup></code> cases; too many to enumerate. Reframe as
+  "pick a subset with sum <code>P = (sum + target) / 2</code>" and count subsets with the standard 0/1 knapsack DP.
+  Only the subset identity matters; the signs are forced by it.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>Same bones as LC 416, but instead of "did a subset reach this sum?" we count <b>how many</b> subsets reach it.
+<code>dp[s]</code> is an integer, not a bool. The update rule changes from <code>||</code> to <code>+=</code>:</p>
+
+<div class="eq">dp[s] += dp[s &minus; x]</div>
+
+<p>Base: <code>dp[0] = 1</code> (one way to make 0: pick nothing). The sum loop sweeps <b>right to left</b> for the
+same reason as every 0/1 knapsack (each number can go into the subset at most once; see LC 416 for the diagram).</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>The strip below is <code>dp[0..P]</code>, holding counts. Each outer round adds one number <code>x</code>; cells
+sweep right to left and add <code>dp[s &minus; x]</code> into <code>dp[s]</code>.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>cell being updated this step</span>
+  <span><i style="background:var(--win)"></i>source cell <code>s&minus;x</code></span>
+  <span><i style="background:var(--keep)"></i>reached (count &ge; 1)</span>
+  <span><i style="background:#fff;border:1px solid #cbd5e1"></i>still 0</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">int</span> findTargetSumWays(<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; nums, <span class="t">int</span> target) {
+        <span class="t">int</span> sum = <span class="n">0</span>;
+        <span class="k">for</span> (<span class="t">int</span> x : nums) sum += x;
+        <span class="k">if</span> (abs(target) &gt; sum) <span class="k">return</span> <span class="n">0</span>;         <span class="c">// target out of reach</span>
+        <span class="k">if</span> ((sum + target) % <span class="n">2</span>) <span class="k">return</span> <span class="n">0</span>;         <span class="c">// P would not be an integer</span>
+        <span class="t">int</span> P = (sum + target) / <span class="n">2</span>;
+        <span class="k">if</span> (P &lt; <span class="n">0</span>) <span class="k">return</span> <span class="n">0</span>;                      <span class="c">// e.g. all nums 0 and target negative</span>
+        <span class="t">vector</span>&lt;<span class="t">int</span>&gt; dp(P + <span class="n">1</span>, <span class="n">0</span>);
+        dp[<span class="n">0</span>] = <span class="n">1</span>;
+        <span class="k">for</span> (<span class="t">int</span> x : nums)
+            <span class="k">for</span> (<span class="t">int</span> s = P; s &gt;= x; s--)       <span class="c">// right to left (0/1 knapsack)</span>
+                dp[s] += dp[s - x];
+        <span class="k">return</span> dp[P];
+    }
+};</pre>
+
+<p><b>Complexity:</b> O(n &middot; P) time where <code>P = (sum + target) / 2 &le; sum</code>. O(P) space.
+Constraints give <code>sum &le; 1000</code>, so this is tiny.</p>
+
+<h3>Alternative: memoised recursion</h3>
+
+<pre><span class="k">int</span> findTargetSumWays(<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; nums, <span class="t">int</span> target) {
+    map&lt;pair&lt;<span class="t">int</span>, <span class="t">int</span>&gt;, <span class="t">int</span>&gt; memo;
+    function&lt;<span class="t">int</span>(<span class="t">int</span>, <span class="t">int</span>)&gt; go = [&amp;](<span class="t">int</span> i, <span class="t">int</span> cur) -&gt; <span class="t">int</span> {
+        <span class="k">if</span> (i == (<span class="t">int</span>)nums.size()) <span class="k">return</span> cur == target;
+        <span class="k">auto</span> it = memo.find({i, cur}); <span class="k">if</span> (it != memo.end()) <span class="k">return</span> it-&gt;second;
+        <span class="k">return</span> memo[{i, cur}] = go(i + <span class="n">1</span>, cur + nums[i]) + go(i + <span class="n">1</span>, cur - nums[i]);
+    };
+    <span class="k">return</span> go(<span class="n">0</span>, <span class="n">0</span>);
+}</pre>
+
+<p>Easier to write under pressure if the subset-sum reduction doesn't land right away. Same complexity because the
+state <code>(i, cur)</code> has <code>n &middot; (2 &middot; sum + 1)</code> reachable values.</p>
+
+<h2>5. The part interviewers ask about: the reduction</h2>
+
+<p>Interviewers will ask you to derive <code>P = (sum + target) / 2</code> out loud. Keep it to the three lines above:
+split the array into + and &minus; groups, write the two linear equations, add them. Then explain the two guards
+(<code>|target| &gt; sum</code> and <code>sum + target</code> odd) because they are the only places this problem can
+trip you up on correctness.</p>
+
+<div class="box insight">
+  Any <b>signed arrangement</b> of <code>nums</code> is uniquely determined by the subset <code>S</code> that gets
+  a <code>+</code>. The signed total is then <code>sum(S) &minus; sum(nums &setminus; S) = 2 &middot; sum(S) &minus; sum</code>.
+  Setting that equal to <code>target</code> gives <code>sum(S) = (sum + target) / 2 = P</code>. So "ways to sign" and
+  "subsets summing to P" are the <b>same count</b>, not just related.
+</div>
+
+<h3>Zeros deserve care</h3>
+
+<p>If <code>nums</code> contains zeros, each zero can be signed <code>+</code> or <code>&minus;</code> but either sign
+leaves the total unchanged. The subset-sum DP correctly handles this: processing a zero adds <code>dp[s] += dp[s]</code>
+for every <code>s</code>, which <b>doubles</b> every count. So <code>k</code> zeros multiply the final answer by
+<code>2<sup>k</sup></code>, which is exactly how many sign choices they contribute. No extra code needed.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Forgetting the parity guard.</b> If <code>(sum + target)</code> is odd and you divide anyway, you get
+    <code>P</code> rounded down and silently wrong counts.</li>
+    <li><b>Forgetting the magnitude guard.</b> <code>|target| &gt; sum</code> gives <code>P &lt; 0</code> or
+    <code>P &gt; sum</code>. Build the <code>dp</code> array only after you have checked.</li>
+    <li><b>Sweeping left to right.</b> Same bug as any 0/1 knapsack: you reuse <code>x</code> and count sequences, not
+    subsets. On <code>[1,1,1,1,1], target = 3</code> you would get a count much higher than 5.</li>
+    <li><b>Zeros.</b> Not a bug per se, but worth checking the DP really doubles the count. If you handle zeros with a
+    different code path, make sure you still account for them in the subset-sum.</li>
+    <li><b>Negative-only or all-zero inputs.</b> LeetCode guarantees <code>nums[i] &ge; 0</code>. All zeros and
+    <code>target = 0</code> gives <code>2<sup>n</sup></code>; the DP handles this correctly.</li>
+    <li><b>Overflow.</b> <code>n &le; 20</code>, so <code>2<sup>n</sup> &le; ~10<sup>6</sup></code>. <code>int</code>
+    is fine. For larger inputs use <code>long long</code>.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "Signing each number splits <code>nums</code> into a positive-sign subset <code>P</code> and a negative-sign subset
+  <code>N</code>, with <code>P &minus; N = target</code> and <code>P + N = sum</code>. Adding gives
+  <code>P = (sum + target) / 2</code>, so the problem is just 'count subsets of <code>nums</code> that sum to <code>P</code>'.
+  I handle the two impossibility checks (<code>|target| &gt; sum</code> and <code>(sum + target)</code> odd), then
+  run 0/1 subset-sum: <code>dp[0] = 1</code>, and for each number <code>x</code> I update <code>dp[s] += dp[s&minus;x]</code>
+  from <code>P</code> down to <code>x</code>. Answer is <code>dp[P]</code>. O(n &middot; sum) time, O(sum) space."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 416 Partition Equal Subset Sum</td><td>The boolean "exists a subset summing to <code>S/2</code>?" version of this count DP.</td></tr>
+  <tr><td>LC 1049 Last Stone Weight II</td><td>Pick signs to minimise <code>|signed sum|</code>; reduce to subset-sum closest to <code>S/2</code>.</td></tr>
+  <tr><td>LC 322 Coin Change / LC 518 Coin Change II</td><td>Unbounded cousins. Same recurrence shape, sum loop goes left to right so items can be reused.</td></tr>
+  <tr><td>LC 879 Profitable Schemes</td><td>Count subsets with two constraints; 2-D 0/1 knapsack with the same right-to-left trick.</td></tr>
+</table>
+
+<script>
+/* Idea diagram: show the +/- split for nums=[1,1,1,1,1], target=3. P-N=3, P+N=5, P=4. One arrangement +,-,+,+,+. */
+(function () {
+  const W = 760, H = 220;
+  const nums = [1, 1, 1, 1, 1];
+  const signs = ['+', '-', '+', '+', '+']; // one arrangement giving target 3
+  const CW = 60, CH = 46, Y = 70, X0 = 220, DX = 72;
+  let s = '';
+  s += `<text x="${X0 - 10}" y="${Y + CH / 2 + 6}" text-anchor="end" font-size="14" fill="#616e7c">nums =</text>`;
+  nums.forEach((v, i) => {
+    const x = X0 + i * DX;
+    const col = signs[i] === '+' ? ['#bbf7d0', '#15803d'] : ['#fecaca', '#b91c1c'];
+    s += `<rect x="${x}" y="${Y}" width="${CW}" height="${CH}" rx="6" fill="${col[0]}" stroke="${col[1]}" stroke-width="2"/>`;
+    s += `<text x="${x + CW / 2}" y="${Y + CH / 2 + 6}" text-anchor="middle" font-size="18" font-weight="700">${v}</text>`;
+    s += `<text x="${x + CW / 2}" y="${Y - 6}" text-anchor="middle" font-size="18" font-weight="700" fill="${col[1]}">${signs[i]}</text>`;
+  });
+  const yEq = Y + CH + 36;
+  s += `<text x="${W / 2}" y="${yEq}" text-anchor="middle" font-size="14" font-weight="700" fill="#15803d">P (green sum) = 1+1+1+1 = 4</text>`;
+  s += `<text x="${W / 2}" y="${yEq + 22}" text-anchor="middle" font-size="14" font-weight="700" fill="#b91c1c">N (red sum) = 1</text>`;
+  s += `<text x="${W / 2}" y="${yEq + 46}" text-anchor="middle" font-size="14">P &minus; N = 4 &minus; 1 = 3 = target &nbsp;&middot;&nbsp; P + N = 5 = sum &rarr; P = (5 + 3) / 2 = 4</text>`;
+  document.getElementById('idea').innerHTML =
+    `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} 180">${s}</svg>`;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Reduce', lines: ['sum, check guards', 'P = (sum + target) / 2'], color: 'green' },
+  { title: '2. For each x in nums', lines: ['for s from P down to x:', 'dp[s] += dp[s - x]'], color: 'yellow' },
+  { title: '3. Answer', lines: ['dp[P]'], color: 'blue' },
+]);
+
+/* Interactive trace. */
+VIZ.controls('trace', [
+  { id: 'nums', label: 'nums =', value: '[1,1,1,1,1]', size: 16 },
+  { id: 'target', label: 'target =', value: '3', size: 4 },
+], v => {
+  let nums, target;
+  try { nums = VIZ.parse.arr(v.nums); target = VIZ.parse.int(v.target); }
+  catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  if (!Array.isArray(nums) || !nums.length || nums.some(x => typeof x !== 'number' || x < 0))
+    return '<div class="box trap">nums must be a non-empty list of non-negative integers.</div>';
+  const sum = nums.reduce((a, b) => a + b, 0);
+  if (sum > 25) return '<div class="box trap">Keep sum &le; 25 so the trace fits on screen.</div>';
+  if (Math.abs(target) > sum) {
+    document.getElementById('answer').innerHTML =
+      `<b>|target| = ${Math.abs(target)} &gt; sum = ${sum}</b>, so no signing can reach <code>target</code>. Return <code>0</code>.`;
+    return `<div class="step wide"><h4>Magnitude guard</h4><div class="text">Even flipping every sign to <code>+</code> or every sign to <code>&minus;</code> gives at most <code>&plusmn;${sum}</code>, which cannot reach <code>${target}</code>.</div></div>`;
+  }
+  if ((sum + target) % 2) {
+    document.getElementById('answer').innerHTML =
+      `<b>sum + target = ${sum + target} is odd</b>, so <code>P = (sum+target)/2</code> is not an integer. Return <code>0</code>.`;
+    return `<div class="step wide"><h4>Parity guard</h4><div class="text">P would be ${(sum + target) / 2}, which is not an integer. No subset sum reduction exists.</div></div>`;
+  }
+  const P = (sum + target) / 2;
+  if (P < 0) {
+    document.getElementById('answer').innerHTML = `<b>P = ${P} &lt; 0</b>, impossible. Return <code>0</code>.`;
+    return `<div class="step wide"><h4>Guard</h4><div class="text">P is negative.</div></div>`;
+  }
+
+  const dp = new Array(P + 1).fill(0);
+  dp[0] = 1;
+
+  let html = '';
+  html += VIZ.step('Reduce', VIZ.strip(dp.map(c => c.toString()), {
+    cls: i => dp[i] > 0 ? 'keep' : '',
+    labels: dp.map((_, i) => i),
+  }), `sum = ${sum}, target = ${target}. <code>P = (sum + target) / 2 = ${P}</code>. Base <code>dp[0] = 1</code> (empty subset).`);
+
+  const MAX = 24;
+  for (let k = 0; k < nums.length; k++) {
+    const x = nums[k];
+    const updated = [];
+    const sources = [];
+    for (let s = P; s >= x; s--) {
+      if (dp[s - x] > 0) {
+        dp[s] += dp[s - x];
+        updated.push(s);
+        sources.push(s - x);
+      }
+    }
+    if (k < MAX) {
+      const stripHtml = VIZ.strip(dp.map(c => c.toString()), {
+        cls: i => updated.includes(i) ? 'new' : (sources.includes(i) ? 'in' : (dp[i] > 0 ? 'keep' : '')),
+        labels: dp.map((_, i) => i),
+      });
+      const note = updated.length
+        ? `Add <b>x = ${x}</b>. Updated cells: ${updated.map(s => `<code>dp[${s}] += dp[${s - x}]</code>`).join(', ')}.`
+        : `Add <b>x = ${x}</b>. No source cells had a positive count yet; nothing changes.`;
+      html += VIZ.step(`Round ${k + 1}: x = ${x}`, stripHtml, note);
+    }
+  }
+  if (nums.length > MAX) html += `<p class="caption">... ${nums.length - MAX} more rounds, same pattern.</p>`;
+
+  document.getElementById('answer').innerHTML =
+    `<b>Answer: dp[${P}] = ${dp[P]} ways.</b> That is the number of subsets of <code>[${nums.join(',')}]</code> summing to ${P}, which equals the number of sign arrangements giving target = ${target}.`;
+  return html;
+}, 'Change nums or target. The DP table counts subsets right-to-left.');
+</script>
+
+</body>
+</html>

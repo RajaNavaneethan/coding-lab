@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 55 - Jump Game</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#greedy">Pattern lesson</a><span>Pattern 16: Greedy</span></div>
+
+<h1>Jump Game</h1>
+<p class="sub">LeetCode 55 &middot; Medium &middot; Pattern: greedy, farthest-reach &middot; O(n) time, O(1) space</p>
+
+<div class="box">
+  <b>Problem.</b> You stand at index 0 of <code>nums</code>. From index <code>i</code> you can jump any distance from 0 to
+  <code>nums[i]</code>. Return <code>true</code> if you can reach the last index.
+  <br><code>[2,3,1,1,4] &rarr; true</code> &nbsp;&nbsp; <code>[3,2,1,0,4] &rarr; false</code>
+  <br>Link: <a href="https://leetcode.com/problems/jump-game/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Do not pick a jump length at each step. Instead track one number: <b>the farthest index you can reach so far</b>.
+Call it <code>reach</code>. Walk left to right. At index <code>i</code> ask one question: is <code>i &le; reach</code>?
+If no, you are stuck. If yes, update <code>reach = max(reach, i + nums[i])</code> and keep going.</p>
+
+<div id="idea"></div>
+
+<p>You never commit to a specific jump. You keep the frontier of what is reachable and push it as far right as the current
+cell allows. The last index is reachable the moment <code>reach</code> catches up to it.</p>
+
+<div class="box insight">
+  <b>Idea.</b> Walk the array once with a single scalar <code>reach</code>. Any index <code>i</code> with <code>i &le; reach</code>
+  is reachable, and from it the frontier can grow to <code>i + nums[i]</code>. Return true when <code>reach</code> reaches the last index.
+</div>
+
+<h3>Why the greedy choice is safe</h3>
+
+<p>At index <code>i</code> we extend <code>reach</code> to <code>max(reach, i + nums[i])</code>. We never ask "should I jump
+less here so I can jump more later?". The reason is a simple <b>exchange argument</b>:</p>
+
+<p>Suppose some solution reaches the end using a shorter jump at <code>i</code>, landing at some <code>j &le; i + nums[i]</code>.
+Any index you can visit from <code>j</code> is also an index <code>&le; j + nums[j]</code>, and both <code>j</code> and
+<code>j + nums[j]</code> are <code>&le; i + nums[i]</code>'s own frontier only after further hops. The frontier never gets
+smaller by expanding it earlier. So replacing a short jump with "treat every cell up to <code>i + nums[i]</code> as reachable"
+cannot miss any index the short-jump solution reaches. In one word: <b>a larger frontier dominates a smaller one</b>.</p>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>The orange marker above the array shows <code>reach</code>. The current index is yellow. Blue cells are already
+visited (all of them are reachable). Red cells past <code>reach</code> are unreachable.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>current index <code>i</code></span>
+  <span><i style="background:var(--win)"></i>already visited (reachable)</span>
+  <span><i style="background:var(--keep)"></i>frontier cell (reach)</span>
+  <span><i style="background:var(--gone)"></i>past reach (would be stuck here)</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">bool</span> canJump(<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; nums) {
+        <span class="t">int</span> reach = <span class="n">0</span>, n = nums.size();
+        <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt; n; i++) {
+            <span class="k">if</span> (i &gt; reach) <span class="k">return</span> <span class="k">false</span>;        <span class="c">// cannot step onto i</span>
+            reach = max(reach, i + nums[i]);     <span class="c">// extend frontier</span>
+            <span class="k">if</span> (reach &gt;= n - <span class="n">1</span>) <span class="k">return</span> <span class="k">true</span>;    <span class="c">// early exit</span>
+        }
+        <span class="k">return</span> <span class="k">true</span>;
+    }
+};</pre>
+
+<p><b>Complexity:</b> one left-to-right pass, one <code>max</code> per index: O(n) time. One scalar: O(1) space.</p>
+
+<h3>Alternative: scan right to left</h3>
+
+<pre><span class="t">bool</span> canJump(<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; nums) {
+    <span class="t">int</span> goal = nums.size() - <span class="n">1</span>;
+    <span class="k">for</span> (<span class="t">int</span> i = goal - <span class="n">1</span>; i &gt;= <span class="n">0</span>; i--)
+        <span class="k">if</span> (i + nums[i] &gt;= goal) goal = i;
+    <span class="k">return</span> goal == <span class="n">0</span>;
+}</pre>
+
+<p>Equivalent idea viewed from the other side: shrink the goal post. If some earlier index can reach the current goal,
+make it the new goal. The whole array is passable iff the goal shrinks down to 0.</p>
+
+<h2>5. The part interviewers ask about: why not DP?</h2>
+
+<p>You can mark each index as reachable with DP: <code>reach[i] = any j &lt; i reachable with j + nums[j] &ge; i</code>.
+That is O(n<sup>2</sup>) in the worst case (every index checks every earlier index).</p>
+
+<div class="box insight">
+  The greedy pass does the same work in O(n) because <b>you only need the maximum frontier so far</b>, not the full
+  set of reachable indices. If some index is reachable, every index up to the current <code>reach</code> is reachable,
+  so compressing them all into one scalar loses nothing.
+</div>
+
+<p>Proof the greedy answer equals the DP answer: by induction on <code>i</code>, after processing index <code>i</code>
+the value of <code>reach</code> equals the largest index DP would mark reachable among <code>[0..i]</code>'s descendants.
+Base: at <code>i = 0</code>, <code>reach = nums[0]</code>, same as DP. Step: at <code>i</code>, if <code>i &le; reach</code>
+then by inductive hypothesis DP marks <code>i</code> reachable, so DP's new frontier is <code>max(prev, i + nums[i])</code>,
+exactly what the greedy sets.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Index 0 is always "visitable".</b> You start there. Even <code>nums = [0]</code> returns true (last index already).</li>
+    <li><b>Zero on a non-last index is only fatal if <code>reach</code> cannot pass it.</b> <code>[2,0,0]</code> is true:
+    index 0 pushes <code>reach</code> to 2 before the zeros matter.</li>
+    <li><b>Do not confuse this with Jump Game II.</b> This one is yes/no. II asks for the <i>minimum</i> number of jumps.</li>
+    <li><b>Early exit matters.</b> Without <code>if (reach &gt;= n - 1) return true</code> you still get the right answer,
+    but you waste a scan past the goal. Interviewers notice.</li>
+    <li><b><code>n = 1</code>.</b> Return true. The code handles it: loop runs once, hits the early return (or exits).</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I keep one number, <code>reach</code>, the farthest index I can get to. I walk the array left to right. If the current
+  index is past <code>reach</code>, I am stuck and return false. Otherwise I update <code>reach</code> to
+  <code>max(reach, i + nums[i])</code> and continue. If <code>reach</code> ever covers the last index, I return true.
+  The greedy is safe because a larger frontier is always at least as useful as a smaller one, so I never regret extending it.
+  O(n) time, O(1) space."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 45 Jump Game II</td><td>Same reachability idea, but count the minimum number of jumps instead of yes/no.</td></tr>
+  <tr><td>LC 1306 Jump Game III</td><td>Jumps are +/- a value; use BFS because moves can go backward.</td></tr>
+  <tr><td>LC 1340 Jump Game V</td><td>DP with memo; the greedy "farthest reach" trick does not apply.</td></tr>
+  <tr><td>LC 134 Gas Station</td><td>Also an "if I ever drop below zero I am stuck" scan with a running state.</td></tr>
+</table>
+
+<script>
+/* Idea diagram: show reach expanding on [2,3,1,1,4]. */
+(function () {
+  const nums = [2, 3, 1, 1, 4];
+  const n = nums.length;
+  const CW = 60, DX = 70, X0 = 60, Y = 60;
+  const W = X0 + DX * n + 40, H = 180;
+  let s = '';
+  // numbers row
+  nums.forEach((v, i) => {
+    const x = X0 + i * DX;
+    s += `<rect x="${x}" y="${Y}" width="${CW}" height="${CW}" rx="6" fill="#ffffff" stroke="#475569" stroke-width="2"/>`;
+    s += `<text x="${x + CW / 2}" y="${Y + CW / 2 + 7}" text-anchor="middle" font-size="22" font-weight="700">${v}</text>`;
+    s += `<text x="${x + CW / 2}" y="${Y - 8}" text-anchor="middle" font-size="11" fill="#616e7c">i=${i}</text>`;
+  });
+  // reach pointer arc (reach after processing index 1 = 4, i.e. last index)
+  const reachX = X0 + 4 * DX + CW / 2;
+  const startX = X0 + 0 * DX + CW / 2;
+  s += `<path d="M${startX},${Y + CW + 12} C${startX},${Y + CW + 50} ${reachX},${Y + CW + 50} ${reachX},${Y + CW + 14}" fill="none" stroke="#f97316" stroke-width="2" marker-end="url(#ar55)"/>`;
+  s += `<text x="${(startX + reachX) / 2}" y="${Y + CW + 60}" text-anchor="middle" font-size="12" fill="#1f2933">reach after i=1 is 1 + nums[1] = 4 (the end)</text>`;
+  s = `<defs><marker id="ar55" markerWidth="10" markerHeight="10" refX="7" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#f97316"/></marker></defs>` + s;
+  document.getElementById('idea').innerHTML =
+    `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${H}">${s}</svg>` +
+    `<div class="caption">After reading nums[0]=2 reach is 2; after reading nums[1]=3 reach is 4, which is the last index.</div>`;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Can step on i?', lines: ['if i > reach:', 'return false'], color: 'red' },
+  { title: '2. Extend frontier', lines: ['reach = max(reach,', 'i + nums[i])'], color: 'yellow' },
+  { title: '3. Done?', lines: ['if reach >= n-1:', 'return true'], color: 'green' },
+], { loop: 'next index' });
+
+/* Interactive trace. */
+VIZ.controls('trace', [{ id: 'nums', label: 'nums =', value: '[2,3,1,1,4]', size: 22 }], v => {
+  let nums;
+  try { nums = VIZ.parse.arr(v.nums); }
+  catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  if (!Array.isArray(nums) || !nums.length || nums.some(x => typeof x !== 'number' || x < 0))
+    return '<div class="box trap">Expected a non-empty array of non-negative integers.</div>';
+  if (nums.length > 20) return '<div class="box trap">Pick at most 20 cells to keep the trace readable.</div>';
+
+  const n = nums.length;
+  let reach = 0, ok = true;
+  const steps = [];
+  for (let i = 0; i < n; i++) {
+    if (i > reach) { steps.push({ i, reach, action: 'stuck' }); ok = false; break; }
+    const cand = i + nums[i];
+    const grew = cand > reach;
+    reach = Math.max(reach, cand);
+    const done = reach >= n - 1;
+    steps.push({ i, reach, cand, grew, action: done ? 'done' : 'extend' });
+    if (done) break;
+  }
+
+  const MAX = 20;
+  const show = steps.slice(0, MAX);
+  let html = '';
+  show.forEach((st, k) => {
+    const vals = nums.map(x => String(x));
+    const notes = {};
+    const cls = (i) => {
+      if (st.action === 'stuck' && i === st.i) return 'gone';
+      if (i === st.i) return 'new';
+      if (i < st.i) return 'in';
+      if (i === Math.min(st.reach, n - 1)) return 'keep';
+      if (i > st.reach) return 'gone';
+      return '';
+    };
+    notes[Math.min(st.reach, n - 1)] = 'reach';
+    const strip = VIZ.strip(vals, { cls, notes, ptrs: { [st.i]: 'i' } });
+    let note = '';
+    if (st.action === 'stuck') {
+      note = `Index <code>${st.i}</code> is past <code>reach = ${st.reach}</code>. We cannot step onto it. <b>Return false.</b>`;
+    } else if (st.action === 'done') {
+      note = `At <code>i = ${st.i}</code>, jump length <code>${nums[st.i]}</code> gives candidate <code>${st.cand}</code>. ` +
+             `${st.grew ? 'Extend <code>reach</code> to <b>' + st.reach + '</b>, which covers the last index <code>' + (n - 1) + '</code>' : 'The last index is already reachable'}. <b>Return true.</b>`;
+    } else {
+      note = `At <code>i = ${st.i}</code>, candidate frontier is <code>i + nums[i] = ${st.i} + ${nums[st.i]} = ${st.cand}</code>. ` +
+             `${st.grew ? '<b>Extend</b> <code>reach</code> to ' + st.reach : '<code>reach</code> stays at ' + st.reach} .`;
+    }
+    html += VIZ.step(`Step ${k + 1}: i = ${st.i}, reach = ${st.reach}`, strip, note);
+  });
+  if (steps.length > MAX) html += `<p class="caption">... ${steps.length - MAX} more steps, same pattern.</p>`;
+
+  document.getElementById('answer').innerHTML =
+    `<b>Answer for nums = [${nums.join(',')}]: ${ok ? 'true' : 'false'}</b>`;
+  return html;
+}, 'Pass a comma-separated or JSON array of non-negative integers.');
+</script>
+
+</body>
+</html>

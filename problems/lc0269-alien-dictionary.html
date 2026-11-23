@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 269 - Alien Dictionary</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#advanced">Pattern lesson</a><span>Pattern 20: Advanced</span></div>
+
+<h1>Alien Dictionary</h1>
+<p class="sub">LeetCode 269 &middot; Hard (<i>Premium</i>) &middot; Pattern: topological sort (Kahn) over inferred letter order &middot; O(C) time, O(1) extra on the alphabet, where C is total characters</p>
+
+<div class="box">
+  <b>Problem (LeetCode Premium).</b> You are given <code>words</code> sorted <b>lexicographically</b> under some
+  unknown alien letter order. Return <b>any</b> valid total order of the letters that is consistent with the sort,
+  or <code>""</code> if no order is consistent.
+  <br><code>["wrt","wrf","er","ett","rftt"] &rarr; "wertf"</code>
+  <br><code>["z","x"] &rarr; "zx"</code>
+  <br><code>["z","x","z"] &rarr; ""</code> (cycle: z &lt; x and x &lt; z)
+  <br><code>["abc","ab"] &rarr; ""</code> ("abc" cannot precede its own prefix "ab" in any dictionary order)
+  <br>Note: the problem is Premium; the <b>same pattern</b> is free in LC 2392, included separately.
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>A sorted dictionary leaks pairwise information about the letter order: for two consecutive words
+<code>a</code> and <code>b</code>, scan until the first differing character. That one pair tells you
+<code>a[k] &lt; b[k]</code> in the alien order. Nothing else is implied by that pair &mdash; and in particular the
+later characters are irrelevant, because the sort only cared about the first mismatch.</p>
+
+<p>Collect all those pairs as directed edges on the letters. The <b>letters themselves</b> are the vertices &mdash;
+every letter that appears anywhere in <code>words</code> must appear in the output. The problem is then
+"<b>topological sort of this DAG</b>". If the graph is cyclic, no order is consistent &rarr; return
+<code>""</code>.</p>
+
+<div id="idea"></div>
+
+<p>One sharp special case: if <code>a</code> is a prefix of <code>b</code> (<code>"ab"</code> before
+<code>"abc"</code>), there is no differing character; the pair gives no edge, which is fine. But if
+<code>b</code> is a prefix of <code>a</code> (<code>"abc"</code> before <code>"ab"</code>), the sort is <b>already
+broken</b> &mdash; no dictionary order can place a longer word before its own prefix &mdash; so we return
+<code>""</code> immediately.</p>
+
+<div class="box insight">
+  <b>Idea.</b> Each consecutive word pair contributes <b>at most one</b> edge (first differing char). The letter set
+  is every character that ever appears. Run Kahn's topological sort over that graph; a cycle (fewer letters emitted
+  than exist) means no valid order. Handle the "longer word before its prefix" case up front.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>Why Kahn (BFS) over DFS? Both work; Kahn is easier to defend because the "zero in-degree" queue literally reads as
+"a letter that no other letter must come before, so it can go next". It also finds cycles for free: if the final
+output has fewer letters than the vertex set, exactly the letters stuck in a cycle were skipped.</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Enter a word list. The run first <b>scans each adjacent pair</b> to extract one edge (or detect the prefix
+violation), then runs Kahn's queue. Each step shows the current graph (letters + edges), the in-degree numbers, and
+the queue/output state.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>letter just taken from the queue</span>
+  <span><i style="background:var(--keep)"></i>letter already in the output</span>
+  <span><i style="background:var(--win)"></i>letter currently in the queue</span>
+  <span><i style="background:#f8fafc;border:1px solid #cbd5e1"></i>still waiting (in-degree &gt; 0)</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">string</span> alienOrder(<span class="t">vector</span>&lt;<span class="t">string</span>&gt;&amp; words) {
+        <span class="t">unordered_map</span>&lt;<span class="t">char</span>, <span class="t">unordered_set</span>&lt;<span class="t">char</span>&gt;&gt; adj;
+        <span class="t">unordered_map</span>&lt;<span class="t">char</span>, <span class="t">int</span>&gt; indeg;
+
+        <span class="c">// Register every letter that ever appears.</span>
+        <span class="k">for</span> (<span class="k">auto</span>&amp; w : words)
+            <span class="k">for</span> (<span class="t">char</span> c : w) <span class="k">if</span> (!indeg.count(c)) indeg[c] = <span class="n">0</span>;
+
+        <span class="c">// One edge per consecutive pair; detect prefix violation.</span>
+        <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i + <span class="n">1</span> &lt; (<span class="t">int</span>)words.size(); i++) {
+            <span class="k">const</span> <span class="t">string</span>&amp; a = words[i];
+            <span class="k">const</span> <span class="t">string</span>&amp; b = words[i + <span class="n">1</span>];
+            <span class="t">int</span> m = (<span class="t">int</span>)min(a.size(), b.size());
+            <span class="t">bool</span> found = <span class="k">false</span>;
+            <span class="k">for</span> (<span class="t">int</span> k = <span class="n">0</span>; k &lt; m; k++) {
+                <span class="k">if</span> (a[k] != b[k]) {
+                    <span class="k">if</span> (!adj[a[k]].count(b[k])) {
+                        adj[a[k]].insert(b[k]);
+                        indeg[b[k]]++;
+                    }
+                    found = <span class="k">true</span>;
+                    <span class="k">break</span>;
+                }
+            }
+            <span class="k">if</span> (!found &amp;&amp; a.size() &gt; b.size()) <span class="k">return</span> <span class="n">""</span>; <span class="c">// "abc" before "ab"</span>
+        }
+
+        <span class="c">// Kahn's BFS over the letter DAG.</span>
+        <span class="t">queue</span>&lt;<span class="t">char</span>&gt; q;
+        <span class="k">for</span> (<span class="k">auto</span>&amp; p : indeg) <span class="k">if</span> (p.second == <span class="n">0</span>) q.push(p.first);
+        <span class="t">string</span> out;
+        <span class="k">while</span> (!q.empty()) {
+            <span class="t">char</span> c = q.front(); q.pop();
+            out += c;
+            <span class="k">for</span> (<span class="t">char</span> nb : adj[c])
+                <span class="k">if</span> (--indeg[nb] == <span class="n">0</span>) q.push(nb);
+        }
+        <span class="k">return</span> out.size() == indeg.size() ? out : <span class="n">""</span>;
+    }
+};</pre>
+
+<p><b>Complexity.</b> Scanning all pairs costs <code>O(C)</code>, where <code>C</code> is the total characters across
+<code>words</code>. Kahn's is <code>O(V + E)</code>, with at most 26 vertices and at most <code>words.size() - 1</code>
+edges. So <code>O(C)</code> total, constant on the alphabet.</p>
+
+<h3>Alternative: DFS with post-order and 3-colour cycle detection</h3>
+
+<pre><span class="t">bool</span> dfs(<span class="t">char</span> u) {
+    color[u] = <span class="n">1</span>;                            <span class="c">// visiting</span>
+    <span class="k">for</span> (<span class="t">char</span> v : adj[u]) {
+        <span class="k">if</span> (color[v] == <span class="n">1</span>) <span class="k">return</span> <span class="k">false</span>; <span class="c">// cycle</span>
+        <span class="k">if</span> (color[v] == <span class="n">0</span> &amp;&amp; !dfs(v)) <span class="k">return</span> <span class="k">false</span>;
+    }
+    color[u] = <span class="n">2</span>;                            <span class="c">// finished; prepend to answer</span>
+    out.push_back(u);
+    <span class="k">return</span> <span class="k">true</span>;
+}</pre>
+
+<p>Reverse the <code>out</code> vector at the end to get a valid topological order. Same complexity; use Kahn when
+asked to produce <i>any</i> valid order and defend it from zero-in-degree reasoning, DFS when you also need the exact
+post-order for free (e.g. SCC via Tarjan).</p>
+
+<h2>5. The part interviewers ask about: why only the first differing character?</h2>
+
+<div class="box insight">
+  Dictionary order sorts by the <b>first position where strings differ</b> &mdash; nothing after that position was
+  consulted. So <code>a &lt; b</code> only tells us one strict ordering between <code>a[k]</code> and <code>b[k]</code>,
+  not between the later letters. Pulling more edges from a single pair is incorrect: it would introduce constraints
+  that the sort never actually implied.
+</div>
+
+<p>The prefix case is where almost everyone slips. <code>"ab" &lt; "abc"</code> is <b>consistent with any order</b>:
+no edge needed. But <code>"abc" &lt; "ab"</code> contradicts every total order on letters, because the dictionary
+sort compares character-by-character and treats "end of string" as smaller than any letter. If both pairs share
+every letter and the first is strictly longer, no edge is derivable and the input is already inconsistent &rarr;
+return <code>""</code>.</p>
+
+<p>Second question: how do we handle a <b>disconnected</b> letter graph? Each letter is a vertex regardless of
+whether it participates in an edge. An isolated letter has in-degree 0, so Kahn's enqueues it immediately. It
+appears in the output in some arbitrary position relative to the rest &mdash; which is <i>correct</i>, because
+nothing about the sort constrains where it goes.</p>
+
+<p>Third: the problem says "return any valid order", not the lex-smallest. Multiple orders can satisfy the
+constraints, and both Kahn and DFS can produce different ones depending on container iteration. If an interviewer
+asks for the <i>lex-smallest</i> order, swap Kahn's <code>queue</code> for a <code>priority_queue</code> (min-heap)
+and keep everything else the same.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Missing the prefix violation.</b> <code>["abc","ab"]</code> must return <code>""</code>. Easy to miss when
+    the pair-scanning loop exits with <code>found = false</code> and no edge was added &mdash; you still have to
+    reject if <code>a.size() &gt; b.size()</code>.</li>
+    <li><b>Double-counting an edge.</b> If the same pair <code>(x, y)</code> appears in two different word pairs,
+    increment <code>indeg[y]</code> only once. Guard with <code>if (!adj[x].count(y))</code>.</li>
+    <li><b>Forgetting isolated letters.</b> Any letter appearing anywhere in <code>words</code> must appear in the
+    output. Initialise <code>indeg[c] = 0</code> for <b>every</b> letter before adding edges.</li>
+    <li><b>Treating identical words as a prefix violation.</b> <code>["ab","ab"]</code> is fine &mdash; equal strings
+    are consistent with any order. The check is <code>a.size() &gt; b.size()</code>, strictly greater.</li>
+    <li><b>Returning the alphabet when the input is empty.</b> No words &rarr; no letters known &rarr; return
+    <code>""</code> (there are no letters to order).</li>
+    <li><b>Cycle vs. ambiguity.</b> A graph with multiple topological orders is <b>not</b> a cycle. Returning
+    "insufficient information" is wrong unless the interviewer asks for that distinction &mdash; LC 269 wants any
+    valid order.</li>
+    <li><b>Using <code>vector&lt;char&gt;</code> adjacency without dedup.</b> Duplicate edges inflate in-degrees and
+    leave letters stuck. Use <code>unordered_set</code> or check for presence before incrementing.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "The dictionary sort gives me one letter-order edge per consecutive pair: scan to the first differing character.
+  I collect those edges as a graph over all letters that appear, then run Kahn's topological sort &mdash; a queue of
+  zero in-degree letters, pop one into the output, decrement each neighbour's in-degree, enqueue when it hits zero.
+  If the output ends up shorter than the letter set there is a cycle, so I return the empty string. One trap: when a
+  word strictly contains the next word as a prefix the input is already inconsistent, so I check that up front.
+  Linear in total input."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 2392 Build a Matrix With Conditions</td><td>Two independent topological sorts (rows and cols). Same Kahn skeleton; free alternative.</td></tr>
+  <tr><td>LC 207 Course Schedule</td><td>Cycle detection in a DAG; vertices are courses, same Kahn or DFS 3-colour.</td></tr>
+  <tr><td>LC 210 Course Schedule II</td><td>Emit the actual order, not just existence; identical to Alien Dictionary minus the "extract edges" step.</td></tr>
+  <tr><td>LC 310 Minimum Height Trees</td><td>Peel leaves from the tree &mdash; Kahn with in-degree 1 instead of 0.</td></tr>
+</table>
+
+<script>
+/* 1. Idea diagram: words -> edges extracted. Show the first differing letter in each pair. */
+(function () {
+  const W = 820, H = 240;
+  const words = ['wrt','wrf','er','ett','rftt'];
+  // Pairs: (wrt,wrf) diff at k=2 -> t<f.  (wrf,er) diff at k=0 -> w<e. (er,ett) diff at k=1 -> r<t. (ett,rftt) diff at k=0 -> e<r.
+  const pairs = [[0,1,2,'t','f'],[1,2,0,'w','e'],[2,3,1,'r','t'],[3,4,0,'e','r']];
+  const CS = 36, PAD = 60, GAP = 46;
+  let s = '';
+  s += `<text x="30" y="24" font-size="13" font-weight="700" fill="#334155">words</text>`;
+  words.forEach((w, i) => {
+    const y = 40 + i * GAP;
+    for (let k = 0; k < w.length; k++) {
+      const x = PAD + k * CS;
+      let fill = '#fff', stroke = '#475569';
+      // Highlight first differing char per pair (as a=prev, b=next)
+      pairs.forEach(([ai,bi,k0]) => {
+        if ((i===ai && k===k0) || (i===bi && k===k0)) { fill = '#fde68a'; stroke = '#d97706'; }
+      });
+      s += `<rect x="${x}" y="${y}" width="${CS - 4}" height="${CS - 4}" rx="5" fill="${fill}" stroke="${stroke}" stroke-width="2"/>`;
+      s += `<text x="${x + (CS - 4) / 2}" y="${y + (CS - 4) / 2 + 5}" text-anchor="middle" font-size="15" font-weight="700">${w[k]}</text>`;
+    }
+  });
+  s += `<text x="430" y="24" font-size="13" font-weight="700" fill="#334155">derived edge</text>`;
+  pairs.forEach(([ai,bi,k0,a,b], idx) => {
+    const yA = 40 + ai * GAP + (CS - 4) / 2 + 3;
+    const yB = 40 + bi * GAP + (CS - 4) / 2 + 3;
+    const yMid = (yA + yB) / 2;
+    s += `<text x="430" y="${yMid}" font-size="13.5" fill="#334155">first mismatch: <tspan font-weight="700" fill="#d97706">${a}</tspan> vs <tspan font-weight="700" fill="#d97706">${b}</tspan> &rarr; edge <tspan font-weight="700" fill="#15803d">${a} &rarr; ${b}</tspan></text>`;
+  });
+  document.getElementById('idea').innerHTML =
+    `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${H + 60}">${s}</svg>`;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Register letters', lines: ['indeg[c] = 0 for every', 'c that appears'], color: 'green' },
+  { title: '2. Extract edges', lines: ['each consecutive pair:', 'first differing char', '(reject prefix bug)'], color: 'yellow' },
+  { title: '3. Kahn\'s queue', lines: ['enqueue indeg 0', 'pop -> output', 'decrement neighbours'], color: 'blue' },
+  { title: '4. Verify', lines: ['output full? return it', 'else cycle -> ""'], color: 'red' },
+]);
+
+/* Interactive trace: build the graph and run Kahn, recording a step per queue pop. */
+VIZ.controls('trace', [
+  { id: 'words', label: 'words =', value: '["wrt","wrf","er","ett","rftt"]', size: 42 },
+], v => {
+  let words;
+  try { words = JSON.parse(v.words.trim()); }
+  catch (e) { return '<div class="box trap">Could not parse words as JSON. Example: ["wrt","wrf","er","ett","rftt"].</div>'; }
+  if (!Array.isArray(words) || words.some(w => typeof w !== 'string'))
+    return '<div class="box trap">words must be a JSON array of strings.</div>';
+  if (words.length > 8) return '<div class="box trap">Pick at most 8 words to keep the trace readable.</div>';
+
+  // Collect letters
+  const letters = [];
+  const seen = new Set();
+  for (const w of words) for (const c of w) if (!seen.has(c)) { seen.add(c); letters.push(c); }
+  const indeg = {}; for (const c of letters) indeg[c] = 0;
+  const adj = {}; for (const c of letters) adj[c] = new Set();
+  const edges = [];     // for drawing
+
+  let abort = null;
+  // Build edges
+  for (let i = 0; i + 1 < words.length; i++) {
+    const a = words[i], b = words[i + 1];
+    const m = Math.min(a.length, b.length);
+    let found = false;
+    for (let k = 0; k < m; k++) {
+      if (a[k] !== b[k]) {
+        if (!adj[a[k]].has(b[k])) { adj[a[k]].add(b[k]); indeg[b[k]]++; edges.push([a[k], b[k], i]); }
+        found = true; break;
+      }
+    }
+    if (!found && a.length > b.length) { abort = { i, a, b }; break; }
+  }
+
+  if (abort) {
+    document.getElementById('answer').innerHTML =
+      `<b>Answer: "" (empty)</b>. Pair <code>"${abort.a}"</code> before <code>"${abort.b}"</code> is a prefix violation.`;
+    return VIZ.step('Prefix violation detected',
+      `<div class="caption">The longer string <code>"${abort.a}"</code> cannot come before its own prefix <code>"${abort.b}"</code> in any dictionary order.</div>`,
+      'Return <code>""</code> without running Kahn.', true);
+  }
+
+  // Build layout (circle, letters alphabetical for stability)
+  const sortedLetters = [...letters].sort();
+  const positions = VIZ.circleLayout(sortedLetters, 180, 160, 110);
+  // Attach labels (the ids are indices, so make them letters)
+  const nodes = positions.map((p, i) => ({ id: sortedLetters[i], x: p.x, y: p.y }));
+  const edgeTriples = edges.map(([u, v]) => [u, v]);
+
+  // Record Kahn
+  const steps = [];
+  function snapshot(title, text, highlights) {
+    const nodeCls = {};
+    for (const c of sortedLetters) {
+      if (highlights.out && highlights.out.includes(c)) nodeCls[c] = 'keep';
+      else if (highlights.current === c) nodeCls[c] = 'new';
+      else if (highlights.queue && highlights.queue.includes(c)) nodeCls[c] = 'in';
+      else if (indeg[c] > 0) nodeCls[c] = 'dim';
+    }
+    const notes = {};
+    for (const c of sortedLetters) notes[c] = `in=${indeg[c]}`;
+    const edgeCls = {};
+    if (highlights.touchedEdges) highlights.touchedEdges.forEach(([u,v]) => edgeCls[u+'-'+v] = 'new');
+    const g = VIZ.graph(nodes, edgeTriples, { directed: true, nodeCls, edgeCls, notes, w: 390, h: 320 });
+    const qLine = `<b>queue:</b> [${(highlights.queue || []).map(c=>`<code>${c}</code>`).join(', ')}]`;
+    const oLine = `<b>output:</b> <code>${(highlights.out || []).join('')}</code>`;
+    steps.push({ title, text: `${qLine}<br>${oLine}<br>${text}`, visual: g });
+  }
+
+  // Initial queue
+  const q = [];
+  for (const c of sortedLetters) if (indeg[c] === 0) q.push(c);
+  const out = [];
+  snapshot('Initial state',
+    `Built graph from ${edges.length} edge${edges.length === 1 ? '' : 's'}. Letters with in-degree 0 go into the queue.`,
+    { queue: [...q], out: [...out] });
+
+  const indegLocal = {...indeg};   // mutable copy for walking
+  while (q.length) {
+    const c = q.shift();
+    out.push(c);
+    const touched = [];
+    for (const nb of adj[c]) {
+      indegLocal[nb]--;
+      touched.push([c, nb]);
+      if (indegLocal[nb] === 0) q.push(nb);
+    }
+    // Freeze indeg for display: mutate indeg to indegLocal snapshot
+    for (const k of Object.keys(indegLocal)) indeg[k] = indegLocal[k];
+    snapshot(`Pop <code>${c}</code>`,
+      `Append <code>${c}</code> to output. Decrement in-degree of ${touched.length ? touched.map(([,v])=>`<code>${v}</code>`).join(', ') : '(no neighbours)'}. Enqueue any that reached 0.`,
+      { current: c, queue: [...q], out: [...out], touchedEdges: touched });
+    if (steps.length > 25) break;
+  }
+
+  const valid = out.length === sortedLetters.length;
+  const finalStr = valid ? out.join('') : '';
+  document.getElementById('answer').innerHTML =
+    `<b>Answer: ${valid ? `"${finalStr}"` : '""'}</b>` +
+    (valid ? ` (one valid order; others are possible if the DAG has multiple topological orders).` : ` &mdash; cycle detected; ${sortedLetters.length - out.length} letter(s) unreachable from zero in-degree.`);
+
+  return steps.map(st => VIZ.step(st.title, st.visual, st.text)).join('');
+}, 'Edit the word list. Each adjacent pair contributes at most one edge, from the first differing character.');
+</script>
+
+</body>
+</html>

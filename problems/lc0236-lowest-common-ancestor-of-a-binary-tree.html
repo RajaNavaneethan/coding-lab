@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 236 - Lowest Common Ancestor of a Binary Tree</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#trees">Pattern lesson</a><span>Pattern 8: Trees (DFS/BFS)</span></div>
+
+<h1>Lowest Common Ancestor of a Binary Tree</h1>
+<p class="sub">LeetCode 236 &middot; Medium &middot; Pattern: post-order DFS returning a witness &middot; O(n) time, O(h) space</p>
+
+<div class="box">
+  <b>Problem.</b> Given the root of a binary tree and two nodes <code>p</code> and <code>q</code>, return their lowest
+  common ancestor &mdash; the deepest node that has both of them in its subtree. Each node is also an ancestor of itself.
+  <br><code>root = [3,5,1,6,2,0,8,null,null,7,4]</code> &nbsp;&nbsp; <code>p=5, q=1 &rarr; 3</code> &nbsp;&nbsp; <code>p=5, q=4 &rarr; 5</code>
+  <br>Link: <a href="https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-tree/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>At each node, ask one question: "did I find p or q in my left subtree? in my right subtree?" If both answers are yes,
+I am the LCA. If only one side is yes, hand that side up to my parent. If neither side has anything, hand up
+<code>null</code>.</p>
+
+<p>Two base cases make this work without extra state. A <code>null</code> node returns <code>null</code>. A node that
+<i>is</i> p or q returns itself &mdash; it is its own witness. So the return value of each call is a single pointer that
+means: "the first p-or-q I found in my subtree, or the LCA if I found both."</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Recurse into both children. If both come back non-null, this node has p on one side and q on the other, so
+  it is the LCA. Otherwise, pass up whichever side was non-null (or null if neither).
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Yellow is the node currently entered. The orange note on each node is what that call returns: a value means "I found
+this node or passed it up", <code>null</code> means "nothing here". Green marks the final LCA.</p>
+
+<div class="legend">
+  <span><i style="background:#fde68a;border-color:#d97706"></i>entered</span>
+  <span><i style="background:#dbeafe;border-color:#3b82f6"></i>on the call stack</span>
+  <span><i style="background:#bbf7d0;border-color:#15803d"></i>LCA (answer)</span>
+  <span><i style="background:#e9d5ff;border-color:#7c3aed"></i>matched p or q</span>
+  <span style="color:#d97706">note = return value</span>
+</div>
+
+<div id="trace"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="t">TreeNode</span>* lowestCommonAncestor(<span class="t">TreeNode</span>* root, <span class="t">TreeNode</span>* p, <span class="t">TreeNode</span>* q) {
+    <span class="k">if</span> (!root || root == p || root == q) <span class="k">return</span> root;
+    <span class="t">TreeNode</span>* L = lowestCommonAncestor(root-&gt;left,  p, q);
+    <span class="t">TreeNode</span>* R = lowestCommonAncestor(root-&gt;right, p, q);
+    <span class="k">if</span> (L &amp;&amp; R) <span class="k">return</span> root;                 <span class="c">// split: this node is the LCA</span>
+    <span class="k">return</span> L ? L : R;                        <span class="c">// one side has both, or neither</span>
+}</pre>
+
+<p><b>Complexity:</b> every node is visited once, O(n) time. Recursion depth is the tree height, O(h) stack.</p>
+
+<h3>Alternative: parent map + ancestor set</h3>
+
+<pre><span class="c">// Walk the tree once to record each node's parent.</span>
+<span class="t">unordered_map</span>&lt;<span class="t">TreeNode</span>*, <span class="t">TreeNode</span>*&gt; parent;
+<span class="c">// Then walk p's ancestors into a set, and walk q's ancestors until we hit the set.</span></pre>
+
+<p>Also O(n) time but needs O(n) space for the map. Reach for it when the tree has parent pointers already, or when you
+have many queries on the same tree and can preprocess (binary lifting is the usual next step then).</p>
+
+<h2>5. The part interviewers ask about: why one-sided returns are safe</h2>
+
+<div class="box insight">
+  When only one side is non-null, that pointer might be p, q, or the LCA from deeper down. The code doesn't need to
+  distinguish: it just passes it up. The guarantee is that if p and q are both in the tree, the deepest ancestor that
+  sees both of them in its own two subtrees is where the two one-sided returns finally meet &mdash; and that node is the
+  one that returns <code>root</code> instead of <code>L</code> or <code>R</code>. Above it, the recursion keeps bubbling
+  the LCA pointer up untouched.
+</div>
+
+<p>What about "p is an ancestor of q"? The call at p sees itself first and returns <code>p</code> on the spot without
+exploring further. That return propagates up, and no higher node sees two non-null children, so the final answer is p.
+This is why the first check also handles the "same node" case for free.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Comparing by value instead of by pointer.</b> LC 236 nodes have unique values on paper, but the signature takes
+    pointers. Compare pointers (<code>root == p</code>) so you don't double-match on a value collision in other variants.</li>
+    <li><b>Keeping walking after finding p or q.</b> The first line returns immediately. Don't recurse into children when
+    the current node is already a match.</li>
+    <li><b>Separate found-flags for p and q.</b> Not needed. The null / non-null return value carries all the signal you
+    need.</li>
+    <li><b>Edge: p is the root.</b> Returned on the first line, no recursion needed. LCA = root.</li>
+    <li><b>Edge: p == q.</b> The problem usually guarantees distinct, but the code still works: it returns p (= q) the
+    first time it meets that pointer.</li>
+    <li><b>Edge: a BST.</b> You can do it in O(h) time by comparing p/q to <code>root-&gt;val</code> and descending the
+    one side that could contain both. That is <b>LC 235</b>, a cheaper variant for sorted trees.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I do a post-order DFS. Each call returns the first p-or-q it finds in its subtree. The base cases are null and
+  'this node is p or q, return self'. If both child calls come back non-null, the two targets are on different sides, so
+  the current node is the LCA. Otherwise I pass up whichever side was non-null. One pass, O(n) time, O(h) stack."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 235 LCA in a BST</td><td>Use the BST property to pick a side in O(h) without exploring both subtrees.</td></tr>
+  <tr><td>LC 1123 LCA of Deepest Leaves</td><td>Post-order returning (depth, lca) pairs; same shape with a richer return.</td></tr>
+  <tr><td>LC 865 Smallest Subtree with all Deepest Nodes</td><td>Same return pattern; the "witness" is a (depth, node) pair.</td></tr>
+  <tr><td>LC 1644 LCA II (nodes may be missing)</td><td>Count found matches on the way up; only return the LCA if both were seen.</td></tr>
+  <tr><td>LC 124 Max Path Sum</td><td>Same post-order "combine at each node" skeleton, different return value.</td></tr>
+</table>
+
+<script>
+/* Idea diagram: show the example tree with p=5, q=1 marked, LCA 3 highlighted. */
+document.getElementById('idea').innerHTML =
+  VIZ.tree([3,5,1,6,2,0,8,null,null,7,4], {
+    cls: { 0: 'keep', 1: 'hit', 2: 'hit' },
+    notes: { 0: 'LCA', 1: 'p', 2: 'q' }
+  }) +
+  '<div class="caption">Example: <code>p=5, q=1</code>. The LCA is <b>3</b>, the deepest node that sees both.</div>';
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Base',    lines: ['null, p, or q?', 'return root'], color: 'blue' },
+  { title: '2. Left',    lines: ['L = recurse(left)'], color: 'yellow' },
+  { title: '3. Right',   lines: ['R = recurse(right)'], color: 'purple' },
+  { title: '4. Combine', lines: ['L && R: return self', 'else: return L or R'], color: 'green' },
+]);
+
+/* The trace. */
+VIZ.controls('trace', [
+  { id: 'root', label: 'root =', value: '[3,5,1,6,2,0,8,null,null,7,4]', size: 32 },
+  { id: 'p',    label: 'p =',    value: '5', size: 3 },
+  { id: 'q',    label: 'q =',    value: '1', size: 3 },
+], v => {
+  const arr = VIZ.parse.tree(v.root);
+  const root = VIZ.buildTree(arr);
+  const pv = VIZ.parse.int(v.p), qv = VIZ.parse.int(v.q);
+  if (!root) return '<div class="box">Empty tree, no LCA.</div>';
+
+  // Resolve p/q to actual node ids by value (first occurrence).
+  let pNode = null, qNode = null;
+  (function f(n) { if (!n) return; if (n.val === pv && !pNode) pNode = n;
+                  if (n.val === qv && !qNode) qNode = n; f(n.left); f(n.right); })(root);
+  if (!pNode || !qNode) return '<div class="box trap">p or q not in the tree.</div>';
+
+  const steps = [];
+  const state = {}, notes = {};
+  const snap = (title, text) => steps.push({ title, text,
+    cls: Object.assign({}, state), notes: Object.assign({}, notes) });
+
+  function lca(n) {
+    if (!n) return null;
+    state[n.id] = 'new';
+    if (n === pNode || n === qNode) {
+      state[n.id] = 'hit';
+      notes[n.id] = 'ret=' + n.val;
+      snap('match ' + n.val, 'Node <b>' + n.val + '</b> matches ' + (n === pNode ? 'p' : 'q') +
+        '. Return pointer to <b>' + n.val + '</b> without recursing.');
+      return n;
+    }
+    snap('enter ' + n.val, 'Enter <b>' + n.val + '</b>. Recurse into left, then right.');
+    state[n.id] = 'in';
+    const L = lca(n.left);
+    const R = lca(n.right);
+    if (L && R) {
+      state[n.id] = 'keep';
+      notes[n.id] = 'LCA=' + n.val;
+      snap('split at ' + n.val, 'Left returned <b>' + L.val + '</b>, right returned <b>' + R.val +
+        '</b>. Both non-null, so <b>' + n.val + '</b> is the LCA.');
+      return n;
+    }
+    const ret = L || R;
+    state[n.id] = ret ? 'in' : 'in';
+    notes[n.id] = 'ret=' + (ret ? ret.val : 'null');
+    snap('combine at ' + n.val, 'Left ' + (L ? L.val : 'null') + ', right ' + (R ? R.val : 'null') +
+      '. Pass up <b>' + (ret ? ret.val : 'null') + '</b>.');
+    return ret;
+  }
+  const ans = lca(root);
+  // Final highlight: mark LCA green on a final snapshot
+  if (ans) {
+    Object.keys(state).forEach(k => { if (state[k] === 'in') state[k] = ''; });
+    state[ans.id] = 'keep';
+    notes[ans.id] = 'LCA=' + ans.val;
+    snap('final', 'The LCA of <b>' + pv + '</b> and <b>' + qv + '</b> is <b>' + ans.val + '</b>.');
+  }
+
+  const html = steps.slice(0, 25).map(s =>
+    VIZ.step(s.title, VIZ.tree(root, { cls: s.cls, notes: s.notes }), s.text)
+  ).join('');
+  const extra = steps.length > 25 ? '<p class="caption">&hellip; ' + (steps.length - 25) + ' more steps</p>' : '';
+  return html + extra +
+    '<div class="box good"><b>LCA(' + pv + ', ' + qv + ') = ' + (ans ? ans.val : 'null') + '</b></div>';
+});
+</script>
+</body>
+</html>

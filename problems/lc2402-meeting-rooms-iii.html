@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 2402 - Meeting Rooms III</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#intervals">Pattern lesson</a><span>Pattern 17: Intervals</span></div>
+
+<h1>Meeting Rooms III</h1>
+<p class="sub">LeetCode 2402 &middot; Hard &middot; Pattern: two heaps (free rooms, busy rooms) &middot; O((n+m) log(n+m)) time, O(n+m) space</p>
+
+<div class="box">
+  <b>Problem.</b> You have <code>n</code> rooms numbered <code>0..n&minus;1</code> and a list of meetings
+  <code>meetings[i] = [start<sub>i</sub>, end<sub>i</sub>]</code> (end exclusive).
+  Rules:
+  <ul>
+    <li>Process meetings in order of <b>start time</b>.</li>
+    <li>If any room is free, use the <b>lowest-indexed</b> free room.</li>
+    <li>If no room is free, the meeting is <b>delayed</b> until the earliest-ending room is free. The meeting runs for
+      its original duration (<code>end &minus; start</code>). Delayed meetings do not change the order of future
+      meetings.</li>
+  </ul>
+  Return the room that held the <b>most meetings</b>; break ties by lowest index.
+  <br><code>n=2, meetings=[[0,10],[1,5],[2,7],[3,4]] &rarr; 0</code>
+  <br><code>n=3, meetings=[[1,20],[2,10],[3,5],[4,9],[6,8]] &rarr; 1</code>
+  <br>Link: <a href="https://leetcode.com/problems/meeting-rooms-iii/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Two priority queues let us answer the two questions this problem asks every step:</p>
+
+<ul>
+  <li><b>free</b>: a min-heap of free room <b>indices</b>. The top is the lowest-indexed free room.</li>
+  <li><b>busy</b>: a min-heap of <code>(endTime, roomIndex)</code>. The top is the earliest-ending busy room (ties
+    break by index, which also matches the rule for picking which room goes next).</li>
+</ul>
+
+<p>Sort meetings by start, then for each meeting <code>[s, e]</code> (duration <code>d = e &minus; s</code>):</p>
+
+<ol>
+  <li>Move every room from <code>busy</code> to <code>free</code> whose endTime is <code>&le; s</code>.</li>
+  <li>If <code>free</code> is non-empty, pop the smallest index; that room runs <code>[s, e]</code>.</li>
+  <li>Otherwise, pop the earliest-ending room <code>(endT, idx)</code> from <code>busy</code>. That room runs the
+    meeting delayed: it starts at <code>endT</code> and ends at <code>endT + d</code>. Push <code>(endT + d, idx)</code>
+    back into <code>busy</code>.</li>
+  <li>In every case, increment <code>count[idx]</code>.</li>
+</ol>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> The two things we care about at each step are "the smallest-indexed free room" and "the room that will
+  free up first". A min-heap on each gives us both in O(log n). The meeting's duration is sacred: delaying preserves it.
+</div>
+
+<h3>Why <code>long long</code> matters</h3>
+
+<p>Delayed meetings push end times forward. In the worst case this cascades: a stream of long meetings on a single
+room means each one's end time grows by one duration. With <code>end &le; 5&middot;10<sup>5</sup></code> and up to
+<code>10<sup>5</sup></code> meetings the end time can reach ~5&middot;10<sup>10</sup>, which overflows a 32-bit
+<code>int</code>. Store end times as <code>long long</code>; the room index is still <code>int</code>.</p>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>The top timeline shows the input meetings (sorted by start) with a dashed vertical line at the current meeting's
+start time. Below, one row per room shows the schedule as it fills in &mdash; a yellow bar is the booking just made
+(possibly delayed past the requested start). On the right the two heaps are drawn: <b>free</b> at the top (smallest
+index on top) and <b>busy</b> below (earliest end on top).</p>
+
+<div class="legend">
+  <span><i style="background:#fde68a"></i>meeting just booked</span>
+  <span><i style="background:#bbf7d0"></i>already booked</span>
+  <span><i style="background:#fecaca"></i>delayed past requested start</span>
+  <span><i style="background:#dbeafe"></i>free heap entry</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">int</span> mostBooked(<span class="t">int</span> n, <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt;&amp; meetings) {
+        sort(meetings.begin(), meetings.end(),
+             [](<span class="k">const</span> <span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; a, <span class="k">const</span> <span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; b){ <span class="k">return</span> a[<span class="n">0</span>] &lt; b[<span class="n">0</span>]; });
+        priority_queue&lt;<span class="t">int</span>, <span class="t">vector</span>&lt;<span class="t">int</span>&gt;, greater&lt;<span class="t">int</span>&gt;&gt; freeRooms;    <span class="c">// by index</span>
+        <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt; n; i++) freeRooms.push(i);
+        <span class="k">using</span> P = pair&lt;<span class="t">long long</span>, <span class="t">int</span>&gt;;                              <span class="c">// (endTime, idx)</span>
+        priority_queue&lt;P, <span class="t">vector</span>&lt;P&gt;, greater&lt;P&gt;&gt; busy;
+        <span class="t">vector</span>&lt;<span class="t">int</span>&gt; count(n, <span class="n">0</span>);
+
+        <span class="k">for</span> (<span class="k">auto</span>&amp; m : meetings) {
+            <span class="t">long long</span> s = m[<span class="n">0</span>], e = m[<span class="n">1</span>], d = e - s;
+            <span class="k">while</span> (!busy.empty() &amp;&amp; busy.top().first &lt;= s) {
+                freeRooms.push(busy.top().second); busy.pop();      <span class="c">// room freed in time</span>
+            }
+            <span class="k">if</span> (!freeRooms.empty()) {
+                <span class="t">int</span> idx = freeRooms.top(); freeRooms.pop();
+                count[idx]++;
+                busy.push({e, idx});                                <span class="c">// run as requested</span>
+            } <span class="k">else</span> {
+                <span class="k">auto</span> [endT, idx] = busy.top(); busy.pop();
+                count[idx]++;
+                busy.push({endT + d, idx});                         <span class="c">// delayed, duration preserved</span>
+            }
+        }
+        <span class="t">int</span> best = <span class="n">0</span>;
+        <span class="k">for</span> (<span class="t">int</span> i = <span class="n">1</span>; i &lt; n; i++) <span class="k">if</span> (count[i] &gt; count[best]) best = i;
+        <span class="k">return</span> best;
+    }
+};</pre>
+
+<p><b>Complexity:</b> sort is O(m log m). Each meeting does O(log n) heap work (one pop from <code>free</code> or
+<code>busy</code>, one push, plus amortised O(log n) across the while-loop pops which each happen at most once per
+room). Total O((n + m) log(n + m)) time, O(n + m) space.</p>
+
+<h2>5. The part interviewers ask about</h2>
+
+<div class="box insight">
+  <b>Why does popping the earliest-ending busy room produce the "lowest index on tie" rule for free as well?</b>
+  Because the busy heap is ordered on the pair <code>(endTime, index)</code>. When two rooms end at the same time, the
+  smaller index comes first. This matches the problem's tie-break and is also what makes answer tiebreak work: a room
+  that reaches a given <code>count</code> first will have the smaller index, so a simple left-to-right scan at the end
+  returns the correct answer.
+</div>
+
+<p><b>Overflow is a real trap.</b> With <code>n = 1</code> and <code>m = 10<sup>5</sup></code> meetings each of
+duration ~5&middot;10<sup>5</sup>, the final room's endTime is around 5&middot;10<sup>10</sup>. Use <code>long long</code>
+everywhere end times are stored and arithmetic is done. Room indices stay <code>int</code>.</p>
+
+<p><b>Alternative data structure.</b> You could keep <code>free</code> as a <code>std::set&lt;int&gt;</code> and use
+<code>*free.begin()</code> instead of a heap. It is the same O(log n) per op; the heap is just shorter to write.</p>
+
+<p><b>Why not simulate time tick by tick?</b> Time values can be up to 10<sup>9</sup>; iterating time is hopeless.
+Event-driven simulation (what the two heaps give us) only touches the <code>m</code> interesting instants.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Using <code>int</code> for end times.</b> Overflows on cascaded delays. Use <code>long long</code>.</li>
+    <li><b>Forgetting to sort by start.</b> The problem guarantees distinct <code>start</code>s but not sorted input.
+      Always sort first.</li>
+    <li><b>Picking any busy room when none is free.</b> Must be the <b>earliest-ending</b> one.</li>
+    <li><b>Changing a delayed meeting's duration.</b> The meeting runs the full <code>e &minus; s</code> starting from
+      the room's current end time. New end = <code>endT + (e &minus; s)</code>, not <code>e</code>.</li>
+    <li><b>Not freeing rooms before checking <code>free</code>.</b> If a room's endTime is <code>&le; s</code> it is
+      available right now and must be considered. Drain <code>busy</code> first.</li>
+    <li><b>Tie-break of the answer by max index.</b> Problem asks lowest index on ties. A plain
+      <code>&gt;</code> comparison (strictly greater) in the final scan keeps the lower index naturally.</li>
+    <li><b>Comparing pair with <code>&lt;=</code> on first only.</b> <code>busy.top().first &le; s</code> is the right
+      check; comparing the whole pair with the start would not compile.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "Two min-heaps. <code>free</code> is a heap of room indices; <code>busy</code> is a heap of (endTime, index). I sort
+  meetings by start. For each one I first drain <code>busy</code>: anything that ends by now moves back to
+  <code>free</code>. If <code>free</code> has anyone, I take the lowest index and schedule the meeting as-is. If not,
+  I pop the earliest-ending room from <code>busy</code>, keep the meeting's duration, and reinsert it with
+  <code>endT + duration</code>. I count how many meetings each room held and return the lowest-indexed max. Watch out
+  for <code>long long</code> on end times."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 253 Meeting Rooms II</td><td>Simpler: just one heap of end times, no indexed rooms.</td></tr>
+  <tr><td>LC 1834 Single-Threaded CPU</td><td>Same two-heap flavour: "available" tasks vs the running one, delayed by processing time.</td></tr>
+  <tr><td>LC 1942 The Number of the Smallest Unoccupied Chair</td><td>Twin problem; two heaps, same free/busy structure.</td></tr>
+  <tr><td>LC 2335 Minimum Time to Fill Cups</td><td>Different flavour, still priority-queue greedy on three resources.</td></tr>
+</table>
+
+<script>
+/* Draw a timeline for a single room with scheduled bookings, plus the input strip on top. */
+function drawRooms(meetings, rooms, cur, highlight, heaps, minX, maxX, title) {
+  // meetings: input sorted; cur: index being handled (-1 for none); highlight: {room, s, e} just booked
+  const nRooms = rooms.length;
+  const span = Math.max(1, maxX - minX);
+  const HEAP_W = 180;
+  const PAD_L = 70, PAD_R = 30, W = 760 + HEAP_W, H_PER = 32, HTOP = 36, GAP = 14, HBOT = 24;
+  const inputStripH = 36;
+  const H = HTOP + inputStripH + GAP + nRooms * H_PER + HBOT;
+  const barsRight = W - PAD_R - HEAP_W;
+  const scale = x => PAD_L + (x - minX) / span * (barsRight - PAD_L);
+  // ticks
+  const tickStep = Math.max(1, Math.ceil(span / 8));
+  let ticks = '';
+  for (let x = minX; x <= maxX; x += tickStep) {
+    const px = scale(x);
+    ticks += `<line x1="${px}" y1="${HTOP - 6}" x2="${px}" y2="${HTOP}" stroke="#94a3b8" stroke-width="1"/>`;
+    ticks += `<text x="${px}" y="${HTOP - 10}" text-anchor="middle" font-size="11" fill="#616e7c">${x}</text>`;
+  }
+  const axis = `<line x1="${PAD_L - 5}" y1="${HTOP}" x2="${barsRight + 5}" y2="${HTOP}" stroke="#334155" stroke-width="2"/>`;
+
+  // input strip (meetings)
+  let input = '';
+  meetings.forEach((m, i) => {
+    const [a, b] = m;
+    const x1 = scale(a), x2 = scale(b);
+    const y = HTOP + 2;
+    const h = inputStripH - 10;
+    let col = { fill: '#f1f5f9', stroke: '#cbd5e1', dash: ' stroke-dasharray="3,3"' };
+    if (i < cur) col = { fill: '#dbeafe', stroke: '#3b82f6', dash: '' };
+    if (i === cur) col = { fill: '#fde68a', stroke: '#d97706', dash: '' };
+    input += `<rect x="${x1}" y="${y}" width="${Math.max(2, x2 - x1)}" height="${h}" rx="3" fill="${col.fill}" stroke="${col.stroke}" stroke-width="1.5"${col.dash}/>`;
+    input += `<text x="${(x1 + x2) / 2}" y="${y + h / 2 + 4}" text-anchor="middle" font-size="10" font-weight="700" fill="${col.stroke}">m${i}</text>`;
+  });
+  input += `<text x="${PAD_L - 10}" y="${HTOP + inputStripH / 2 + 4}" text-anchor="end" font-size="11" fill="#616e7c">input</text>`;
+
+  // room timelines
+  const roomsTop = HTOP + inputStripH + GAP;
+  let roomsSvg = '';
+  rooms.forEach((bookings, idx) => {
+    const y = roomsTop + idx * H_PER;
+    // divider line
+    roomsSvg += `<line x1="${PAD_L}" y1="${y + H_PER - 2}" x2="${barsRight}" y2="${y + H_PER - 2}" stroke="#e5e7eb" stroke-width="1"/>`;
+    roomsSvg += `<text x="${PAD_L - 10}" y="${y + H_PER / 2 + 4}" text-anchor="end" font-size="12" font-weight="700" fill="#1f2933">room ${idx}</text>`;
+    bookings.forEach(bk => {
+      const x1 = scale(bk.s), x2 = scale(bk.e);
+      const h = H_PER - 10;
+      const isHit = highlight && highlight.room === idx && bk.s === highlight.s && bk.e === highlight.e;
+      let col;
+      if (isHit) col = bk.delayed ? { fill: '#fecaca', stroke: '#b91c1c' } : { fill: '#fde68a', stroke: '#d97706' };
+      else col = { fill: '#bbf7d0', stroke: '#15803d' };
+      roomsSvg += `<rect x="${x1}" y="${y + 2}" width="${Math.max(2, x2 - x1)}" height="${h}" rx="4" fill="${col.fill}" stroke="${col.stroke}" stroke-width="2"/>`;
+      roomsSvg += `<text x="${(x1 + x2) / 2}" y="${y + h / 2 + 6}" text-anchor="middle" font-size="11" font-weight="700" fill="${col.stroke}">m${bk.mIdx}${bk.delayed ? ' !' : ''}</text>`;
+    });
+  });
+
+  // cursor
+  let cursor = '';
+  if (cur >= 0 && cur < meetings.length) {
+    const sx = scale(meetings[cur][0]);
+    cursor = `<line x1="${sx}" y1="${HTOP}" x2="${sx}" y2="${H - HBOT + 2}" stroke="#d97706" stroke-width="2" stroke-dasharray="5,4"/>`;
+    cursor += `<text x="${sx + 4}" y="${H - HBOT + 10}" font-size="11" font-weight="700" fill="#d97706">t = ${meetings[cur][0]}</text>`;
+  }
+
+  // heaps
+  let heapSvg = '';
+  if (heaps) {
+    const hx = barsRight + 25;
+    const CELL_H = 24, CELL_W = 150;
+    let hy = HTOP;
+    heapSvg += `<text x="${hx + CELL_W / 2}" y="${hy - 10}" text-anchor="middle" font-size="12" font-weight="700" fill="#3b82f6">free (idx)</text>`;
+    const free = heaps.free || [];
+    if (!free.length) {
+      heapSvg += `<rect x="${hx}" y="${hy}" width="${CELL_W}" height="${CELL_H - 4}" rx="4" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="3,3"/>`;
+      heapSvg += `<text x="${hx + CELL_W / 2}" y="${hy + CELL_H / 2 - 1}" text-anchor="middle" font-size="11" fill="#94a3b8" font-style="italic">(empty)</text>`;
+      hy += CELL_H;
+    } else {
+      free.forEach((f, k) => {
+        const col = k === 0 ? { fill: '#dbeafe', stroke: '#3b82f6' } : { fill: '#fff', stroke: '#475569' };
+        heapSvg += `<rect x="${hx}" y="${hy}" width="${CELL_W}" height="${CELL_H - 4}" rx="4" fill="${col.fill}" stroke="${col.stroke}" stroke-width="2"/>`;
+        heapSvg += `<text x="${hx + CELL_W / 2}" y="${hy + CELL_H / 2 + 1}" text-anchor="middle" font-size="12" font-weight="700" fill="#1f2933">room ${f}</text>`;
+        hy += CELL_H;
+      });
+    }
+    hy += 18;
+    heapSvg += `<text x="${hx + CELL_W / 2}" y="${hy - 6}" text-anchor="middle" font-size="12" font-weight="700" fill="#15803d">busy (end, idx)</text>`;
+    const busy = heaps.busy || [];
+    if (!busy.length) {
+      heapSvg += `<rect x="${hx}" y="${hy}" width="${CELL_W}" height="${CELL_H - 4}" rx="4" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="3,3"/>`;
+      heapSvg += `<text x="${hx + CELL_W / 2}" y="${hy + CELL_H / 2 - 1}" text-anchor="middle" font-size="11" fill="#94a3b8" font-style="italic">(empty)</text>`;
+    } else {
+      busy.forEach((b, k) => {
+        const col = k === 0 ? { fill: '#bbf7d0', stroke: '#15803d' } : { fill: '#fff', stroke: '#475569' };
+        heapSvg += `<rect x="${hx}" y="${hy}" width="${CELL_W}" height="${CELL_H - 4}" rx="4" fill="${col.fill}" stroke="${col.stroke}" stroke-width="2"/>`;
+        heapSvg += `<text x="${hx + CELL_W / 2}" y="${hy + CELL_H / 2 + 1}" text-anchor="middle" font-size="12" font-weight="700" fill="#1f2933">(${b.e}, r${b.idx})</text>`;
+        hy += CELL_H;
+      });
+    }
+  }
+
+  const t = title ? `<text x="${barsRight / 2}" y="18" text-anchor="middle" font-size="13" font-weight="700" fill="#1f2933">${title}</text>` : '';
+  return `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${H}">${t}${ticks}${axis}${input}${cursor}${roomsSvg}${heapSvg}</svg>`;
+}
+
+/* Idea diagram: show n=2, meetings=[[0,10],[1,5],[2,7],[3,4]] final schedule. */
+(function () {
+  const meetings = [[0,10],[1,5],[2,7],[3,4]];
+  // Final schedule from simulation (see trace):
+  const rooms = [
+    [{ mIdx: 0, s: 0, e: 10, delayed: false }, { mIdx: 3, s: 10, e: 11, delayed: true }],
+    [{ mIdx: 1, s: 1, e: 5, delayed: false }, { mIdx: 2, s: 5, e: 10, delayed: true }],
+  ];
+  const minX = 0, maxX = 11;
+  const html = drawRooms(meetings, rooms, -1, null, null, minX, maxX, 'final schedule for n=2, meetings=[[0,10],[1,5],[2,7],[3,4]]') +
+    '<div class="caption">Each row is one room\'s timeline. Green bars are completed meetings; "!" marks a delayed ' +
+    'meeting that could not start at its requested time. Both rooms hold 2 meetings &rarr; tie goes to room 0.</div>';
+  document.getElementById('idea').innerHTML = html;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Sort by start', lines: ['meetings[i][0] asc'], color: 'yellow' },
+  { title: '2. Drain busy', lines: ['while top.end <= s:', '  free.push(idx)'], color: 'blue' },
+  { title: '3a. Room free?', lines: ['pop free.top()', 'push (e, idx)'], color: 'green' },
+  { title: '3b. All busy', lines: ['pop busy.top() = (endT, idx)', 'push (endT + d, idx)'], color: 'red' },
+  { title: '4. count[idx]++', lines: ['scan for max', '(low idx on tie)'], color: 'purple' },
+]);
+
+/* Trace. */
+VIZ.controls('trace', [
+  { id: 'n', label: 'n =', value: '2', size: 4 },
+  { id: 'ms', label: 'meetings =', value: '[[0,10],[1,5],[2,7],[3,4]]', size: 28 },
+], v => {
+  let n, meetings;
+  try { n = VIZ.parse.int(v.n); meetings = VIZ.parse.mat(v.ms); }
+  catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  if (!(n >= 1 && n <= 6)) return '<div class="box trap">n must be 1..6 for a readable picture.</div>';
+  if (!Array.isArray(meetings) || !meetings.every(m => Array.isArray(m) && m.length === 2 && m[0] < m[1]))
+    return '<div class="box trap">meetings must be [[s,e],...] with s &lt; e.</div>';
+  if (meetings.length > 8) return '<div class="box trap">Keep meetings &le; 8 for a readable picture.</div>';
+  if (!meetings.length) {
+    document.getElementById('answer').innerHTML = `<b>Answer: 0</b>`;
+    return '<div class="box">No meetings &rarr; room 0 (default).</div>';
+  }
+
+  // sort by start
+  const idxed = meetings.map((m, i) => ({ s: m[0], e: m[1], orig: i }));
+  const sorted = idxed.slice().sort((a, b) => a.s - b.s);
+
+  // simulate
+  const free = []; for (let i = 0; i < n; i++) free.push(i);
+  const sortFree = () => free.sort((a, b) => a - b);
+  const busy = [];  // [{e, idx}]
+  const sortBusy = () => busy.sort((a, b) => a.e - b.e || a.idx - b.idx);
+  const count = new Array(n).fill(0);
+  const roomSched = Array.from({ length: n }, () => []);  // for display
+
+  const steps = [];
+  sorted.forEach((m, mSortedIdx) => {
+    const s = m.s, e = m.e, d = e - s;
+    // drain busy
+    const drained = [];
+    sortBusy();
+    while (busy.length && busy[0].e <= s) {
+      drained.push(busy.shift());
+      free.push(drained[drained.length - 1].idx);
+    }
+    sortFree();
+    const freeBeforeChoice = free.slice();
+    const busyBeforeChoice = busy.slice();
+
+    let chosen, delayed = false, bookedS, bookedE;
+    if (free.length) {
+      sortFree();
+      chosen = free.shift();
+      bookedS = s; bookedE = e;
+      count[chosen]++;
+      busy.push({ e: bookedE, idx: chosen });
+    } else {
+      sortBusy();
+      const b0 = busy.shift();
+      chosen = b0.idx;
+      bookedS = b0.e;
+      bookedE = b0.e + d;
+      count[chosen]++;
+      busy.push({ e: bookedE, idx: chosen });
+      delayed = true;
+    }
+    roomSched[chosen].push({ mIdx: mSortedIdx, s: bookedS, e: bookedE, delayed });
+
+    sortFree();
+    sortBusy();
+    steps.push({
+      mSortedIdx, mOrig: m.orig, s, e, d,
+      drained, chosen, delayed, bookedS, bookedE,
+      freeBefore: freeBeforeChoice, busyBefore: busyBeforeChoice,
+      freeAfter: free.slice(), busyAfter: busy.slice(),
+      roomsSnapshot: roomSched.map(bk => bk.map(x => ({ ...x }))),
+      countSnapshot: count.slice(),
+    });
+  });
+
+  // determine axis bounds
+  const minX = Math.min(...sorted.map(m => m.s));
+  const maxX = Math.max(
+    Math.max(...sorted.map(m => m.e)),
+    Math.max(...steps.map(st => st.bookedE)),
+  );
+
+  const sortedMeetings = sorted.map(m => [m.s, m.e]);
+  const MAX = 25;
+  const show = steps.slice(0, MAX);
+  let html = '';
+
+  // opening
+  html += VIZ.step('Sort by start',
+    drawRooms(sortedMeetings, Array.from({ length: n }, () => []), -1, null,
+              { free: [...Array(n).keys()], busy: [] }, minX, maxX, 'input, sorted; all rooms free'),
+    `${meetings.length} meetings. All ${n} rooms start free: free = [${[...Array(n).keys()].join(', ')}].`, true);
+
+  show.forEach((st, k) => {
+    const title = `Step ${k + 1}: meeting m${st.mSortedIdx} = [${st.s}, ${st.e}] (dur ${st.d})`;
+    let note = '';
+    if (st.drained.length) {
+      note += `Drain busy: rooms ${st.drained.map(x => `r${x.idx}(end ${x.e})`).join(', ')} freed (end &le; ${st.s}). `;
+    }
+    if (st.delayed) {
+      note += `No room free. Pop busy top &rarr; room ${st.chosen} ends at ${st.bookedS}. ` +
+              `Delay this meeting: it runs [${st.bookedS}, ${st.bookedE}] (duration ${st.d} preserved). ` +
+              `Push (${st.bookedE}, r${st.chosen}).`;
+    } else {
+      note += `free is non-empty. Pop lowest index &rarr; room ${st.chosen}. ` +
+              `Run meeting [${st.s}, ${st.e}] on it. Push (${st.bookedE}, r${st.chosen}) into busy.`;
+    }
+    note += ` <code>count[${st.chosen}] = ${st.countSnapshot[st.chosen]}</code>.`;
+
+    html += VIZ.step(title,
+      drawRooms(sortedMeetings, st.roomsSnapshot, st.mSortedIdx,
+                { room: st.chosen, s: st.bookedS, e: st.bookedE },
+                { free: st.freeAfter, busy: st.busyAfter },
+                minX, maxX),
+      note, true);
+  });
+
+  if (steps.length > MAX) html += `<p class="caption">... ${steps.length - MAX} more meetings, same rule.</p>`;
+
+  // final counts
+  let best = 0;
+  for (let i = 1; i < n; i++) if (count[i] > count[best]) best = i;
+  const countLine = count.map((c, i) => `room ${i}: <b>${c}</b>${i === best ? ' &larr; max' : ''}`).join(', ');
+
+  html += VIZ.step('Result',
+    drawRooms(sortedMeetings, roomSched, -1, null, null, minX, maxX, 'final schedule'),
+    `Counts: ${countLine}. Room with max count (lowest index on tie) is <b>${best}</b>.`, true);
+
+  document.getElementById('answer').innerHTML = `<b>Answer: ${best}</b>`;
+  return html;
+}, 'n = number of rooms. meetings = JSON array of [s,e] pairs.');
+</script>
+
+</body>
+</html>

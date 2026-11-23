@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 25 - Reverse Nodes in k-Group</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#linked-lists">Pattern lesson</a><span>Pattern 5: Linked Lists</span></div>
+
+<h1>Reverse Nodes in k-Group</h1>
+<p class="sub">LeetCode 25 &middot; Hard &middot; Pattern: in-place reversal in blocks &middot; O(n) time, O(1) space</p>
+
+<div class="box">
+  <b>Problem.</b> Given a linked list, reverse every consecutive run of <code>k</code> nodes. If the final run has
+  fewer than <code>k</code> nodes, leave it alone. Modify the nodes in place (no new allocations).
+  <br><code>[1,2,3,4,5], k=2 &rarr; [2,1,4,3,5]</code> &nbsp;&nbsp; <code>[1,2,3,4,5], k=3 &rarr; [3,2,1,4,5]</code>
+  <br>Link: <a href="https://leetcode.com/problems/reverse-nodes-in-k-group/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Split the list mentally into blocks of <code>k</code>. For each block that has exactly <code>k</code> nodes,
+reverse it using the LC 206 three-pointer flip, then <b>stitch it back</b> to the previous block's tail and to the
+next block's head. The last block is reversed only if it has <code>k</code> nodes; otherwise it stays as-is.</p>
+
+<p>The stitching is where the hard-level reputation comes from. Keep a <code>groupPrev</code> pointer at the node
+immediately <i>before</i> the current block. After reversing the block, <code>groupPrev-&gt;next</code> must point at
+what used to be the k-th node of the block (its new head), and the old first node (its new tail) must point at the
+first node of the next block. A dummy head at the very front gives <code>groupPrev</code> somewhere to start.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Dummy head + <code>groupPrev</code>. For each block: locate the k-th node, abort if fewer than k remain,
+  reverse the block in place, re-link <code>groupPrev-&gt;next</code> to the new head and the block's new tail to the
+  next block's head. Advance <code>groupPrev</code>.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>Each block is reversed with the same loop as LC 206, except we stop at <code>groupNext</code> (the first node
+<i>after</i> the block) instead of at <code>nullptr</code>. That one change makes the reversal "local" to the block.
+After reversal, the old block head becomes the new block tail, which is exactly the node you'll want to
+<code>groupPrev</code> from on the next iteration.</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Try different <code>k</code>. Each step either locates a block or reverses one; the orange ring marks the current
+<code>groupPrev</code>, blue marks the block being handled, green marks finished nodes.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>current block (being reversed)</span>
+  <span><i style="background:var(--win)"></i>k-th node of the block (new head)</span>
+  <span><i style="background:var(--keep)"></i>finished (already in output order)</span>
+  <span><i style="background:#fff;border:1px solid #cbd5e1"></i>not yet touched</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre>ListNode* reverseKGroup(ListNode* head, <span class="t">int</span> k) {
+    ListNode dummy(<span class="n">0</span>);
+    dummy.next = head;
+    ListNode* groupPrev = &amp;dummy;
+
+    <span class="k">while</span> (<span class="k">true</span>) {
+        <span class="c">// 1. Find the k-th node after groupPrev; abort if fewer than k remain.</span>
+        ListNode* kth = groupPrev;
+        <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt; k &amp;&amp; kth; i++) kth = kth-&gt;next;
+        <span class="k">if</span> (!kth) <span class="k">break</span>;
+
+        ListNode* groupStart = groupPrev-&gt;next;
+        ListNode* groupNext  = kth-&gt;next;
+
+        <span class="c">// 2. Reverse nodes [groupStart .. kth]. Stop when curr == groupNext.</span>
+        ListNode* prev = groupNext;
+        ListNode* curr = groupStart;
+        <span class="k">while</span> (curr != groupNext) {
+            ListNode* nxt = curr-&gt;next;
+            curr-&gt;next = prev;
+            prev = curr;
+            curr = nxt;
+        }
+
+        <span class="c">// 3. Re-link ends. groupStart is now the new tail of the block.</span>
+        groupPrev-&gt;next = kth;
+        groupPrev = groupStart;
+    }
+    <span class="k">return</span> dummy.next;
+}</pre>
+
+<p><b>Complexity:</b> each node is reversed at most once (and the k-counter walks it once more). Total work is
+2n pointer updates &rArr; O(n) time. The dummy, four pointers inside the loop; O(1) extra space.</p>
+
+<h3>Alternative: recursive</h3>
+
+<pre>ListNode* reverseKGroup(ListNode* head, <span class="t">int</span> k) {
+    <span class="c">// Peek k nodes; if fewer, return head unchanged.</span>
+    ListNode* kth = head;
+    <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt; k; i++) {
+        <span class="k">if</span> (!kth) <span class="k">return</span> head;
+        kth = kth-&gt;next;
+    }
+    <span class="c">// Reverse [head .. kth), stopping at kth.</span>
+    ListNode* prev = reverseKGroup(kth, k);
+    ListNode* curr = head;
+    <span class="k">while</span> (curr != kth) {
+        ListNode* nxt = curr-&gt;next;
+        curr-&gt;next = prev;
+        prev = curr;
+        curr = nxt;
+    }
+    <span class="k">return</span> prev;
+}</pre>
+
+<p>Prefer when the interviewer asks for recursion or when you've already solved LC 206 recursively on the same page.
+Clearer code, but O(n/k) stack frames (up to O(n) if k = 1). The iterative version is the default on long lists.</p>
+
+<h2>5. The part interviewers ask about: three stitching invariants</h2>
+
+<div class="box insight">
+  Hold these three facts in your head and the stitching writes itself:
+  <ul>
+    <li><b>At the top of each iteration</b>, <code>groupPrev</code> points at a node whose <code>next</code> is the
+    first node of the <i>unprocessed</i> list.</li>
+    <li><b>After "find kth"</b>, <code>kth</code> is the k-th node of the block (so the block is
+    <code>groupStart .. kth</code>, inclusive).</li>
+    <li><b>After reversing</b>, <code>kth</code> is the block's new head and <code>groupStart</code> is the block's new
+    tail. We publish those by writing <code>groupPrev-&gt;next = kth</code> and the inner loop setting
+    <code>groupStart-&gt;next = groupNext</code> (that write happens on the <i>first</i> iteration of the inner loop,
+    when <code>prev = groupNext</code>).</li>
+  </ul>
+</div>
+
+<p>A classic follow-up: <b>what breaks if we start the inner reversal with <code>prev = nullptr</code> instead of
+<code>prev = groupNext</code>?</b> Then after the block reversal, <code>groupStart-&gt;next</code> is
+<code>nullptr</code>, and we lose the rest of the list. Using <code>groupNext</code> as the sentinel elegantly
+re-attaches the suffix "for free" during reversal; no extra line needed.</p>
+
+<p>A second follow-up: <b>why advance <code>groupPrev</code> to <code>groupStart</code>, not to <code>kth</code>?</b>
+Because <code>groupStart</code> is now the <b>tail</b> of the just-finished block, so its <code>next</code> is the
+head of the next unprocessed block &mdash; exactly the invariant for <code>groupPrev</code>.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Reversing a partial block.</b> The spec says last-block-with-fewer-than-k stays as-is. The
+    <code>if (!kth) break;</code> is doing that; drop it and you reverse a partial block.</li>
+    <li><b>Losing <code>groupNext</code> before the inner loop.</b> <code>kth-&gt;next</code> is overwritten during the
+    reversal; cache it in a local first.</li>
+    <li><b>Walking k-counter past the end.</b> The <code>kth</code> loop needs the <code>&amp;&amp; kth</code> guard,
+    otherwise <code>kth-&gt;next</code> may dereference null.</li>
+    <li><b>Returning <code>head</code> instead of <code>dummy.next</code>.</b> The original head may now be mid-list.</li>
+    <li><b>Forgetting to initialise <code>dummy.next = head</code>.</b> Then on an input with fewer than k nodes, you
+    return <code>dummy.next = nullptr</code> instead of the untouched list.</li>
+    <li><b><code>k = 1</code>.</b> Each "block" is one node, reversing it is a no-op. The code handles it (block
+    reversal copies the single node's <code>next</code> back to itself-via-<code>groupNext</code>, which is a no-op in
+    terms of the final list order).</li>
+    <li><b><code>k = n</code>.</b> One single reverse of the whole list. The code reverses it; <code>groupNext</code>
+    is <code>nullptr</code>, matching plain LC 206.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I keep a dummy head and a <code>groupPrev</code> pointer. For each block, I walk <code>k</code> steps to find the
+  <code>k</code>-th node. If I ran out, I stop; the trailing short block stays. Otherwise I reverse the block in
+  place using the standard three-pointer flip, with the inner reversal's <code>prev</code> seeded as
+  <code>groupNext</code> (the node after the block) so the suffix stays attached. Then I write
+  <code>groupPrev-&gt;next = kth</code> and advance <code>groupPrev</code> to the block's old first node, which is
+  now its tail. Each node is touched a constant number of times, so O(n) time, O(1) space."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 206 Reverse Linked List</td><td>The inner block-reversal is literally this loop, bounded by <code>groupNext</code> instead of <code>nullptr</code>.</td></tr>
+  <tr><td>LC 92 Reverse Linked List II</td><td>Reverse one contiguous slice [left, right]. Same stitching idea with explicit left/right indices.</td></tr>
+  <tr><td>LC 24 Swap Nodes in Pairs</td><td>This problem with <code>k = 2</code>, often written out directly as a four-pointer swap.</td></tr>
+  <tr><td>LC 61 Rotate List</td><td>Different operation, same mindset: find the pivot, cut, re-link via dummy head.</td></tr>
+  <tr><td>LC 143 Reorder List</td><td>Find middle, reverse second half, weave &mdash; reversal in place + stitching.</td></tr>
+</table>
+
+<script>
+const V = VIZ;
+
+/* 1. Idea diagram: show one block reversal + stitching on [1,2,3,4,5], k=2. */
+(function () {
+  const before = V.list([1, 2, 3, 4, 5], {
+    cls: { 0: 'new', 1: 'in' },
+    labels: { 0: 'groupStart', 1: 'kth' },
+    title: 'before: block = [1,2], groupNext = 3'
+  });
+  const after = V.list([2, 1, 3, 4, 5], {
+    cls: { 0: 'in', 1: 'keep' },
+    labels: { 0: 'new head of block', 1: 'new tail = next groupPrev' },
+    title: 'after: block reversed; 1.next re-attached to 3 (groupNext)'
+  });
+  document.getElementById('idea').innerHTML = before + after;
+})();
+
+/* 2. Flow */
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Find kth', lines: ['walk k steps from groupPrev', 'break if fell off'], color: 'yellow' },
+  { title: '2. Save groupNext', lines: ['groupNext = kth->next'], color: 'blue' },
+  { title: '3. Reverse block', lines: ['prev = groupNext', 'standard flip until curr == groupNext'], color: 'red' },
+  { title: '4. Stitch', lines: ['groupPrev->next = kth', 'groupPrev = groupStart'], color: 'green' },
+], { loop: 'next block' });
+
+/* 3. Interactive trace. */
+VIZ.controls('trace', [
+  { id: 'nums', label: 'head =', value: '[1,2,3,4,5]', size: 20 },
+  { id: 'k', label: 'k =', value: '2', size: 4 },
+], v => {
+  let vals, k;
+  try { vals = VIZ.parse.arr(v.nums); k = VIZ.parse.int(v.k); }
+  catch (e) { throw new Error('bad input: ' + e.message); }
+  if (k < 1 || k > 10) throw new Error('k in [1, 10]');
+  if (vals.length > 12) vals = vals.slice(0, 12);
+
+  // Model the list as an array of indices in current order. We'll permute them to reflect the current list
+  // after each block reversal, and highlight by index to show what happened.
+  const order = vals.map((_, i) => i);     // display positions, left to right = head to tail
+  let html = '';
+  let step = 0;
+
+  const render = (title, note, blockFrom, blockTo, finishedThru, kthDisplayIdx) => {
+    const cls = {};
+    for (let p = 0; p <= finishedThru; p++) cls[p] = 'keep';
+    for (let p = blockFrom; p <= blockTo; p++) cls[p] = 'new';
+    if (kthDisplayIdx !== null && kthDisplayIdx !== undefined) cls[kthDisplayIdx] = 'in';
+    return VIZ.step(title, VIZ.list(order.map(i => vals[i]), { cls }), note);
+  };
+
+  html += render('Init',
+    `List of length ${vals.length}, block size ${k}.`,
+    -1, -1, -1, null);
+
+  let groupPrev = -1;      // position in `order` of the current groupPrev (-1 means dummy before the list)
+
+  while (step < 20) {
+    step++;
+    const groupStart = groupPrev + 1;
+    const kthPos = groupPrev + k;
+    if (kthPos >= order.length) {
+      const remaining = order.length - groupStart;
+      if (remaining <= 0) {
+        html += render(`Step ${step}: done`, `No more full blocks. ${remaining === 0 ? 'All nodes consumed.' : ''}`, -1, -1, groupPrev, null);
+      } else {
+        html += render(`Step ${step}: partial block`,
+          `Only ${remaining} node${remaining === 1 ? '' : 's'} remain (need ${k}). Leave this block as-is and stop.`,
+          -1, -1, groupPrev, null);
+      }
+      break;
+    }
+
+    // Locate kth (just a locator step)
+    html += render(`Step ${step}a: locate k-th node`,
+      `From <code>groupPrev</code> at position ${groupPrev}, walked ${k} steps to the k-th node at position ${kthPos}. Block = positions ${groupStart}..${kthPos}.`,
+      groupStart, kthPos, groupPrev, kthPos);
+
+    // Reverse that slice of `order` in place.
+    const block = order.slice(groupStart, kthPos + 1);
+    const reversed = block.slice().reverse();
+    for (let i = 0; i < reversed.length; i++) order[groupStart + i] = reversed[i];
+    html += render(`Step ${step}b: reverse block`,
+      `Reverse the block in place. The k-th node (now at position ${groupStart}) becomes the block's new head; the old first node (now at position ${kthPos}) becomes the block's new tail and the next <code>groupPrev</code>.`,
+      groupStart, kthPos, groupPrev, groupStart);
+
+    groupPrev = kthPos;
+  }
+
+  if (step >= 20) {
+    html += VIZ.step('...', '', '... capped at 20 steps for readability.', true);
+  }
+
+  document.getElementById('answer').innerHTML =
+    '<b>Answer:</b> ' + JSON.stringify(order.map(i => vals[i]));
+  return html;
+}, 'Change the list and k. The trace runs the real algorithm block by block.');
+</script>
+
+</body>
+</html>

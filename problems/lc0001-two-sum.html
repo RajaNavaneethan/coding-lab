@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 1 - Two Sum</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#two-pointers">Pattern lesson</a><span>Pattern 1: Arrays &amp; Two Pointers</span></div>
+
+<h1>Two Sum</h1>
+<p class="sub">LeetCode 1 &middot; Easy &middot; Pattern: hash map lookup (unsorted) &middot; O(n) time, O(n) space</p>
+
+<div class="box">
+  <b>Problem.</b> Given <code>nums</code> and <code>target</code>, return the indices of the two numbers that add up to
+  <code>target</code>. Exactly one answer. You cannot use the same element twice.
+  <br><code>[2,7,11,15], 9 &rarr; [0,1]</code> &nbsp;&nbsp; <code>[3,2,4], 6 &rarr; [1,2]</code> &nbsp;&nbsp; <code>[3,3], 6 &rarr; [0,1]</code>
+  <br>Link: <a href="https://leetcode.com/problems/two-sum/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>At every index <code>i</code>, you already know what the other number must be: <code>target - nums[i]</code>. The only
+question is "have I seen that number earlier?". A hash map answers that in O(1).</p>
+
+<p>So the brute-force double loop (O(n<sup>2</sup>)) collapses to one left-to-right pass. As you walk, you build a map of
+<code>value &rarr; index</code>. Before inserting the current number, you check if its complement is already in the map.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Trade space for time. One pass, one hash map. For each <code>nums[i]</code>, look up
+  <code>target - nums[i]</code>. If it is in the map, you have the answer; otherwise insert <code>nums[i]</code> and continue.
+</div>
+
+<h3>Why not sort and use two pointers?</h3>
+
+<p>Sorting plus two pointers is O(n log n) and loses the original indices (you would have to pair each value with its index
+first). The hash-map pass is O(n) and keeps indices for free. The sorted + two-pointer idea is still worth knowing because
+<b>LC 167 Two Sum II</b> is exactly that: input already sorted, return 1-based indices. The L/R two-pointer shape appears in
+the other problems on this page (11, 15, 42).</p>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>At each step, the yellow cell is the current <code>nums[i]</code>. The purple cell (if any) is the earlier index that
+holds the complement <code>target - nums[i]</code>. Blue cells are in the map.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>current <code>i</code></span>
+  <span><i style="background:var(--win)"></i>already in map</span>
+  <span><i style="background:#e9d5ff"></i>complement found (answer)</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">vector</span>&lt;<span class="t">int</span>&gt; twoSum(<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; nums, <span class="t">int</span> target) {
+        <span class="t">unordered_map</span>&lt;<span class="t">int</span>, <span class="t">int</span>&gt; seen;         <span class="c">// value -> index</span>
+        <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt; (<span class="t">int</span>)nums.size(); i++) {
+            <span class="t">int</span> need = target - nums[i];
+            <span class="k">auto</span> it = seen.find(need);
+            <span class="k">if</span> (it != seen.end()) <span class="k">return</span> {it-&gt;second, i};
+            seen[nums[i]] = i;                   <span class="c">// insert AFTER the check</span>
+        }
+        <span class="k">return</span> {};
+    }
+};</pre>
+
+<p><b>Complexity:</b> one pass, O(1) expected work per index. O(n) time, O(n) space for the map.</p>
+
+<h3>Alternative: sort + two pointers (works only if indices do not matter)</h3>
+
+<pre><span class="t">int</span> l = <span class="n">0</span>, r = nums.size() - <span class="n">1</span>;
+sort(nums.begin(), nums.end());
+<span class="k">while</span> (l &lt; r) {
+    <span class="t">int</span> s = nums[l] + nums[r];
+    <span class="k">if</span> (s == target) <span class="k">return</span> {nums[l], nums[r]};
+    <span class="k">if</span> (s &lt; target) l++;
+    <span class="k">else</span> r--;
+}</pre>
+
+<p>O(n log n) time, O(1) extra space, but sorting destroys the original indices. Use this shape for <b>LC 167</b> (sorted
+input) and as a building block in <b>LC 15 3Sum</b>.</p>
+
+<h2>5. The part interviewers ask about: insert AFTER the check</h2>
+
+<div class="box insight">
+  If you insert <code>nums[i]</code> into the map before checking the complement, the input <code>[3,3], 6</code> breaks:
+  at <code>i = 0</code> you store <code>3 &rarr; 0</code>, and when you look up the complement <code>3</code> you find
+  index <code>0</code> and return <code>[0, 0]</code>, reusing the same element. Check first, insert after.
+</div>
+
+<p>Equivalently: on duplicate keys, let the later write overwrite. That is fine, because by the time a duplicate value
+appears, you have already looked it up and either returned or moved on. The map only needs to answer "has the complement
+been seen at any earlier index?" and any earlier index works.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Reusing the same element.</b> Fixed by looking up the complement before inserting. The pair <code>[3,3], 6</code>
+    is the canonical test.</li>
+    <li><b>Negative numbers and zero.</b> Nothing special. <code>[-3,4,3,90], 0 &rarr; [0,2]</code> works.</li>
+    <li><b>Overflow.</b> With 32-bit ints, <code>target - nums[i]</code> can overflow in theory. LC constraints keep
+    <code>-10<sup>9</sup> &le; nums[i], target &le; 10<sup>9</sup></code>, so an <code>int</code> subtraction fits (worst
+    case 2&times;10<sup>9</sup> is above <code>INT_MAX</code>). Use <code>long long</code> for <code>need</code> if the range
+    were larger.</li>
+    <li><b>Sorting then returning sorted indices.</b> LC wants indices into the <i>original</i> array. If you sort, pair
+    values with their original indices first.</li>
+    <li><b>No answer.</b> The problem guarantees exactly one, but defensive code returns <code>{}</code>.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I keep a hash map of value to earliest index. I walk the array once. At each index, I look up
+  <code>target - nums[i]</code>. If it is in the map, I return that index and the current one. Otherwise I insert
+  <code>nums[i]</code> and continue. The key subtlety is to look up before inserting, so a duplicate value cannot pair with
+  itself. One pass, O(n) time and O(n) space."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 167 Two Sum II (sorted)</td><td>Same equation, but sorted input invites the L/R two-pointer shape with O(1) extra space.</td></tr>
+  <tr><td>LC 15 3Sum</td><td>Fix one anchor, then run Two Sum II on the rest. The L/R two-pointer kicks in.</td></tr>
+  <tr><td>LC 18 4Sum</td><td>Two nested anchors + L/R two pointers. Same idea, one more loop.</td></tr>
+  <tr><td>LC 653 Two Sum IV (BST)</td><td>Replace the array walk with a tree traversal, same hash-map lookup.</td></tr>
+  <tr><td>LC 170 Two Sum III (data structure)</td><td>Pre-insert all values, then answer queries by lookup.</td></tr>
+</table>
+
+<script>
+/* Idea strip: show the lookup "target - nums[i] = ?" for [2,7,11,15], 9. */
+document.getElementById('idea').innerHTML =
+  VIZ.strip([2,7,11,15], { cls:{0:'keep', 1:'hit'}, ptrs:{1:'i'}, notes:{0:'9-7=2 found', 1:'current'} }) +
+  '<div class="caption">At i=1 the complement is <code>9 - 7 = 2</code>. We saw 2 at index 0, so the answer is <code>[0,1]</code>.</div>';
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Compute need', lines: ['need = target - nums[i]'], color: 'yellow' },
+  { title: '2. Look it up', lines: ['if seen.has(need):', 'return [seen[need], i]'], color: 'green' },
+  { title: '3. Insert current', lines: ['seen[nums[i]] = i'], color: 'blue' },
+], { loop: 'next index' });
+
+/* Interactive trace. */
+VIZ.controls('trace', [
+  { id: 'nums',   label: 'nums =',   value: '[2,7,11,15]', size: 22 },
+  { id: 'target', label: 'target =', value: '9', size: 4 },
+], v => {
+  let nums, target;
+  try { nums = VIZ.parse.arr(v.nums); target = VIZ.parse.int(v.target); }
+  catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  if (!Array.isArray(nums) || nums.length < 2) return '<div class="box trap">Need at least two numbers.</div>';
+  if (nums.length > 20) return '<div class="box trap">Pick at most 20 cells to keep the trace readable.</div>';
+
+  const seen = new Map();
+  const steps = [];
+  for (let i = 0; i < nums.length; i++) {
+    const need = target - nums[i];
+    const hit = seen.has(need) ? seen.get(need) : -1;
+    steps.push({ i, need, hit, mapKeys: [...seen.keys()], mapVals: new Map(seen) });
+    if (hit >= 0) break;
+    seen.set(nums[i], i);
+  }
+
+  const MAX = 25;
+  const show = steps.slice(0, MAX);
+  let html = '';
+  let answer = null;
+  show.forEach((st, k) => {
+    const cls = i => {
+      if (st.hit === i) return 'hit';
+      if (i === st.i)   return 'new';
+      if (st.mapVals.has(nums[i]) && st.mapVals.get(nums[i]) === i) return 'in';
+      return '';
+    };
+    const notes = {};
+    notes[st.i] = 'i';
+    if (st.hit >= 0) notes[st.hit] = 'complement';
+    const strip = VIZ.strip(nums, { cls, ptrs: { [st.i]: 'i' } });
+    let text = `Compute <code>need = ${VIZ.esc(String(target))} - ${nums[st.i]} = ${st.need}</code>. `;
+    if (st.hit >= 0) {
+      text += `Found <code>${st.need}</code> at index <code>${st.hit}</code>. <b>Return [${st.hit}, ${st.i}].</b>`;
+      answer = [st.hit, st.i];
+    } else {
+      text += `Not in map. Insert <code>${nums[st.i]} &rarr; ${st.i}</code>. ` +
+        `Map now: {${[...st.mapVals.entries()].map(([k,v]) => k + '&rarr;' + v).join(', ')}${st.mapVals.size ? ', ' : ''}${nums[st.i]}&rarr;${st.i}}.`;
+    }
+    html += VIZ.step(`Step ${k + 1}: i = ${st.i}`, strip, text);
+  });
+  if (steps.length > MAX) html += `<p class="caption">... ${steps.length - MAX} more steps, same pattern.</p>`;
+
+  document.getElementById('answer').innerHTML = answer
+    ? `<b>Answer for nums = [${nums.join(',')}], target = ${target}: [${answer.join(',')}]</b>`
+    : `<b>No pair found.</b>`;
+  return html;
+}, 'The algorithm walks nums left to right and consults a value&rarr;index hash map.');
+</script>
+
+</body>
+</html>

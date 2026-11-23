@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 684 - Redundant Connection</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#shortest-path-union-find">Pattern lesson</a><span>Pattern 11: Graphs - Shortest Path / Union-Find</span></div>
+
+<h1>Redundant Connection</h1>
+<p class="sub">LeetCode 684 &middot; Medium &middot; Pattern: Union-Find (DSU) &middot; O(N &alpha;(N)) time, O(N) space</p>
+
+<div class="box">
+  <b>Problem.</b> You start with a tree on <code>n</code> nodes labelled <code>1..n</code>, then one extra edge was
+  added. You are given the full edge list (<code>n</code> edges, so exactly one cycle). Return the extra edge; if
+  multiple answers exist, return the one that appears <b>last</b> in the input.
+  <br><code>[[1,2],[1,3],[2,3]] &rarr; [2,3]</code>
+  <br>Link: <a href="https://leetcode.com/problems/redundant-connection/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Walk the edges in order and build the graph one edge at a time. A tree is defined by exactly this property: adding
+each new edge connects two <i>different</i> components. The <b>first edge whose two endpoints are already in the same
+component</b> is the one that closes a cycle. That is the redundant edge.</p>
+
+<p>Because the problem guarantees the input is a tree with exactly one extra edge, there is exactly one such edge, and
+walking left-to-right returns it, which is also the latest-in-input answer the problem asks for.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Treat the edge list as a stream. Use Union-Find to keep a forest. The first edge that fails to merge
+  &mdash; both endpoints already in the same tree &mdash; is the redundant one.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>Same core as LC 323, but we don't count components; we stop at the first edge whose endpoints are already connected.
+Everything about <code>find</code> (path compression) and <code>union</code> (by rank) is identical.</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Each step consumes one edge. The forest grows until an edge connects two nodes that already share a root &mdash; that
+is the redundant edge, and we stop. The <code>parent</code> array below shows the state after each step.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>root changed this step</span>
+  <span><i style="background:var(--win)"></i>touched by find / union</span>
+  <span><i style="background:var(--keep)"></i>root of a component</span>
+  <span><i style="background:var(--gone)"></i>the redundant edge (both ends same root)</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> UF {
+    vector&lt;<span class="t">int</span>&gt; parent, rk;
+<span class="k">public</span>:
+    UF(<span class="t">int</span> n) : parent(n), rk(n, <span class="n">0</span>) {
+        iota(parent.begin(), parent.end(), <span class="n">0</span>);
+    }
+    <span class="t">int</span> find(<span class="t">int</span> x) {
+        <span class="k">while</span> (parent[x] != x) {
+            parent[x] = parent[parent[x]];      <span class="c">// path compression</span>
+            x = parent[x];
+        }
+        <span class="k">return</span> x;
+    }
+    <span class="t">bool</span> unite(<span class="t">int</span> a, <span class="t">int</span> b) {
+        <span class="t">int</span> ra = find(a), rb = find(b);
+        <span class="k">if</span> (ra == rb) <span class="k">return</span> <span class="k">false</span>;             <span class="c">// cycle: already connected</span>
+        <span class="k">if</span> (rk[ra] &lt; rk[rb]) swap(ra, rb);
+        parent[rb] = ra;
+        <span class="k">if</span> (rk[ra] == rk[rb]) rk[ra]++;
+        <span class="k">return</span> <span class="k">true</span>;
+    }
+};
+
+vector&lt;<span class="t">int</span>&gt; findRedundantConnection(vector&lt;vector&lt;<span class="t">int</span>&gt;&gt;&amp; edges) {
+    <span class="t">int</span> n = edges.size();
+    UF uf(n + <span class="n">1</span>);                                   <span class="c">// nodes are 1..n</span>
+    <span class="k">for</span> (<span class="k">auto</span>&amp; e : edges) {
+        <span class="k">if</span> (!uf.unite(e[<span class="n">0</span>], e[<span class="n">1</span>])) <span class="k">return</span> e;         <span class="c">// first edge that closes a cycle</span>
+    }
+    <span class="k">return</span> {};
+}</pre>
+
+<p><b>Complexity:</b> O(N &middot; &alpha;(N)) time (near-constant per edge thanks to path compression + union by rank),
+O(N) space for the <code>parent</code> and <code>rank</code> arrays.</p>
+
+<h2>5. The part interviewers ask about: why "first failing edge" is the answer</h2>
+
+<div class="box insight">
+  <b>Correctness.</b> Before any edge is seen, every node is its own component. Each successful <code>union</code>
+  merges two components into one, so after any prefix of the input in which <code>i</code> unions succeeded, the forest
+  has <code>n &minus; i</code> trees. An edge whose endpoints are in the same tree creates the first (and, since the
+  original input was a tree plus one edge, the <i>only</i>) cycle. Any later edge in the same cycle would be a different
+  cut of the same cycle but a valid tree edge, not a redundant one &mdash; the problem simply asks for the last
+  redundant one in input order, and in this problem there is only one.
+  <br><br>
+  <b>Why left-to-right is the "last-in-input" edge.</b> This problem (684, undirected graph) guarantees exactly one extra
+  edge, so the first failure is also the last candidate. If the input had multiple cycles the right-to-left walk would
+  not help &mdash; this trick is single-cycle-specific.
+</div>
+
+<h3>Why not plain DFS?</h3>
+
+<p>You can also solve it with DFS: for each edge <code>(u, v)</code> in order, check "is there already a path from
+<code>u</code> to <code>v</code>?" with a DFS. If yes, return <code>(u, v)</code>. Correct, but each check is O(N), and
+you do it for every edge, so O(N<sup>2</sup>). Union-Find is O(N &middot; &alpha;(N)), effectively linear, and it is
+the natural tool when the question is "do these two things end up in the same group?".</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Off-by-one with 1-indexed nodes.</b> Nodes are <code>1..n</code>, so <code>parent</code> needs
+    <code>n + 1</code> slots. Index 0 is unused.</li>
+    <li><b>Breaking out of the loop at the wrong time.</b> Return the edge as soon as <code>unite</code> fails, not
+    after the loop.</li>
+    <li><b>Running <code>find</code> only on one endpoint.</b> You need both roots to compare. Call <code>find</code>
+    twice.</li>
+    <li><b>Union by rank with <code>size</code>.</b> Fine, but either use rank or size consistently. Mixing them
+    causes subtle bugs.</li>
+    <li><b>Recursive <code>find</code>.</b> On a chain built edge-by-edge, recursion depth can reach N and blow the
+    stack. The iterative halving in the code above avoids this.</li>
+    <li><b>Thinking all cycle edges are "redundant".</b> They aren't &mdash; only the <i>input's</i> last-in-order
+    cycle-closing edge is. This problem is single-cycle, so first-failure = last-in-input.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "A tree with one extra edge has exactly one cycle. I walk edges left-to-right with a Union-Find. Each edge either
+  merges two components or closes a cycle because its endpoints are already connected. The first edge that fails to
+  merge is the redundant one, and I return it. Union-Find has path compression and union by rank, so each operation is
+  amortised &alpha;(N) and the total is effectively O(N)."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 323 Number of Connected Components</td><td>Same UF loop; just count successful unions instead of stopping on failure.</td></tr>
+  <tr><td>LC 685 Redundant Connection II</td><td>Directed version; adds a case for "a node has two parents" that UF alone can't tell apart.</td></tr>
+  <tr><td>LC 261 Graph Valid Tree</td><td>Return "is it a tree?" = (no edge fails to merge) AND (components == 1 at the end).</td></tr>
+  <tr><td>LC 1319 Minimum Operations to Make Network Connected</td><td>Count failing edges (= spare cables) and remaining components; combine them.</td></tr>
+  <tr><td>LC 1584 Min Cost to Connect All Points</td><td>Kruskal's MST: sort edges and union in weight order; successful unions build the MST.</td></tr>
+</table>
+
+<script>
+/* 1. Static idea diagram: triangle 1-2-3 with the redundant edge highlighted. */
+(function () {
+  const nodes = VIZ.circleLayout([1, 2, 3], 160, 110, 70);
+  const edges = [[1, 2], [1, 3], [2, 3]];
+  const g = VIZ.graph(nodes, edges, {
+    nodeCls: { 1: 'in', 2: 'in', 3: 'in' },
+    edgeCls: { '1-2': 'in', '1-3': 'in', '2-3': 'gone' },
+    dashed: { '2-3': true },
+    w: 320, h: 220,
+  });
+  document.getElementById('idea').innerHTML =
+    g + '<div class="caption">Edges in order [1,2], [1,3], [2,3]. The third edge finds 2 and 3 already in the same component &rarr; redundant.</div>';
+})();
+
+/* 2. Flow */
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Init', lines: ['parent[i] = i', 'rank[i] = 0'], color: 'green' },
+  { title: '2. For each edge (a,b)', lines: ['ra = find(a)', 'rb = find(b)'], color: 'yellow' },
+  { title: '3a. Different roots', lines: ['attach, continue'], color: 'blue' },
+  { title: '3b. Same root', lines: ['return (a, b)'], color: 'red' },
+]);
+
+/* 3. Interactive trace */
+(function () {
+  function layout(n) {
+    const pos = [];
+    const gap = Math.max(60, 420 / Math.max(1, n));
+    for (let i = 1; i <= n; i++) pos.push({ id: i, x: 40 + (i - 1) * gap, y: 260 });
+    return pos;
+  }
+
+  function renderForest(parent, rank, n, basePos, highlight, newRoot, badEdge) {
+    const depth = Array(n + 1).fill(0);
+    for (let i = 1; i <= n; i++) {
+      let d = 0, cur = i;
+      while (parent[cur] !== cur) { cur = parent[cur]; d++; }
+      depth[i] = d;
+    }
+    const nodes = basePos.map(p => ({ id: p.id, x: p.x, y: 260 - depth[p.id] * 55 }));
+    const edges = [];
+    const edgeCls = {};
+    for (let i = 1; i <= n; i++) if (parent[i] !== i) edges.push([i, parent[i]]);
+    if (badEdge) {
+      edges.push([badEdge[0], badEdge[1]]);
+      edgeCls[badEdge[0] + '-' + badEdge[1]] = 'gone';
+    }
+    const nodeCls = {};
+    for (let i = 1; i <= n; i++) if (parent[i] === i) nodeCls[i] = 'keep';
+    if (highlight) for (const h of highlight) nodeCls[h] = 'in';
+    if (newRoot !== undefined && newRoot !== null) nodeCls[newRoot] = 'new';
+    const notes = {};
+    for (let i = 1; i <= n; i++) if (parent[i] === i) notes[i] = 'rk=' + rank[i];
+    return VIZ.graph(nodes, edges, {
+      directed: true, nodeCls, edgeCls, notes,
+      dashed: badEdge ? { [badEdge[0] + '-' + badEdge[1]]: true } : {},
+      w: Math.max(300, 60 + n * Math.max(60, 420 / Math.max(1, n))),
+      h: 300,
+    });
+  }
+  function parentRow(parent, n, highlight) {
+    const vals = [];
+    for (let i = 1; i <= n; i++) vals.push(parent[i]);
+    return VIZ.strip(vals, {
+      labels: Array.from({length: n}, (_, i) => i + 1),
+      cls: (i) => highlight && highlight.has(i + 1) ? 'new' : (parent[i + 1] === i + 1 ? 'keep' : 'in'),
+      small: true,
+    });
+  }
+
+  function run(input) {
+    const edges = VIZ.parse.mat(input.edges);
+    if (edges.length > 15) return '<div class="box trap">Keep &le; 15 edges for a readable trace.</div>';
+    const n = edges.length;
+    if (n < 1) return '<div class="box trap">Need at least 1 edge.</div>';
+    const parent = Array.from({length: n + 1}, (_, i) => i);
+    const rk = Array(n + 1).fill(0);
+    const base = layout(n);
+
+    function find(x) {
+      const touched = new Set();
+      while (parent[x] !== x) {
+        touched.add(x);
+        parent[x] = parent[parent[x]];
+        x = parent[x];
+      }
+      touched.add(x);
+      return { root: x, touched };
+    }
+
+    let html = '';
+    html += VIZ.step('Init',
+      renderForest(parent, rk, n, base, new Set(), null, null),
+      `${n} isolated nodes. parent[i] = i, rank[i] = 0.` +
+      '<div style="margin-top:8px">' + parentRow(parent, n, new Set()) + '</div>',
+      true);
+
+    let answer = null;
+    for (let s = 0; s < edges.length; s++) {
+      const [a, b] = edges[s];
+      if (a < 1 || a > n || b < 1 || b > n) { html += '<div class="box trap">Edge out of range.</div>'; break; }
+      const fa = find(a), fb = find(b);
+      const touched = new Set([...fa.touched, ...fb.touched]);
+      if (fa.root === fb.root) {
+        answer = [a, b];
+        html += VIZ.step(`Step ${s + 1}: edge [${a}, ${b}] &rarr; <b>redundant</b>`,
+          renderForest(parent, rk, n, base, touched, null, [a, b]),
+          `find(${a}) = ${fa.root}, find(${b}) = ${fb.root}. <b>Same root</b> &rarr; this edge closes a cycle. Return <code>[${a}, ${b}]</code>.` +
+          '<div style="margin-top:8px">' + parentRow(parent, n, touched) + '</div>',
+          true);
+        break;
+      }
+      let ra = fa.root, rb = fb.root, note;
+      if (rk[ra] < rk[rb]) { const t = ra; ra = rb; rb = t; }
+      parent[rb] = ra;
+      if (rk[ra] === rk[rb]) { rk[ra]++; note = `ranks equal, attach ${rb} under ${ra} and bump rank[${ra}] to ${rk[ra]}`; }
+      else note = `smaller rank (${rk[rb]}) under larger (${rk[ra]}), attach ${rb} under ${ra}`;
+      html += VIZ.step(`Step ${s + 1}: edge [${a}, ${b}]`,
+        renderForest(parent, rk, n, base, touched, rb, null),
+        `find(${a}) = ${fa.root}, find(${b}) = ${fb.root}. Different roots &rarr; ${note}.` +
+        '<div style="margin-top:8px">' + parentRow(parent, n, new Set([rb])) + '</div>',
+        true);
+    }
+
+    document.getElementById('answer').innerHTML =
+      answer
+        ? `<b>Answer:</b> redundant edge = <code>[${answer[0]}, ${answer[1]}]</code>.`
+        : `<b>Answer:</b> no redundant edge found (unexpected for this problem).`;
+    return html;
+  }
+
+  VIZ.controls('trace', [
+    { id: 'edges', label: 'edges =', value: '[[1,2],[1,3],[2,3]]', size: 32 },
+  ], run);
+})();
+</script>
+
+</body>
+</html>

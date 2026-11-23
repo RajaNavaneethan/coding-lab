@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 21 - Merge Two Sorted Lists</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#linked-lists">Pattern lesson</a><span>Pattern 5: Linked Lists</span></div>
+
+<h1>Merge Two Sorted Lists</h1>
+<p class="sub">LeetCode 21 &middot; Easy &middot; Pattern: two-pointer weave with a dummy head &middot; O(n+m) time, O(1) space</p>
+
+<div class="box">
+  <b>Problem.</b> You are given the heads of two sorted linked lists <code>l1</code> and <code>l2</code>.
+  Splice them together into one sorted list by reusing the existing nodes (no new nodes), and return its head.
+  <br><code>[1,2,4] + [1,3,4] &rarr; [1,1,2,3,4,4]</code>. &nbsp;&nbsp; Link: <a href="https://leetcode.com/problems/merge-two-sorted-lists/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Walk two pointers down the two lists in parallel. At every step the smaller current head is the next node
+of the answer, so append that node to the tail of your result and advance only that pointer. When one list runs out,
+the other's remainder is already sorted, so you just <b>attach it in one move</b>.</p>
+
+<p>The one small bookkeeping trick is a <b>dummy head node</b>. Then "the tail" is always a real node and the
+first node you attach needs no special case.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Keep a <code>tail</code> pointer. While both lists have nodes, pick the smaller head, link it after
+  <code>tail</code>, and advance that list and <code>tail</code>. When the loop ends, append whichever list is
+  non-empty. Return <code>dummy.next</code>.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>Each step consumes exactly one input node and extends the output by one. When either input runs out, the
+remaining chain already is sorted, so <code>tail-&gt;next = l1 ? l1 : l2</code> finishes the job in one assignment.
+No node is copied; the pointers are just rewired.</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>just picked</span>
+  <span><i style="background:var(--win)"></i>current heads (l1 / l2)</span>
+  <span><i style="background:var(--keep)"></i>in the output</span>
+  <span><i style="background:#fff;border:1px solid #cbd5e1"></i>not yet consumed</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre>ListNode* mergeTwoLists(ListNode* l1, ListNode* l2) {
+    ListNode dummy(<span class="n">0</span>);                      <span class="c">// stack-allocated sentinel</span>
+    ListNode* tail = &amp;dummy;
+    <span class="k">while</span> (l1 &amp;&amp; l2) {
+        <span class="k">if</span> (l1-&gt;val &lt;= l2-&gt;val) {
+            tail-&gt;next = l1; l1 = l1-&gt;next;
+        } <span class="k">else</span> {
+            tail-&gt;next = l2; l2 = l2-&gt;next;
+        }
+        tail = tail-&gt;next;
+    }
+    tail-&gt;next = l1 ? l1 : l2;              <span class="c">// one of them is null, the other is the tail</span>
+    <span class="k">return</span> dummy.next;
+}</pre>
+
+<p><b>Complexity:</b> each node is linked once, so O(n+m) time. Only the dummy, <code>tail</code>, and the two
+head pointers; no new nodes. O(1) extra space.</p>
+
+<h3>Alternative: recursive</h3>
+
+<pre>ListNode* mergeTwoLists(ListNode* l1, ListNode* l2) {
+    <span class="k">if</span> (!l1) <span class="k">return</span> l2;
+    <span class="k">if</span> (!l2) <span class="k">return</span> l1;
+    <span class="k">if</span> (l1-&gt;val &lt;= l2-&gt;val) {
+        l1-&gt;next = mergeTwoLists(l1-&gt;next, l2);
+        <span class="k">return</span> l1;
+    } <span class="k">else</span> {
+        l2-&gt;next = mergeTwoLists(l1, l2-&gt;next);
+        <span class="k">return</span> l2;
+    }
+}</pre>
+
+<p>Prefer when the interviewer wants to see recursion or when you are inside a merge-sort step on linked lists
+(LC 148). Costs O(n+m) stack space, which is fine up to about 10<sup>4</sup> nodes but risky at 10<sup>5</sup>.
+The iterative version with a dummy is the default.</p>
+
+<h2>5. The part interviewers ask about: use <code>&le;</code>, not <code>&lt;</code></h2>
+
+<div class="box insight">
+  <b>Stability.</b> When the two heads tie, picking from <code>l1</code> keeps the merge <i>stable</i>: equal values
+  from the first list come out before equal values from the second. Stability is irrelevant for the final sorted
+  values here, but as a merge-sort subroutine (LC 148) stability can matter, and it makes the trace deterministic.
+  Use <code>&lt;=</code>, not <code>&lt;</code>.
+</div>
+
+<p>A second small point: the <b>dummy head is a sentinel, not output</b>. Return <code>dummy.next</code>, not
+<code>&amp;dummy</code>. The dummy is stack-allocated here, so you don't leak or need to delete it. If you build the
+dummy with <code>new</code>, remember to <code>delete</code> it before returning (or stop using <code>new</code> for
+sentinels).</p>
+
+<p>A third angle an interviewer may probe: <b>space-wise this is zero extra</b> because we splice existing nodes.
+A beginner may write code that allocates a new list and copies values, which still runs in O(n+m) time but costs
+O(n+m) extra memory. The splice version is strictly better.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Both lists empty.</b> <code>dummy.next</code> is <code>nullptr</code>; the loop never runs; the final
+    assignment picks the null branch. Correct.</li>
+    <li><b>One list empty.</b> Loop body never runs; the final line attaches the non-empty list. Correct.</li>
+    <li><b>Forgetting to advance <code>tail</code>.</b> You keep overwriting <code>tail-&gt;next</code> and only the
+    last picked node survives.</li>
+    <li><b>Advancing <code>tail = tail-&gt;next-&gt;next</code>.</b> Skips a node. Easy to type by accident.</li>
+    <li><b>Using <code>&lt;</code> instead of <code>&le;</code>.</b> On ties the merge is no longer stable (same final
+    multiset, but different node order). Harmless here; a real bug in LC 148.</li>
+    <li><b>Returning <code>&amp;dummy</code> or <code>dummy</code>.</b> You hand back the sentinel with value 0 glued
+    to the front of the real answer. Always return <code>dummy.next</code>.</li>
+    <li><b>Allocating new nodes to hold the values.</b> Works, but wastes O(n+m) memory and loses marks on the
+    space-complexity follow-up.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I keep a dummy head and a <code>tail</code> pointer. While both lists have nodes, I compare the heads, link the
+  smaller one after <code>tail</code>, and advance that list and <code>tail</code>. When one list is empty, I attach
+  the other's remainder in one assignment and return <code>dummy.next</code>. I use <code>&le;</code> to keep the
+  merge stable. One pass over both lists, O(n+m) time, O(1) extra space because I'm splicing existing nodes, not
+  copying."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 23 Merge k Sorted Lists</td><td>Repeated pair-merging, or a min-heap of the k current heads. Each merge step is this problem.</td></tr>
+  <tr><td>LC 148 Sort List</td><td>Merge sort on a linked list. The merge step is exactly this function; use the recursive version to inline.</td></tr>
+  <tr><td>LC 88 Merge Sorted Array</td><td>Same algorithm on arrays, with pointers walking from the end to avoid overwriting <code>nums1</code>.</td></tr>
+  <tr><td>LC 2 Add Two Numbers</td><td>Dummy-head skeleton again: walk both lists in parallel, build a new list node by node, carry the overflow.</td></tr>
+  <tr><td>LC 1669 Merge In Between Linked Lists</td><td>Splice one list into another using dummy / tail bookkeeping.</td></tr>
+</table>
+
+<script>
+/* 1. Idea diagram: show the first weave step on [1,2,4] + [1,3,4]. */
+(function () {
+  const V = VIZ;
+  const a = V.list([1, 2, 4], {
+    cls: { 0: 'in' },
+    labels: { 0: 'l1' },
+    title: 'l1'
+  });
+  const b = V.list([1, 3, 4], {
+    cls: { 0: 'in' },
+    labels: { 0: 'l2' },
+    title: 'l2'
+  });
+  // After one step: picked from l1 (tie, prefer l1).
+  const out = V.list(['D', 1], {
+    cls: { 0: 'dim', 1: 'new' },
+    labels: { 0: 'dummy', 1: 'tail' },
+    nullEnd: false,
+    title: 'output'
+  });
+  const a2 = V.list([1, 2, 4], {
+    cls: { 0: 'keep', 1: 'in' },
+    labels: { 1: 'l1' },
+    title: 'l1 after step'
+  });
+  document.getElementById('idea').innerHTML =
+    a + b +
+    '<p class="caption">Tie at the heads (both are 1). Using <code>&le;</code>, pick from l1 first.</p>' +
+    out + a2 +
+    '<p class="caption">The picked node is spliced after <code>tail</code>; <code>l1</code> advances; <code>tail</code> moves to the new last node.</p>';
+})();
+
+/* 2. Flow */
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Compare heads', lines: ['l1->val vs l2->val', 'pick the smaller'], color: 'yellow' },
+  { title: '2. Splice', lines: ['tail->next = picked', 'advance that list'], color: 'blue' },
+  { title: '3. Advance tail', lines: ['tail = tail->next'], color: 'green' },
+  { title: '4. One runs out', lines: ['tail->next = other'], color: 'purple' },
+], { loop: 'while both non-empty' });
+
+/* 3. Interactive trace. */
+VIZ.controls('trace', [
+  { id: 'l1', label: 'l1 =', value: '[1,2,4]', size: 16 },
+  { id: 'l2', label: 'l2 =', value: '[1,3,4]', size: 16 },
+], v => {
+  let a, b;
+  try { a = VIZ.parse.arr(v.l1); b = VIZ.parse.arr(v.l2); } catch (e) { throw new Error('bad list: ' + e.message); }
+  if (a.length > 10) a = a.slice(0, 10);
+  if (b.length > 10) b = b.slice(0, 10);
+
+  const out = [];
+  let i = 0, j = 0, html = '', step = 0;
+
+  // Build a step card: show l1, l2 with current heads highlighted, and output so far.
+  const render = (headline, note, picked) => {
+    const clsA = {}, clsB = {};
+    for (let k = 0; k < i; k++) clsA[k] = 'keep';
+    for (let k = 0; k < j; k++) clsB[k] = 'keep';
+    if (i < a.length) clsA[i] = (picked === 'a') ? 'new' : 'in';
+    if (j < b.length) clsB[j] = (picked === 'b') ? 'new' : 'in';
+    const listA = VIZ.list(a, { cls: clsA, labels: i < a.length ? { [i]: 'l1' } : {}, title: 'l1' });
+    const listB = VIZ.list(b, { cls: clsB, labels: j < b.length ? { [j]: 'l2' } : {}, title: 'l2' });
+    const outDisplay = ['D'].concat(out);
+    const clsO = {}; clsO[0] = 'dim';
+    for (let k = 1; k < outDisplay.length; k++) clsO[k] = (k === outDisplay.length - 1 ? 'new' : 'keep');
+    const listO = VIZ.list(outDisplay, {
+      cls: clsO,
+      labels: { 0: 'dummy', [outDisplay.length - 1]: 'tail' },
+      nullEnd: i >= a.length && j >= b.length,
+      title: 'output'
+    });
+    return VIZ.step(headline, listA + listB + listO, note, true);
+  };
+
+  html += render('Init', 'Both lists non-empty; dummy allocated; <code>tail = &amp;dummy</code>.', null);
+
+  while (i < a.length && j < b.length && step < 20) {
+    step++;
+    let picked;
+    if (a[i] <= b[j]) {
+      out.push(a[i]);
+      const note = `Compare <b>${a[i]}</b> and <b>${b[j]}</b>: ${a[i] === b[j] ? 'tie, use <code>&le;</code> so pick from l1' : `l1 is smaller`}. Splice <b>${a[i]}</b> after <code>tail</code>, advance l1.`;
+      i++;
+      picked = 'a';
+      html += render(`Step ${step}: picked ${out[out.length - 1]} from l1`, note, picked);
+    } else {
+      out.push(b[j]);
+      const note = `Compare <b>${a[i]}</b> and <b>${b[j]}</b>: l2 is smaller. Splice <b>${b[j]}</b> after <code>tail</code>, advance l2.`;
+      j++;
+      picked = 'b';
+      html += render(`Step ${step}: picked ${out[out.length - 1]} from l2`, note, picked);
+    }
+  }
+
+  // Attach remainder in one move.
+  if (i < a.length) {
+    const rest = a.slice(i);
+    rest.forEach(x => out.push(x));
+    html += render(
+      `Attach l1 remainder`,
+      `l2 is empty. One assignment <code>tail->next = l1</code> attaches <code>[${rest.join(',')}]</code>.`,
+      null
+    );
+  } else if (j < b.length) {
+    const rest = b.slice(j);
+    rest.forEach(x => out.push(x));
+    html += render(
+      `Attach l2 remainder`,
+      `l1 is empty. One assignment <code>tail->next = l2</code> attaches <code>[${rest.join(',')}]</code>.`,
+      null
+    );
+  } else {
+    html += render(`Both empty`, `Both lists drained; nothing left to attach.`, null);
+  }
+
+  document.getElementById('answer').innerHTML = '<b>Answer:</b> ' + JSON.stringify(out);
+  return html;
+}, 'Change the two sorted lists and press Trace it.');
+</script>
+
+</body>
+</html>

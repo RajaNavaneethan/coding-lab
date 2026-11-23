@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 46 - Permutations</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#backtracking">Pattern lesson</a><span>Pattern 12: Backtracking</span></div>
+
+<h1>Permutations</h1>
+<p class="sub">LeetCode 46 &middot; Medium &middot; Pattern: backtracking (choose / unchoose) &middot; O(n &middot; n!) time, O(n) extra space</p>
+
+<div class="box">
+  <b>Problem.</b> Given an array <code>nums</code> of distinct integers, return all possible permutations. The answer
+  may be in any order.
+  <br><code>nums = [1,2,3] &rarr; [[1,2,3],[1,3,2],[2,1,3],[2,3,1],[3,1,2],[3,2,1]]</code>
+  &nbsp;&nbsp; <code>nums = [1] &rarr; [[1]]</code>
+  <br>Link: <a href="https://leetcode.com/problems/permutations/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Think of building a permutation slot by slot, left to right. For slot 0 you may pick any element. For slot 1 you may
+pick any element that is still unused. Keep going until the slot count equals <code>n</code>. The set of all walks is
+a tree where the first level has <code>n</code> children, the next <code>n &minus; 1</code>, and so on. The leaves at
+depth <code>n</code> are the permutations, and there are <code>n!</code> of them.</p>
+
+<p>Backtracking makes this cheap: keep one <code>used[]</code> array that marks which indices are in <code>cur</code>
+already. Before recursing push the chosen element and set its flag; on the way back pop and clear the flag. One
+array, one vector, every permutation visited exactly once.</p>
+
+<div id="idea-tree"></div>
+
+<div class="box insight">
+  <b>Idea.</b> At each slot, loop over every element and skip the ones already used. Push the chosen element, recurse,
+  then pop and mark it unused again. Each leaf (<code>cur.size() == n</code>) is one permutation.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<p>The three moves inside the <code>for</code> loop are "choose, recurse, unchoose". The unchoose on the way back up
+is what distinguishes permutations from a plain DFS: it lets the sibling branches start from a clean <code>used</code>
+state.</p>
+
+<div id="algo-flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>The tree below is the full recursion for your input. Each node shows the current <code>cur</code> and which indices
+are still available. Children of a node are the "pick next element" choices. Leaves (green) are the <code>n!</code>
+permutations in the order the algorithm emits them.</p>
+
+<div class="legend">
+  <span><i style="background:#dbeafe"></i>recursive call (cur so far)</span>
+  <span><i style="background:#bbf7d0"></i>leaf: permutation emitted</span>
+  <span><i style="background:#f8fafc;border:1px solid #cbd5e1"></i>edge label: pick this element</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt; permute(<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; nums) {
+        <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt; ans;
+        <span class="t">vector</span>&lt;<span class="t">int</span>&gt; cur;
+        <span class="t">vector</span>&lt;<span class="t">bool</span>&gt; used(nums.size(), <span class="k">false</span>);
+        <span class="t">function</span>&lt;<span class="t">void</span>()&gt; dfs = [&amp;]() {
+            <span class="k">if</span> (cur.size() == nums.size()) { ans.push_back(cur); <span class="k">return</span>; }
+            <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt; (<span class="t">int</span>)nums.size(); i++) {
+                <span class="k">if</span> (used[i]) <span class="k">continue</span>;             <span class="c">// skip taken</span>
+                used[i] = <span class="k">true</span>;                     <span class="c">// choose</span>
+                cur.push_back(nums[i]);
+                dfs();
+                cur.pop_back();                   <span class="c">// unchoose</span>
+                used[i] = <span class="k">false</span>;
+            }
+        };
+        dfs();
+        <span class="k">return</span> ans;
+    }
+};</pre>
+
+<p><b>Complexity:</b> there are <code>n!</code> leaves and each is copied in O(n), so O(n &middot; n!) time. Space is
+O(n) for <code>cur</code>, <code>used</code> and the recursion depth; the output itself takes O(n &middot; n!).</p>
+
+<h3>Alternative: swap in place</h3>
+
+<pre><span class="t">void</span> dfs(<span class="t">int</span> start, <span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; nums, <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt;&amp; ans) {
+    <span class="k">if</span> (start == (<span class="t">int</span>)nums.size()) { ans.push_back(nums); <span class="k">return</span>; }
+    <span class="k">for</span> (<span class="t">int</span> i = start; i &lt; (<span class="t">int</span>)nums.size(); i++) {
+        swap(nums[start], nums[i]);          <span class="c">// put nums[i] into slot `start`</span>
+        dfs(start + <span class="n">1</span>, nums, ans);
+        swap(nums[start], nums[i]);          <span class="c">// put it back</span>
+    }
+}</pre>
+
+<p>No <code>used</code> array, no extra <code>cur</code>: the prefix <code>nums[0..start)</code> is the "chosen so far".
+Prefer this when memory is tight. Prefer the <code>used</code> version when the problem has duplicates (LC 47 Permutations II)
+because sorting plus skipping equal siblings is clearer when the array layout is stable.</p>
+
+<h2>5. The part interviewers ask about: why the unchoose matters</h2>
+
+<p>The whole method rests on a tiny invariant: <b>when a <code>dfs()</code> call returns, <code>cur</code> and
+<code>used</code> look exactly like they did when it was entered.</b> That is what the "pop + mark unused" lines
+achieve. Without them, the sibling iterations of the <code>for</code> loop would see leftovers from the previous one
+and build nonsense.</p>
+
+<div class="box insight">
+  <b>Why exactly <code>n!</code> leaves, no duplicates.</b> At depth <code>d</code> there are <code>n &minus; d</code>
+  choices (one for each unused index). Multiplying down the tree gives
+  <code>n &middot; (n &minus; 1) &middot; &hellip; &middot; 1 = n!</code>. Every leaf's path is a distinct ordering
+  of indices, so (with distinct values) every leaf is a distinct permutation.
+</div>
+
+<p>Interviewers sometimes ask: can you print permutations one at a time, in <b>lexicographic order</b>? Yes, if you
+sort <code>nums</code> first and the <code>for</code> loop runs in order. Each sibling then explores a lex-greater
+prefix than the one before it, so leaves come out sorted. The swap version does not have this property.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Forgetting to clear <code>used[i]</code>.</b> You will miss most permutations because an index gets stuck
+    "taken" after its first branch.</li>
+    <li><b>Mixing index and value.</b> <code>used</code> is indexed by position in <code>nums</code>, not by the value.
+    If <code>nums = [-5, 100]</code>, a value-indexed array would need a map, which is slower and bug-prone.</li>
+    <li><b>Storing <code>cur</code> by reference</b> into <code>ans</code>. Every entry then shares the same vector and
+    the output is garbage. Always copy with <code>ans.push_back(cur)</code>.</li>
+    <li><b>Permutations with duplicates.</b> This problem guarantees distinct inputs; LC 47 adds duplicates. The fix is
+    to sort first and skip <code>i</code> when <code>i &gt; 0 &amp;&amp; nums[i] == nums[i-1] &amp;&amp; !used[i-1]</code>
+    (the "equal predecessor must have been used first" rule).</li>
+    <li><b>Empty input.</b> <code>nums = []</code> returns <code>[[]]</code>. The base case <code>cur.size() == 0</code>
+    fires once with an empty <code>cur</code>.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I build permutations slot by slot. For each slot I loop over every index and skip the ones already used, mark the
+  chosen one used, push its value, recurse, then undo both on the way back. One <code>cur</code> vector, one
+  <code>used</code> array, no copies except at the leaves. The tree has <code>n!</code> leaves and I pay O(n) per copy,
+  so O(n &middot; n!) time and O(n) extra space. If duplicates were allowed I'd sort and skip equal siblings whose
+  predecessor is unused."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 47 Permutations II</td><td>Same tree, duplicates in input: sort and skip equal siblings when the predecessor is unused.</td></tr>
+  <tr><td>LC 31 Next Permutation</td><td>Lex-next permutation in O(n) without enumerating all of them; same underlying order.</td></tr>
+  <tr><td>LC 60 Permutation Sequence</td><td>k-th permutation computed directly from factorials, same tree shape.</td></tr>
+  <tr><td>LC 78 Subsets</td><td>Binary choose/skip, not a per-slot fan-out: order of chosen elements does not matter.</td></tr>
+</table>
+
+<script>
+/* Static recursion tree for nums = [1,2,3]. 6 leaves. */
+(function () {
+  const W = 920, H = 360;
+  // Layout: root at top, then level 1 with 3 nodes, level 2 with 6 nodes (2 under each),
+  // level 3 (leaves) with 6 nodes (1 under each).
+  const nodes = [
+    // id, x, y, label, cls
+    [0,  460, 30,  '[]',       'in'],
+    [1,  150, 110, '[1]',      'in'],
+    [2,  460, 110, '[2]',      'in'],
+    [3,  770, 110, '[3]',      'in'],
+    [4,   70, 190, '[1,2]',    'in'],
+    [5,  230, 190, '[1,3]',    'in'],
+    [6,  380, 190, '[2,1]',    'in'],
+    [7,  540, 190, '[2,3]',    'in'],
+    [8,  690, 190, '[3,1]',    'in'],
+    [9,  850, 190, '[3,2]',    'in'],
+    [10,  70, 280, '[1,2,3]',  'keep'],
+    [11, 230, 280, '[1,3,2]',  'keep'],
+    [12, 380, 280, '[2,1,3]',  'keep'],
+    [13, 540, 280, '[2,3,1]',  'keep'],
+    [14, 690, 280, '[3,1,2]',  'keep'],
+    [15, 850, 280, '[3,2,1]',  'keep'],
+  ];
+  const edges = [
+    [0,1,'1'], [0,2,'2'], [0,3,'3'],
+    [1,4,'2'], [1,5,'3'],
+    [2,6,'1'], [2,7,'3'],
+    [3,8,'1'], [3,9,'2'],
+    [4,10,'3'], [5,11,'2'],
+    [6,12,'3'], [7,13,'1'],
+    [8,14,'2'], [9,15,'1'],
+  ];
+  const col = { in: ['#dbeafe','#3b82f6'], keep: ['#bbf7d0','#15803d'] };
+  let s = '';
+  edges.forEach(([a, b, lab]) => {
+    const A = nodes[a], B = nodes[b];
+    s += `<line x1="${A[1]}" y1="${A[2]+14}" x2="${B[1]}" y2="${B[2]-14}" stroke="#94a3b8" stroke-width="2"/>`;
+    const mx = (A[1] + B[1]) / 2, my = (A[2] + B[2]) / 2 + 2;
+    s += `<text x="${mx}" y="${my}" text-anchor="middle" font-size="11" fill="#475569" font-weight="700">pick ${lab}</text>`;
+  });
+  nodes.forEach(([id, x, y, lab, cls]) => {
+    const [fill, stroke] = col[cls];
+    const w = Math.max(50, lab.length * 7 + 8);
+    s += `<rect x="${x - w/2}" y="${y-14}" width="${w}" height="28" rx="6" fill="${fill}" stroke="${stroke}" stroke-width="2"/>`;
+    s += `<text x="${x}" y="${y+5}" text-anchor="middle" font-size="12" font-weight="700">${lab}</text>`;
+  });
+  s += `<text x="20" y="340" font-size="12" fill="#616e7c">6 leaves = 3! = 6 permutations of [1,2,3]</text>`;
+  document.getElementById('idea-tree').innerHTML =
+    `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${H}">${s}</svg>`;
+})();
+
+document.getElementById('algo-flow').innerHTML = VIZ.flow([
+  { title: '1. Base case', lines: ['if cur.size() == n', 'push cur into ans', 'return'], color: 'green' },
+  { title: '2. Choose',    lines: ['for each unused i:', 'used[i] = true', 'cur.push_back(nums[i])'], color: 'yellow' },
+  { title: '3. Recurse',   lines: ['dfs()'], color: 'blue' },
+  { title: '4. Unchoose',  lines: ['cur.pop_back()', 'used[i] = false'], color: 'red' },
+], { loop: 'next sibling index' });
+
+/* Interactive recursion tree. */
+VIZ.controls('trace', [{ id: 'nums', label: 'nums =', value: '[1,2,3]', size: 14 }], v => {
+  let nums;
+  try { nums = VIZ.parse.arr(v.nums); }
+  catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  if (!Array.isArray(nums)) return '<div class="box trap">Could not parse input: expected an array</div>';
+  const n = nums.length;
+  if (n > 4) return '<div class="box trap">Please use at most 4 elements so the tree stays readable (4! = 24 leaves).</div>';
+  if (n === 0) return '<div class="box">Empty input: the base case fires immediately and emits [].</div>';
+
+  // Compute leaf count = n!
+  let fact = 1; for (let i = 1; i <= n; i++) fact *= i;
+
+  // We assign x by DFS leaf order.
+  const DX = Math.max(50, Math.floor(880 / Math.max(1, fact)));
+  const DY = 72;
+  const W = Math.max(500, fact * DX + 60), H = (n + 1) * DY + 30;
+
+  // Build the tree via DFS, recording nodes/edges with positions.
+  // Strategy: do a two-pass. First pass compute leaf positions. Each internal node = centre of its leaf descendants.
+  // Simpler: do a single DFS that returns the x-range it occupies.
+  let leafCounter = 0;
+  const nodes = [];
+  const edges = [];
+  const used = new Array(n).fill(false);
+  const emitted = [];
+
+  function dfs(depth, cur) {
+    if (cur.length === n) {
+      const x = 30 + (leafCounter + 0.5) * DX;
+      const y = 20 + depth * DY;
+      const id = nodes.length;
+      nodes.push({ id, x, y, label: '[' + cur.join(',') + ']', cls: 'keep' });
+      emitted.push([...cur]);
+      leafCounter++;
+      return { id, x };
+    }
+    const childIds = [];
+    const childXs = [];
+    for (let i = 0; i < n; i++) {
+      if (used[i]) continue;
+      used[i] = true;
+      cur.push(nums[i]);
+      const r = dfs(depth + 1, cur);
+      childIds.push({ cid: r.id, label: 'pick ' + nums[i] });
+      childXs.push(r.x);
+      cur.pop();
+      used[i] = false;
+    }
+    const x = (childXs[0] + childXs[childXs.length - 1]) / 2;
+    const y = 20 + depth * DY;
+    const id = nodes.length;
+    nodes.push({ id, x, y, label: '[' + cur.join(',') + ']', cls: 'in' });
+    childIds.forEach(c => edges.push({ from: id, to: c.cid, label: c.label }));
+    return { id, x };
+  }
+  dfs(0, []);
+
+  const col = { in: ['#dbeafe', '#3b82f6'], keep: ['#bbf7d0', '#15803d'] };
+  let s = '';
+  edges.forEach(e => {
+    const A = nodes[e.from], B = nodes[e.to];
+    s += `<line x1="${A.x}" y1="${A.y + 14}" x2="${B.x}" y2="${B.y - 14}" stroke="#94a3b8" stroke-width="2"/>`;
+    const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2 + 3;
+    s += `<text x="${mx}" y="${my}" text-anchor="middle" font-size="10" fill="#475569" font-weight="700">${VIZ.esc(e.label)}</text>`;
+  });
+  nodes.forEach(nd => {
+    const [fill, stroke] = col[nd.cls];
+    const w = Math.max(40, nd.label.length * 7 + 8);
+    s += `<rect x="${nd.x - w / 2}" y="${nd.y - 14}" width="${w}" height="28" rx="6" fill="${fill}" stroke="${stroke}" stroke-width="2"/>`;
+    s += `<text x="${nd.x}" y="${nd.y + 5}" text-anchor="middle" font-size="12" font-weight="700">${VIZ.esc(nd.label)}</text>`;
+  });
+
+  const treeSvg = `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${H}">${s}</svg>`;
+
+  const list = emitted.map((p, k) => `<code>ans[${k}] = [${p.join(',')}]</code>`).join(', ');
+  document.getElementById('answer').innerHTML =
+    '<b>' + emitted.length + ' permutations</b> for <code>nums = [' + nums.join(',') + ']</code>' +
+    (emitted.length <= 24 ? ': ' + list : '.');
+
+  return VIZ.step('Full recursion tree', treeSvg,
+    'Each internal node is a recursive call; its label is <code>cur</code> at that call. ' +
+    'Edges fan out to every unused element: at depth <code>d</code> there are <code>n &minus; d</code> children. ' +
+    'Leaves (green) are the permutations in the order the algorithm emits them. ' +
+    'Count: ' + n + '! = <b>' + emitted.length + '</b>.',
+    true);
+}, 'Pick up to 4 elements so the tree stays readable. The tree is produced by running the choose/unchoose recursion.');
+</script>
+
+</body>
+</html>

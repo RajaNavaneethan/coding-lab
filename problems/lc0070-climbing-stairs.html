@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 70 - Climbing Stairs</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#dp-1d">Pattern lesson</a><span>Pattern 13: Dynamic Programming - 1D</span></div>
+
+<h1>Climbing Stairs</h1>
+<p class="sub">LeetCode 70 &middot; Easy &middot; Pattern: 1-D DP (Fibonacci recurrence) &middot; O(n) time, O(1) space</p>
+
+<div class="box">
+  <b>Problem.</b> You climb <code>n</code> stairs. Each step you take 1 or 2 stairs. Return the number of distinct ways
+  to reach step <code>n</code>.
+  <br><code>n = 2 &rarr; 2</code> &nbsp;&nbsp; <code>n = 3 &rarr; 3</code> &nbsp;&nbsp; <code>n = 5 &rarr; 8</code>
+  <br>Link: <a href="https://leetcode.com/problems/climbing-stairs/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>To reach step <code>i</code> your last move was either a 1-step (from <code>i-1</code>) or a 2-step
+(from <code>i-2</code>). Those two sources of arrivals do not overlap, because the last move length is different.
+So the ways to reach <code>i</code> are the sum of ways to reach <code>i-1</code> and <code>i-2</code>.</p>
+
+<div class="eq">dp[i] = dp[i&minus;1] + dp[i&minus;2]</div>
+
+<p>Base: <code>dp[1] = 1</code> (only "1"), <code>dp[2] = 2</code> ("1+1" or "2"). Everything above is the sum of the two
+cells on its left. This is the Fibonacci sequence shifted by one.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Classify every path to <code>n</code> by its last move. Two cases, no overlap. So the count at
+  <code>i</code> is the sum of the counts at <code>i&minus;1</code> and <code>i&minus;2</code>.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>The whole table only ever reads the two cells to the left of the current one. So you can throw the table away and
+keep just two running integers (shown below in the alternative code).</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>The row below is <code>dp[0..n]</code>. The highlighted cell is being filled right now, and the blue cells are the
+two sources it reads (<code>dp[i&minus;1]</code> and <code>dp[i&minus;2]</code>).</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>cell being filled</span>
+  <span><i style="background:var(--win)"></i>cell being read</span>
+  <span><i style="background:#f8fafc;border:1px solid #cbd5e1"></i>not filled yet</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">int</span> climbStairs(<span class="t">int</span> n) {
+        <span class="k">if</span> (n &lt;= <span class="n">2</span>) <span class="k">return</span> n;
+        <span class="t">vector</span>&lt;<span class="t">int</span>&gt; dp(n + <span class="n">1</span>, <span class="n">0</span>);
+        dp[<span class="n">1</span>] = <span class="n">1</span>;
+        dp[<span class="n">2</span>] = <span class="n">2</span>;
+        <span class="k">for</span> (<span class="t">int</span> i = <span class="n">3</span>; i &lt;= n; i++) dp[i] = dp[i - <span class="n">1</span>] + dp[i - <span class="n">2</span>];
+        <span class="k">return</span> dp[n];
+    }
+};</pre>
+
+<p><b>Complexity:</b> one pass fills <code>n</code> cells with one addition each, so O(n) time. The array is O(n) space.</p>
+
+<h3>Alternative: O(1) space, two rolling variables</h3>
+
+<pre><span class="t">int</span> climbStairs(<span class="t">int</span> n) {
+    <span class="k">if</span> (n &lt;= <span class="n">2</span>) <span class="k">return</span> n;
+    <span class="t">int</span> a = <span class="n">1</span>, b = <span class="n">2</span>;                   <span class="c">// dp[i-2], dp[i-1]</span>
+    <span class="k">for</span> (<span class="t">int</span> i = <span class="n">3</span>; i &lt;= n; i++) {
+        <span class="t">int</span> c = a + b;
+        a = b; b = c;
+    }
+    <span class="k">return</span> b;
+}</pre>
+
+<p>Prefer this form in the interview: the recurrence only looks back two cells, so an array is wasteful. Mention the table
+version first so the interviewer sees you understand the DP; collapse to two variables once it is clear.</p>
+
+<h2>5. The part interviewers ask about: why the two cases don't overlap</h2>
+
+<div class="box insight">
+  Every path to step <code>n</code> ends with exactly one last move. If the last move is a 1-step, the path's prefix is
+  a path to <code>n&minus;1</code>. If the last move is a 2-step, the prefix is a path to <code>n&minus;2</code>. These two
+  families are disjoint because they are told apart by the <i>last</i> move's length. So the counts add, not <code>max</code>,
+  not a careful inclusion-exclusion.
+</div>
+
+<p>You will also hear "isn't this just Fibonacci?" Yes: <code>dp[1]=1, dp[2]=2, dp[3]=3, dp[4]=5, dp[5]=8, &hellip;</code> is
+Fibonacci starting one index later. If the interviewer presses on sub-linear time, mention matrix exponentiation of
+<code>[[1,1],[1,0]]</code> to get O(log n), but note that <code>n</code> on this problem is small (&le; 45) and the
+constant from fast exponentiation makes it slower in practice.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Off-by-one on the base cases.</b> <code>dp[0] = 1</code> if you treat "no stairs" as the empty path; then
+    <code>dp[1] = 1, dp[2] = 2</code> fall out of the recurrence. Pick one convention and stick with it.</li>
+    <li><b>Starting the loop at <code>i = 2</code></b> without first setting <code>dp[2]</code>. Then <code>dp[2]</code>
+    is computed as <code>dp[1] + dp[0]</code>, which only works if <code>dp[0] = 1</code>.</li>
+    <li><b>Overflow for large <code>n</code>.</b> LeetCode caps <code>n &le; 45</code>, where the answer
+    <code>1,836,311,903</code> still fits in a signed 32-bit int. Any larger and you need <code>long long</code>.</li>
+    <li><b>Trying to enumerate paths.</b> The count grows exponentially, so printing them for large <code>n</code> is
+    impossible. Only the count is asked for.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "Classify paths to step n by the last move: either a 1-step from n&minus;1 or a 2-step from n&minus;2. The two groups
+  are disjoint, so <code>ways(n) = ways(n&minus;1) + ways(n&minus;2)</code>, with <code>ways(1) = 1</code> and
+  <code>ways(2) = 2</code>. I'd fill a table left to right; because each cell only looks back two, I collapse to two
+  rolling variables for O(n) time and O(1) space."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 198 House Robber</td><td>Same 1-D DP shape, two choices per index, O(1) space with two rollers.</td></tr>
+  <tr><td>LC 746 Min Cost Climbing Stairs</td><td>Same recurrence but you minimise a cost instead of counting paths.</td></tr>
+  <tr><td>LC 509 Fibonacci Number</td><td>Literally the same recurrence, different base cases.</td></tr>
+  <tr><td>LC 1137 N-th Tribonacci</td><td>Three-term version: <code>dp[i] = dp[i&minus;1] + dp[i&minus;2] + dp[i&minus;3]</code>.</td></tr>
+</table>
+
+<script>
+/* Small idea diagram: show ways(5) = ways(4) + ways(3), with coloured sources. */
+(function () {
+  const W = 760, H = 160;
+  let s = '';
+  const cells = [
+    { i: 0, v: '-', y: 60, cls: 'dim', label: 'index' },
+    { i: 1, v: 1, y: 60 },
+    { i: 2, v: 2, y: 60 },
+    { i: 3, v: 3, y: 60, cls: 'in' },
+    { i: 4, v: 5, y: 60, cls: 'in' },
+    { i: 5, v: 8, y: 60, cls: 'new' },
+  ];
+  const X0 = 80, DX = 90, CW = 60, CH = 44;
+  const col = {
+    '':   ['#ffffff', '#475569'],
+    in:   ['#dbeafe', '#3b82f6'],
+    new:  ['#fde68a', '#d97706'],
+    dim:  ['#f8fafc', '#cbd5e1'],
+  };
+  cells.forEach(c => {
+    const [f, st] = col[c.cls || ''];
+    const x = X0 + c.i * DX;
+    s += `<rect x="${x}" y="${c.y}" width="${CW}" height="${CH}" rx="6" fill="${f}" stroke="${st}" stroke-width="2"/>`;
+    s += `<text x="${x + CW / 2}" y="${c.y + CH / 2 + 6}" text-anchor="middle" font-size="20" font-weight="700">${c.v}</text>`;
+    s += `<text x="${x + CW / 2}" y="${c.y - 6}" text-anchor="middle" font-size="12" fill="#616e7c">dp[${c.i}]</text>`;
+  });
+  const arrY = 60 + CH + 20;
+  const target = X0 + 5 * DX + CW / 2;
+  s += `<path d="M${X0 + 3 * DX + CW / 2},${60 + CH} C${X0 + 3 * DX + CW / 2},${arrY + 20} ${target - 10},${arrY + 20} ${target - 5},${60 + CH}" fill="none" stroke="#3b82f6" stroke-width="2" marker-end="url(#ar5)"/>`;
+  s += `<path d="M${X0 + 4 * DX + CW / 2},${60 + CH} C${X0 + 4 * DX + CW / 2},${arrY + 10} ${target + 5},${arrY + 10} ${target + 5},${60 + CH}" fill="none" stroke="#3b82f6" stroke-width="2" marker-end="url(#ar5)"/>`;
+  s += `<text x="${X0 + 4 * DX + CW / 2}" y="${arrY + 32}" text-anchor="middle" font-size="13" font-weight="700" fill="#1f2933">dp[5] = dp[4] + dp[3] = 5 + 3 = <tspan fill="#d97706">8</tspan></text>`;
+  s = `<defs><marker id="ar5" markerWidth="10" markerHeight="10" refX="7" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3b82f6"/></marker></defs>` + s;
+  document.getElementById('idea').innerHTML =
+    `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${H}">${s}</svg>`;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Base', lines: ['dp[1] = 1', 'dp[2] = 2'], color: 'green' },
+  { title: '2. Fill left to right', lines: ['for i = 3..n', 'dp[i] = dp[i-1] + dp[i-2]'], color: 'yellow' },
+  { title: '3. Answer', lines: ['return dp[n]'], color: 'blue' },
+]);
+
+/* Interactive trace: show the dp row filling one cell at a time. */
+VIZ.controls('trace', [{ id: 'n', label: 'n =', value: '6', size: 4 }], v => {
+  let n;
+  try { n = VIZ.parse.int(v.n); }
+  catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  if (n < 1 || n > 20) return '<div class="box trap">Pick n between 1 and 20 to keep the trace readable.</div>';
+
+  const dp = new Array(n + 1).fill(null);
+  dp[0] = 1;  // treat as sentinel but display '-' for clarity below
+  const row = i => {
+    const vals = [];
+    for (let k = 0; k <= n; k++) vals.push(dp[k] === null ? '.' : dp[k]);
+    return vals;
+  };
+
+  let html = '';
+  let steps = [];
+
+  // Fill dp[1]
+  dp[1] = 1;
+  steps.push({ i: 1, read: [], note: 'Base case <code>dp[1] = 1</code>. One way: a single 1-step.' });
+
+  if (n >= 2) {
+    dp[2] = 2;
+    steps.push({ i: 2, read: [], note: 'Base case <code>dp[2] = 2</code>. Two ways: <code>1+1</code> and <code>2</code>.' });
+  }
+
+  for (let i = 3; i <= n; i++) {
+    dp[i] = dp[i - 1] + dp[i - 2];
+    steps.push({ i, read: [i - 1, i - 2], note: `<code>dp[${i}] = dp[${i-1}] + dp[${i-2}] = ${dp[i-1]} + ${dp[i-2]} = <b>${dp[i]}</b></code>` });
+  }
+
+  // Build cards. If too many, trim.
+  const MAX = 15;
+  const show = steps.length <= MAX ? steps : steps.slice(0, MAX);
+  show.forEach((st, k) => {
+    const cls = {};
+    for (let j = 1; j <= n; j++) if (dp[j] !== null && j <= st.i) cls[j] = '';
+    st.read.forEach(r => cls[r] = 'in');
+    cls[st.i] = 'new';
+    const vals = [];
+    const labels = [];
+    for (let j = 0; j <= n; j++) {
+      labels.push(j);
+      if (j === 0) vals.push('-');
+      else if (j > st.i) vals.push('.');
+      else {
+        // snapshot of dp at this step
+        let v = null;
+        if (j <= 2 && j <= st.i) v = (j === 1 ? 1 : 2);
+        else if (j <= st.i) {
+          // recompute from the snapshot: dp values up to step
+          // simpler: run same recurrence up to st.i
+          v = (() => {
+            const t = [null, 1, 2];
+            for (let x = 3; x <= st.i; x++) t.push(t[x - 1] + t[x - 2]);
+            return t[j];
+          })();
+        }
+        vals.push(v === null ? '.' : v);
+      }
+    }
+    const strip = VIZ.strip(vals, { cls: (ix) => cls[ix] || (ix === 0 ? 'dim' : (ix > st.i ? 'dim' : '')), labels });
+    html += VIZ.step(`Step ${k + 1}: fill dp[${st.i}]`, strip, st.note);
+  });
+  if (steps.length > MAX) html += `<p class="caption">... ${steps.length - MAX} more cells, same pattern.</p>`;
+
+  document.getElementById('answer').innerHTML =
+    `<b>Answer for n = ${n}: ${dp[n]}</b> distinct ways.`;
+  return html;
+}, 'Pick a value of n to trace. The dp row fills left to right.');
+</script>
+
+</body>
+</html>

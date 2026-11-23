@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 1143 - Longest Common Subsequence</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#dp-2d">Pattern lesson</a><span>Pattern 14: DP - 2D / Grids</span></div>
+
+<h1>Longest Common Subsequence</h1>
+<p class="sub">LeetCode 1143 &middot; Medium &middot; Pattern: 2-D DP on two strings &middot; O(m &middot; n) time, O(m &middot; n) space (O(min(m,n)) rolling)</p>
+
+<div class="box">
+  <b>Problem.</b> Given two strings <code>text1</code> and <code>text2</code>, return the length of their longest
+  <b>common subsequence</b>. A subsequence keeps the original order but may skip characters.
+  <br><code>"abcde", "ace" &rarr; 3</code> (<code>ace</code>)
+  &nbsp;&nbsp; <code>"abc", "abc" &rarr; 3</code>
+  &nbsp;&nbsp; <code>"abc", "def" &rarr; 0</code>
+  <br>Link: <a href="https://leetcode.com/problems/longest-common-subsequence/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Define <code>dp[i][j]</code> as the LCS length of the prefixes <code>text1[0..i)</code> and <code>text2[0..j)</code>.
+Look at the two last characters:</p>
+
+<ul>
+  <li>If <code>text1[i&minus;1] == text2[j&minus;1]</code>, those two characters can both be the <b>last letter of the
+  LCS</b>. Strip them and solve the smaller problem: <code>dp[i][j] = dp[i&minus;1][j&minus;1] + 1</code>.</li>
+  <li>Otherwise, at least one of them is not used in the LCS. Try dropping each in turn and take the better one:
+  <code>dp[i][j] = max(dp[i&minus;1][j], dp[i][j&minus;1])</code>.</li>
+</ul>
+
+<div class="eq">dp[i][j] = text1[i&minus;1]=text2[j&minus;1] ? dp[i&minus;1][j&minus;1]+1 : max(dp[i&minus;1][j], dp[i][j&minus;1])</div>
+
+<p>Base: <code>dp[0][*] = dp[*][0] = 0</code>. An empty string shares nothing with anything.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> On the two end characters there are only two cases. If they match, the LCS of the prefixes gains a
+  character for free; the question reduces to the shorter prefixes on both sides. If they don't match, the LCS cannot
+  use both of them, so the answer is the best of "drop the end of <code>text1</code>" or "drop the end of
+  <code>text2</code>". No third option exists.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>Fill the table row by row, left to right. Row <code>i</code> and column <code>j</code> are 1-indexed into the DP, so
+cell <code>(i, j)</code> is comparing <code>text1[i&minus;1]</code> with <code>text2[j&minus;1]</code>. The answer is
+in the bottom-right cell.</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>The row/column headers show the two strings (position 0 is the empty prefix, so dp has one extra row and column).
+Yellow is the cell being filled. Blue are the cells it reads: either <code>dp[i&minus;1][j&minus;1]</code> alone (on a
+match) or both <code>dp[i&minus;1][j]</code> and <code>dp[i][j&minus;1]</code> (on a mismatch).</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>cell being filled</span>
+  <span><i style="background:var(--win)"></i>cells being read</span>
+  <span><i style="background:var(--keep)"></i>already filled</span>
+  <span><i style="background:#f8fafc;border:1px solid #cbd5e1"></i>not filled yet</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">int</span> longestCommonSubsequence(<span class="t">string</span> text1, <span class="t">string</span> text2) {
+        <span class="t">int</span> m = text1.size(), n = text2.size();
+        <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt; dp(m + <span class="n">1</span>, <span class="t">vector</span>&lt;<span class="t">int</span>&gt;(n + <span class="n">1</span>, <span class="n">0</span>));
+        <span class="k">for</span> (<span class="t">int</span> i = <span class="n">1</span>; i &lt;= m; i++) {
+            <span class="k">for</span> (<span class="t">int</span> j = <span class="n">1</span>; j &lt;= n; j++) {
+                <span class="k">if</span> (text1[i-<span class="n">1</span>] == text2[j-<span class="n">1</span>]) dp[i][j] = dp[i-<span class="n">1</span>][j-<span class="n">1</span>] + <span class="n">1</span>;
+                <span class="k">else</span> dp[i][j] = max(dp[i-<span class="n">1</span>][j], dp[i][j-<span class="n">1</span>]);
+            }
+        }
+        <span class="k">return</span> dp[m][n];
+    }
+};</pre>
+
+<p><b>Complexity:</b> O(m &middot; n) time &mdash; one constant-work decision per cell. O(m &middot; n) space; can be
+reduced to O(min(m, n)) with one rolling row.</p>
+
+<h3>Alternative: one rolling row</h3>
+
+<pre><span class="t">vector</span>&lt;<span class="t">int</span>&gt; dp(n + <span class="n">1</span>, <span class="n">0</span>);
+<span class="k">for</span> (<span class="t">int</span> i = <span class="n">1</span>; i &lt;= m; i++) {
+    <span class="t">int</span> prevDiag = <span class="n">0</span>;             <span class="c">// dp[i-1][j-1] from last iteration</span>
+    <span class="k">for</span> (<span class="t">int</span> j = <span class="n">1</span>; j &lt;= n; j++) {
+        <span class="t">int</span> save = dp[j];           <span class="c">// current dp[j] is dp[i-1][j]</span>
+        <span class="k">if</span> (text1[i-<span class="n">1</span>] == text2[j-<span class="n">1</span>]) dp[j] = prevDiag + <span class="n">1</span>;
+        <span class="k">else</span> dp[j] = max(dp[j], dp[j-<span class="n">1</span>]);
+        prevDiag = save;
+    }
+}
+<span class="k">return</span> dp[n];</pre>
+
+<p>Keep one <code>prevDiag</code> variable to remember the top-left before we overwrite it. Use when memory matters,
+e.g. for very long strings or whenever you'd otherwise allocate an <code>n &times; m</code> grid.</p>
+
+<h2>5. The part interviewers ask about: recovering the subsequence</h2>
+
+<p>The length alone is often not enough. To rebuild the actual LCS, walk back from <code>dp[m][n]</code>:</p>
+
+<ul>
+  <li>If <code>text1[i&minus;1] == text2[j&minus;1]</code>: that character is in the LCS, move to <code>(i&minus;1, j&minus;1)</code>.</li>
+  <li>Else if <code>dp[i&minus;1][j] &ge; dp[i][j&minus;1]</code>: move up to <code>(i&minus;1, j)</code>.</li>
+  <li>Else: move left to <code>(i, j&minus;1)</code>.</li>
+</ul>
+
+<p>Prepend the match-characters to a string along the way, until <code>i = 0</code> or <code>j = 0</code>. The walk is
+O(m + n), so you don't need to store any extra parent pointers &mdash; the DP table encodes the choices.</p>
+
+<div class="box insight">
+  LCS and the Longest Palindromic Subsequence (LC 516) are the same problem: the longest palindromic subsequence of
+  <code>s</code> is <code>LCS(s, reverse(s))</code>. Any palindromic subsequence of <code>s</code> read in order equals
+  itself read in reverse, so it also sits inside <code>reverse(s)</code> at matching positions.
+</div>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Confusing subsequence with substring.</b> Substrings must be contiguous. "ace" is a subsequence of "abcde"
+    but not a substring. The <b>Longest Common Substring</b> problem is similar in shape but resets to <code>0</code>
+    on a mismatch instead of taking the <code>max</code> of neighbours.</li>
+    <li><b>Off-by-one.</b> The DP is 1-indexed (<code>dp[0][*]</code> is the empty prefix), the strings are 0-indexed.
+    So cell <code>(i, j)</code> compares <code>text1[i&minus;1]</code> and <code>text2[j&minus;1]</code>, not
+    <code>text1[i]</code>.</li>
+    <li><b>Taking <code>dp[i&minus;1][j&minus;1] + 1</code> on a mismatch too.</b> That counts a letter that is not in
+    both strings. The branch is only valid when the two characters are equal.</li>
+    <li><b>Both strings empty or one empty.</b> Returns <code>0</code> from the base, no special case needed.</li>
+    <li><b>Reporting the subsequence as a set.</b> It's a sequence: order and multiplicity matter. "aa" and "a" are
+    different subsequences of "aba".</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I define <code>dp[i][j]</code> as the LCS length of the two prefixes <code>text1[0..i)</code> and
+  <code>text2[0..j)</code>. If the last characters match, I take <code>dp[i&minus;1][j&minus;1] + 1</code>; otherwise
+  I take the better of dropping one end: <code>max(dp[i&minus;1][j], dp[i][j&minus;1])</code>. Base is zero for empty
+  prefixes. Fill the table row by row and return <code>dp[m][n]</code>. That's O(m &middot; n) time and space, and the
+  space drops to O(min(m, n)) with one rolling row if I keep a <code>prevDiag</code> variable. If asked for the actual
+  string, I walk back from <code>(m, n)</code> following which neighbour we came from."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 516 Longest Palindromic Subsequence</td><td>LCS(s, reverse(s)).</td></tr>
+  <tr><td>LC 583 Delete Operation for Two Strings</td><td>Min deletions = <code>m + n &minus; 2 &middot; LCS</code>.</td></tr>
+  <tr><td>LC 712 Minimum ASCII Delete Sum</td><td>Weighted LCS where "common" characters count by ASCII value.</td></tr>
+  <tr><td>LC 72 Edit Distance</td><td>Same table shape, a different recurrence (edit cost instead of overlap length).</td></tr>
+</table>
+
+<script>
+/* Idea diagram: text1 = "abcde", text2 = "ace", show how matches diagonal across the table. */
+(function () {
+  const s1 = 'abcde', s2 = 'ace';
+  const m = s1.length, n = s2.length;
+  const CW = 42, X0 = 70, Y0 = 50;
+  let s = '';
+  // Column header: s2
+  for (let j = 0; j <= n; j++) {
+    const label = j === 0 ? '""' : s2[j - 1];
+    s += `<text x="${X0 + j * CW + CW/2}" y="${Y0 - 10}" text-anchor="middle" font-size="13" font-weight="700" fill="#616e7c">${label}</text>`;
+  }
+  // Row header: s1
+  for (let i = 0; i <= m; i++) {
+    const label = i === 0 ? '""' : s1[i - 1];
+    s += `<text x="${X0 - 14}" y="${Y0 + i * CW + CW/2 + 5}" text-anchor="middle" font-size="13" font-weight="700" fill="#616e7c">${label}</text>`;
+  }
+  // dp values (precomputed)
+  const dp = [
+    [0,0,0,0],
+    [0,1,1,1],
+    [0,1,1,1],
+    [0,1,2,2],
+    [0,1,2,2],
+    [0,1,2,3],
+  ];
+  // highlight diagonal matches: (1,1)=a, (3,2)=c, (5,3)=e
+  const match = new Set(['1,1','3,2','5,3']);
+  for (let i = 0; i <= m; i++) {
+    for (let j = 0; j <= n; j++) {
+      const x = X0 + j * CW, y = Y0 + i * CW;
+      let fill = '#ffffff', stroke = '#475569';
+      if (match.has(i + ',' + j)) { fill = '#e9d5ff'; stroke = '#7c3aed'; }
+      else if (i === 0 || j === 0) { fill = '#f8fafc'; stroke = '#cbd5e1'; }
+      s += `<rect x="${x}" y="${y}" width="${CW}" height="${CW}" fill="${fill}" stroke="${stroke}" stroke-width="2"/>`;
+      s += `<text x="${x + CW/2}" y="${y + CW/2 + 5}" text-anchor="middle" font-size="16" font-weight="700">${dp[i][j]}</text>`;
+    }
+  }
+  s += `<text x="${X0 + (n+1) * CW / 2}" y="${Y0 + (m+1) * CW + 24}" text-anchor="middle" font-size="13">Diagonal matches (purple) grow the LCS. Each +1 jump is one common character.</text>`;
+  const W = X0 + (n + 1) * CW + 30, H = Y0 + (m + 1) * CW + 40;
+  document.getElementById('idea').innerHTML =
+    `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${H}">${s}</svg>`;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Base', lines: ['dp[0][*] = 0', 'dp[*][0] = 0'], color: 'green' },
+  { title: '2. For each (i, j)', lines: ['if t1[i-1] = t2[j-1]:', '  dp[i][j] = dp[i-1][j-1] + 1', 'else:', '  dp[i][j] = max(above, left)'], color: 'yellow' },
+  { title: '3. Answer', lines: ['return dp[m][n]'], color: 'blue' },
+]);
+
+/* Interactive trace. */
+VIZ.controls('trace', [
+  { id: 't1', label: 'text1 =', value: 'abcde', size: 10 },
+  { id: 't2', label: 'text2 =', value: 'ace', size: 10 },
+], v => {
+  const t1 = v.t1.trim(), t2 = v.t2.trim();
+  if (t1.length === 0 || t2.length === 0) return '<div class="box trap">Both strings must be non-empty.</div>';
+  if (t1.length > 7 || t2.length > 7) return '<div class="box trap">Keep each string under 8 characters for a readable trace.</div>';
+
+  const m = t1.length, n = t2.length;
+  const dp = Array.from({length: m + 1}, () => new Array(n + 1).fill(0));
+  const steps = [];
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const match = t1[i-1] === t2[j-1];
+      if (match) dp[i][j] = dp[i-1][j-1] + 1;
+      else dp[i][j] = Math.max(dp[i-1][j], dp[i][j-1]);
+      steps.push({ i, j, match, val: dp[i][j], above: dp[i-1][j], left: dp[i][j-1], diag: dp[i-1][j-1] });
+    }
+  }
+
+  // headers: col 0 is empty prefix, so put '' at index 0 then characters.
+  const colLabels = ['""', ...t2.split('').map((c, k) => `${c}`)];
+  const rowLabels = ['""', ...t1.split('').map((c, k) => `${c}`)];
+
+  const renderGrid = (filled, cur) => {
+    // Build a m+1 by n+1 display array
+    const show = Array.from({length: m + 1}, () => new Array(n + 1).fill('.'));
+    const clsMap = Array.from({length: m + 1}, () => new Array(n + 1).fill('dim'));
+    // The 0-th row/col are "base" (0)
+    for (let i = 0; i <= m; i++) { show[i][0] = 0; clsMap[i][0] = 'keep'; }
+    for (let j = 0; j <= n; j++) { show[0][j] = 0; clsMap[0][j] = 'keep'; }
+    // show cells filled so far
+    for (const st of filled) { show[st.i][st.j] = st.val; clsMap[st.i][st.j] = 'keep'; }
+    if (cur) {
+      show[cur.i][cur.j] = cur.val;
+      clsMap[cur.i][cur.j] = 'new';
+      // mark cells it read
+      if (cur.match) {
+        clsMap[cur.i - 1][cur.j - 1] = 'in';
+      } else {
+        clsMap[cur.i - 1][cur.j] = 'in';
+        clsMap[cur.i][cur.j - 1] = 'in';
+      }
+    }
+    // Render with VIZ.grid but add our own custom row/col labels using index:false then overlay a wrapper.
+    // Simpler: build a bordered grid including the headers inline as the first row/column.
+    const R = m + 1, C = n + 1;
+    const w = Math.max(m, n) > 5 ? 30 : 36;
+    let h = `<div class="grid" style="grid-template-columns:30px repeat(${C}, ${w}px)">`;
+    h += '<span></span>';
+    for (let j = 0; j < C; j++) h += `<span style="font-size:13px;color:#616e7c;text-align:center;font-weight:700">${colLabels[j]}</span>`;
+    for (let i = 0; i < R; i++) {
+      h += `<span style="font-size:13px;color:#616e7c;align-self:center;text-align:center;font-weight:700">${rowLabels[i]}</span>`;
+      for (let j = 0; j < C; j++) {
+        const cls = clsMap[i][j];
+        const small = Math.max(m, n) > 5 ? ' small' : '';
+        h += `<div class="cell ${cls}${small}">${show[i][j]}</div>`;
+      }
+    }
+    h += '</div>';
+    return `<div class="figure">${h}</div>`;
+  };
+
+  let html = '';
+  html += VIZ.step('Init',
+    renderGrid([], null),
+    `Both strings have an empty prefix of length 0 that matches nothing: <code>dp[0][*] = dp[*][0] = 0</code>.`);
+
+  const MAX = 20;
+  const shown = steps.length <= MAX ? steps : steps.slice(0, MAX);
+  const prior = [];
+  shown.forEach((st, k) => {
+    const vis = renderGrid(prior, st);
+    const note = st.match
+      ? `<code>text1[${st.i-1}] = text2[${st.j-1}] = "${t1[st.i-1]}"</code> &rarr; <b>match</b>. <code>dp[${st.i}][${st.j}] = dp[${st.i-1}][${st.j-1}] + 1 = ${st.diag} + 1 = <b>${st.val}</b></code>.`
+      : `<code>"${t1[st.i-1]}" &ne; "${t2[st.j-1]}"</code> &rarr; mismatch. <code>dp[${st.i}][${st.j}] = max(dp[${st.i-1}][${st.j}], dp[${st.i}][${st.j-1}]) = max(${st.above}, ${st.left}) = <b>${st.val}</b></code>.`;
+    html += VIZ.step(`Step ${k + 1}: fill (${st.i}, ${st.j})`, vis, note);
+    prior.push(st);
+  });
+  if (steps.length > MAX) html += `<p class="caption">... ${steps.length - MAX} more cells, same pattern.</p>`;
+
+  document.getElementById('answer').innerHTML =
+    `<b>LCS length for "${t1}" and "${t2}": ${dp[m][n]}.</b>`;
+  return html;
+}, 'Edit either string (up to 7 chars) to see how the table changes.');
+</script>
+
+</body>
+</html>

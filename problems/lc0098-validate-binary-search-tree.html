@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 98 - Validate Binary Search Tree</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#trees">Pattern lesson</a><span>Pattern 8: Trees (DFS/BFS)</span></div>
+
+<h1>Validate Binary Search Tree</h1>
+<p class="sub">LeetCode 98 &middot; Medium &middot; Pattern: DFS with inherited bounds &middot; O(n) time, O(h) space</p>
+
+<div class="box">
+  <b>Problem.</b> Given a binary tree, decide if it is a valid BST. For every node: left subtree values are strictly less,
+  right subtree values are strictly greater. Equal values are not allowed.
+  <br><code>[2,1,3] &rarr; true</code> &nbsp;&nbsp; <code>[5,1,4,null,null,3,6] &rarr; false</code>
+  <br>Link: <a href="https://leetcode.com/problems/validate-binary-search-tree/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Checking only "left &lt; parent &lt; right" at each node is <b>not enough</b>. Each value also has to satisfy every
+ancestor it sits beneath. A value in the right subtree of a node must be greater than that node, even if its own
+immediate parent is smaller.</p>
+
+<p>So each node has an open range (lo, hi) of allowed values, inherited from the chain of ancestors. The root starts at
+(&minus;&infin;, +&infin;). Going left tightens the upper bound to the parent. Going right tightens the lower bound to
+the parent. If any node's value falls outside its range, the tree is not a BST.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Walk the tree with a running range (lo, hi). At each node, require <code>lo &lt; val &lt; hi</code>. Pass
+  (lo, val) to the left child and (val, hi) to the right child. Bounds flow down the tree; validity flows back up.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>The bounds get tighter as you go down. In the figure below the root is 5 with range (&minus;&infin;, +&infin;). Its
+left child 1 inherits (&minus;&infin;, 5); its right child 4 inherits (5, +&infin;). Then 4's children inherit (5, 4) and
+(4, +&infin;). The value 3 sits under the range (5, 4), which is empty, so the check fails.</p>
+
+<div id="failingTree"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>At each step the yellow node is the one being checked. The orange note is its allowed range (lo, hi). Green means its
+subtree has already been proven valid; purple means a violation was found and the whole tree is rejected.</p>
+
+<div class="legend">
+  <span><i style="background:#fde68a;border-color:#d97706"></i>checking now</span>
+  <span><i style="background:#dbeafe;border-color:#3b82f6"></i>on the call stack</span>
+  <span><i style="background:#bbf7d0;border-color:#15803d"></i>subtree valid</span>
+  <span><i style="background:#e9d5ff;border-color:#7c3aed"></i>violation (reject)</span>
+  <span style="color:#d97706">note = (lo, hi)</span>
+</div>
+
+<div id="trace"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="t">bool</span> check(<span class="t">TreeNode</span>* n, <span class="t">long</span> lo, <span class="t">long</span> hi) {
+    <span class="k">if</span> (!n) <span class="k">return</span> <span class="k">true</span>;
+    <span class="k">if</span> (n-&gt;val &lt;= lo || n-&gt;val &gt;= hi) <span class="k">return</span> <span class="k">false</span>;    <span class="c">// out of allowed range</span>
+    <span class="k">return</span> check(n-&gt;left, lo, n-&gt;val) &amp;&amp; check(n-&gt;right, n-&gt;val, hi);
+}
+<span class="t">bool</span> isValidBST(<span class="t">TreeNode</span>* root) {
+    <span class="k">return</span> check(root, LONG_MIN, LONG_MAX);
+}</pre>
+
+<p><b>Complexity:</b> each node is visited once, O(n) time. Recursion depth is the height, O(h) stack space.</p>
+
+<h3>Alternative: inorder walk and check strictly increasing</h3>
+
+<pre><span class="t">long</span> prev = LONG_MIN;
+<span class="t">bool</span> isValidBST(<span class="t">TreeNode</span>* root) {
+    <span class="k">if</span> (!root) <span class="k">return</span> <span class="k">true</span>;
+    <span class="k">if</span> (!isValidBST(root-&gt;left))  <span class="k">return</span> <span class="k">false</span>;
+    <span class="k">if</span> (root-&gt;val &lt;= prev) <span class="k">return</span> <span class="k">false</span>;
+    prev = root-&gt;val;
+    <span class="k">return</span> isValidBST(root-&gt;right);
+}</pre>
+
+<p>An inorder traversal of a BST yields values in strictly increasing order, so you can walk left-root-right and compare
+each value to the previous one. Same O(n) time. The bounds version is more common because it also handles duplicate-free
+checks without a mutable "prev" global, and it fails fast on the first violation.</p>
+
+<h2>5. The part interviewers ask about: the parent-only trap</h2>
+
+<div class="box insight">
+  The naive "left &lt; node &lt; right at every node" check is wrong. A node is in a <i>subtree</i>, not just under its
+  immediate parent. The tree <code>[5,4,6,null,null,3,7]</code> looks locally fine (4 &lt; 5 &lt; 6, 3 &lt; 6 &lt; 7), but
+  the value <b>3</b> sits in the right subtree of the root 5, so it must be greater than 5. Only inherited bounds catch
+  this.
+</div>
+
+<p>Why integer bounds need widening: LeetCode allows <code>INT_MIN</code> and <code>INT_MAX</code> as node values. The
+root starts with lo = <code>INT_MIN</code>, so a left-most node holding <code>INT_MIN</code> itself would fail with
+<code>val &lt;= lo</code>. The usual fix is <code>long</code> bounds (<code>LONG_MIN</code>, <code>LONG_MAX</code>) so the
+int values can equal the extremes without colliding with the sentinels. Another fix: pass pointers (<code>TreeNode*</code>
+or <code>optional&lt;int&gt;</code>) instead of integer sentinels.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Checking only immediate parent.</b> The <code>[5,4,6,null,null,3,7]</code> tree is the canonical gotcha, see
+    above.</li>
+    <li><b>Using <code>&lt;</code> instead of <code>&lt;=</code>.</b> BST is strict: duplicates violate. <code>[1,1]</code>
+    must return <code>false</code>.</li>
+    <li><b><code>int</code> bounds and <code>INT_MIN</code>/<code>INT_MAX</code> values.</b> A node of value <code>INT_MIN</code>
+    fails against <code>lo = INT_MIN</code>. Use <code>long</code> or pointers.</li>
+    <li><b>Edge: empty tree.</b> Valid. The base case returns true.</li>
+    <li><b>Edge: single node.</b> Valid. Any single value sits in (&minus;&infin;, +&infin;).</li>
+    <li><b>Mutable "prev" in the inorder version.</b> If you forget to reset it between test cases, a second call sees
+    stale state and gives a wrong answer. Prefer the bounds version in a shared service.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "Each node must satisfy every ancestor, not just its parent. So I carry a range (lo, hi) down the recursion. The root
+  starts at full range. Going left tightens the upper bound to the parent, going right tightens the lower bound. At each
+  node I check <code>lo &lt; val &lt; hi</code>. One pass, O(n) time, O(h) stack. The classic trap is checking only the
+  immediate parent &mdash; <code>[5,4,6,null,null,3,7]</code> fools it."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 94 Binary Tree Inorder Traversal</td><td>The alternative "check strictly increasing" solution uses this.</td></tr>
+  <tr><td>LC 230 Kth Smallest in BST</td><td>Inorder gives sorted order; stop at the kth value.</td></tr>
+  <tr><td>LC 783 Minimum Distance Between BST Nodes</td><td>Same inorder trick, compare adjacent pairs.</td></tr>
+  <tr><td>LC 108 Convert Sorted Array to BST</td><td>Inverse direction: build a BST so that inherited bounds hold by construction.</td></tr>
+  <tr><td>LC 99 Recover BST</td><td>Inorder gives two out-of-order pairs; swap them back.</td></tr>
+</table>
+
+<script>
+/* Idea: show a valid BST and the trap tree side by side with bounds annotations. */
+document.getElementById('idea').innerHTML =
+  '<div style="display:flex;gap:30px;align-items:flex-start;flex-wrap:wrap">' +
+    '<div><div class="caption">valid BST</div>' +
+      VIZ.tree([5,3,8,1,4,7,9], { cls: {}, notes: {} }) + '</div>' +
+    '<div><div class="caption">looks local-fine, is NOT a BST</div>' +
+      VIZ.tree([5,4,6,null,null,3,7], { cls: {5: 'hit'}, notes: {5: 'needs > 5'} }) + '</div>' +
+  '</div>';
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Base',   lines: ['n == null?', 'return true'], color: 'blue' },
+  { title: '2. Check',  lines: ['lo < val < hi ?', 'if not, return false'], color: 'yellow' },
+  { title: '3. Left',   lines: ['check(left, lo, val)'], color: 'purple' },
+  { title: '4. Right',  lines: ['check(right, val, hi)'], color: 'green' },
+]);
+
+document.getElementById('failingTree').innerHTML =
+  VIZ.tree([5,4,6,null,null,3,7], {
+    cls: { 5: 'hit' },
+    notes: { 0: '(-inf,+inf)', 1: '(-inf,5)', 2: '(5,+inf)', 5: '(5,6) FAIL', 6: '(6,+inf)' }
+  });
+
+/* The trace. */
+VIZ.controls('trace', [
+  { id: 'root', label: 'root =', value: '[5,4,6,null,null,3,7]', size: 28 },
+], v => {
+  const arr = VIZ.parse.tree(v.root);
+  const root = VIZ.buildTree(arr);
+  if (!root) return '<div class="box good"><b>Empty tree is a valid BST.</b></div>';
+
+  const steps = [];
+  const state = {}, notes = {};
+  const fmt = x => x <= -1e15 ? '-inf' : (x >= 1e15 ? '+inf' : x);
+  const rng = (lo, hi) => '(' + fmt(lo) + ',' + fmt(hi) + ')';
+  const snap = (title, text) => steps.push({ title, text,
+    cls: Object.assign({}, state), notes: Object.assign({}, notes) });
+
+  let violated = false;
+  function check(n, lo, hi) {
+    if (!n) return true;
+    notes[n.id] = rng(lo, hi);
+    state[n.id] = 'new';
+    snap('visit ' + n.val, 'Check <b>' + n.val + '</b> against range <code>' + rng(lo, hi) + '</code>.');
+
+    if (n.val <= lo || n.val >= hi) {
+      state[n.id] = 'hit';
+      notes[n.id] = rng(lo, hi) + ' FAIL';
+      snap('violation at ' + n.val, '<b>' + n.val + '</b> is not in <code>' + rng(lo, hi) +
+        '</code>. The whole tree is rejected.');
+      violated = true;
+      return false;
+    }
+    state[n.id] = 'in';
+    const L = check(n.left,  lo, n.val);
+    if (!L) return false;
+    const R = check(n.right, n.val, hi);
+    if (!R) return false;
+    state[n.id] = 'keep';
+    snap('ok ' + n.val, 'Subtree rooted at <b>' + n.val + '</b> is a valid BST.');
+    return true;
+  }
+  const ok = check(root, -1e18, 1e18);
+
+  const html = steps.slice(0, 25).map(s =>
+    VIZ.step(s.title, VIZ.tree(root, { cls: s.cls, notes: s.notes }), s.text)
+  ).join('');
+  const extra = steps.length > 25 ? '<p class="caption">&hellip; ' + (steps.length - 25) + ' more steps</p>' : '';
+  const verdict = ok ? '<div class="box good"><b>Answer: true (valid BST)</b></div>'
+                     : '<div class="box good"><b>Answer: false (not a valid BST)</b></div>';
+  return html + extra + verdict;
+});
+</script>
+</body>
+</html>

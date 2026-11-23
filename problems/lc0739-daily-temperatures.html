@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 739 - Daily Temperatures</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#stacks-monotonic">Pattern lesson</a><span>Pattern 6: Stacks &amp; Monotonic Stacks</span></div>
+
+<h1>Daily Temperatures</h1>
+<p class="sub">LeetCode 739 &middot; Medium &middot; Pattern: monotonic decreasing stack of indices &middot; O(n) time, O(n) space</p>
+
+<div class="box">
+  <b>Problem.</b> Given <code>temperatures[i]</code>, return <code>ans[i]</code> = the number of days until a strictly
+  warmer day, or <code>0</code> if there is no warmer day in the future.
+  <br><code>[73,74,75,71,69,72,76,73] &rarr; [1,1,4,2,1,1,0,0]</code>
+  <br>Link: <a href="https://leetcode.com/problems/daily-temperatures/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>This is a <b>next-greater-element</b> problem. The brute force is quadratic: for each day, scan forward until you
+find a warmer one. The waste is obvious: once a cold day has been "satisfied" by day <code>i</code>, we never need to
+re-check it. We want a data structure that holds the days still <i>waiting</i> for a warmer future.</p>
+
+<p>Hold the <b>indices of unresolved days</b> on a stack. Keep the stack so that temperatures from bottom to top are
+<b>strictly decreasing</b>. When a new day <code>i</code> arrives:</p>
+
+<ul>
+  <li>Any day on top of the stack with <code>t[top] &lt; t[i]</code> is <i>now</i> resolved: its answer is
+  <code>i - top</code>. Pop it.</li>
+  <li>Repeat until the stack is empty or the top is not strictly colder than <code>t[i]</code>.</li>
+  <li>Push <code>i</code>. The stack stays decreasing.</li>
+</ul>
+
+<p>Every index is pushed exactly once and popped at most once, so total work is O(n).</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Monotonic decreasing stack of indices. A new, warmer day pays off all colder waiting days on top at once.
+  The gap <code>i &minus; top</code> is the answer for the day being popped.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>The strip is <code>temperatures</code>; the yellow cell is <code>i</code>. The column on the right is the stack of
+indices (top up); each stack cell shows the index with its temperature in brackets. Green cells on the strip have
+received their answer.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>day being read (i)</span>
+  <span><i style="background:var(--win)"></i>index still on the stack</span>
+  <span><i style="background:var(--keep)"></i>answer filled this step</span>
+  <span><i style="background:var(--gone)"></i>index popped this step</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">vector</span>&lt;<span class="t">int</span>&gt; dailyTemperatures(<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; t) {
+        <span class="t">int</span> n = (<span class="t">int</span>)t.size();
+        <span class="t">vector</span>&lt;<span class="t">int</span>&gt; ans(n, <span class="n">0</span>);
+        <span class="t">stack</span>&lt;<span class="t">int</span>&gt; st;                       <span class="c">// indices, temps strictly decreasing bottom-&gt;top</span>
+        <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt; n; i++) {
+            <span class="k">while</span> (!st.empty() &amp;&amp; t[i] &gt; t[st.top()]) {
+                <span class="t">int</span> j = st.top(); st.pop();
+                ans[j] = i - j;                 <span class="c">// first warmer day for j is i</span>
+            }
+            st.push(i);
+        }
+        <span class="k">return</span> ans;
+    }
+};</pre>
+
+<p><b>Complexity:</b> each index is pushed once and popped at most once. O(n) time. The stack can hold all n indices in
+the worst case (strictly decreasing input), so O(n) space.</p>
+
+<h3>Alternative: O(1) extra space, walk right to left</h3>
+
+<pre><span class="t">int</span> n = t.size();
+<span class="t">vector</span>&lt;<span class="t">int</span>&gt; ans(n, <span class="n">0</span>);
+<span class="k">for</span> (<span class="t">int</span> i = n - <span class="n">2</span>; i &gt;= <span class="n">0</span>; i--) {
+    <span class="t">int</span> j = i + <span class="n">1</span>;
+    <span class="k">while</span> (j &lt; n &amp;&amp; t[j] &lt;= t[i]) {
+        <span class="k">if</span> (ans[j] == <span class="n">0</span>) { j = n; <span class="k">break</span>; }  <span class="c">// no warmer day exists after i either</span>
+        j += ans[j];                              <span class="c">// jump over "known loser" runs</span>
+    }
+    <span class="k">if</span> (j &lt; n) ans[i] = j - i;
+}</pre>
+
+<p>Same O(n) amortised time because <code>ans[j]</code> lets you skip entire blocks that cannot beat <code>t[i]</code>.
+Reuses the output as scratch space, so no explicit stack. Slick but harder to explain under time pressure; use the
+monotonic stack as the first answer.</p>
+
+<h2>5. The part interviewers ask about: why strictly greater, and why indices</h2>
+
+<div class="box insight">
+  <b>Strict</b> <code>&gt;</code> in <code>t[i] &gt; t[st.top()]</code> matters because the problem says "strictly
+  warmer". If you wrote <code>&ge;</code>, equal temperatures would pop each other and count the same day as "warmer",
+  giving a wrong answer. On <code>[70,70,71]</code> the right output is <code>[2,1,0]</code>, not <code>[1,1,0]</code>.
+  <br><br>
+  <b>Indices, not values</b>, because the answer is a <i>distance</i>. If the stack stored temperatures you would still
+  need an index to compute <code>i - j</code>. Indices give you the temperature via one array lookup
+  (<code>t[st.top()]</code>) and the distance for free.
+</div>
+
+<p>The invariant "temperatures on the stack are strictly decreasing bottom to top" is maintained by the <code>while</code>
+loop: before pushing <code>i</code>, we have popped every top whose temperature is strictly below <code>t[i]</code>, so
+either the stack is empty or the top is <code>&ge; t[i]</code>; pushing <code>i</code> keeps the sequence
+non-increasing, and the strict comparison also keeps duplicates on the stack in order (an earlier day with the same
+temperature stays below a later one &mdash; good, because it is still waiting for a strictly warmer day).</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Pushing temperatures instead of indices.</b> You lose the ability to compute the distance in O(1).</li>
+    <li><b>Using <code>&ge;</code> in the pop condition.</b> Equal temperatures leak answers to each other and you get
+    wrong distances on runs of equal temperatures.</li>
+    <li><b>Initialising <code>ans</code> with something other than 0.</b> Any index left on the stack at the end never
+    saw a warmer day, so its <code>ans</code> must be <code>0</code>. The vector's default value handles this; don't
+    overwrite it.</li>
+    <li><b>Walking the stack to clear it at the end.</b> Unnecessary: untouched entries already have <code>ans = 0</code>.
+    Writing a loop here is a tell that the invariant is not clear in your head.</li>
+    <li><b>Strictly decreasing input.</b> <code>[76,75,74]</code> never pops. Stack grows to size n, all answers are 0.
+    This is the O(n) space worst case.</li>
+    <li><b>Length-1 input.</b> <code>[73] &rarr; [0]</code>. The outer <code>for</code> handles it; no while body runs.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I keep a stack of indices for days that are still waiting for a warmer day. The temperatures on the stack are strictly
+  decreasing from bottom to top. For each new day <code>i</code>, I pop every index on top whose temperature is strictly
+  less than <code>t[i]</code> and set its answer to <code>i &minus; j</code>. Then push <code>i</code>. Each index is
+  pushed once and popped at most once, so O(n) time and O(n) space. Any index still on the stack at the end never got a
+  warmer day, so its answer stays 0."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 496 Next Greater Element I</td><td>Exact same monotonic-decreasing stack scan; just stop at values, not
+  distances.</td></tr>
+  <tr><td>LC 503 Next Greater Element II (circular)</td><td>Run the scan over the array concatenated with itself (or
+  modulo <code>n</code>) to handle the circular wrap.</td></tr>
+  <tr><td>LC 901 Online Stock Span</td><td>Same decreasing stack, but counts how many days back were weakly less than
+  today instead of how many ahead are strictly greater.</td></tr>
+  <tr><td>LC 84 Largest Rectangle in Histogram</td><td>Different variant: monotonic <i>increasing</i> stack of indices
+  so that a shorter bar flushes a prefix of taller ones and computes areas.</td></tr>
+</table>
+
+<script>
+/* Idea diagram: show the monotonic decreasing stack after processing [73,74,75,71,69,72]. */
+document.getElementById('idea').innerHTML = (function () {
+  const t = [73, 74, 75, 71, 69, 72];
+  const n = t.length;
+  const ans = Array(n).fill(0);
+  const st = [];
+  for (let i = 0; i < n; i++) {
+    while (st.length && t[i] > t[st[st.length - 1]]) {
+      const j = st.pop(); ans[j] = i - j;
+    }
+    st.push(i);
+  }
+  const stripCls = {};
+  st.forEach(idx => { stripCls[idx] = 'in'; });
+  for (let i = 0; i < n; i++) if (!(i in stripCls)) stripCls[i] = 'keep';
+  const strip = VIZ.strip(t, { cls: stripCls });
+  const vals = st.map(i => `i=${i} (${t[i]})`);
+  const stk = VIZ.stack(vals, { title: 'stack after scan' });
+  return `<div class="figure" style="display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap">${strip}${stk}</div>
+    <div class="caption">Blue cells are indices still on the stack (waiting). Green cells already got their answer.
+    Stack reads bottom &rarr; top as temperatures ${st.map(i => t[i]).join(' &gt; ')}, strictly decreasing.</div>`;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Read i', lines: ['new temperature t[i]'], color: 'yellow' },
+  { title: '2. Pay off waiters', lines: ['while top is colder:', 'ans[top] = i - top', 'pop'], color: 'green' },
+  { title: '3. Push i', lines: ['stack stays decreasing'], color: 'blue' },
+], { loop: 'next i' });
+
+/* Interactive trace. */
+VIZ.controls('trace', [
+  { id: 't', label: 't =', value: '[73,74,75,71,69,72,76,73]', size: 32 },
+], v => {
+  let t;
+  try { t = VIZ.parse.arr(v.t); }
+  catch (e) { throw new Error(e.message); }
+  if (!Array.isArray(t)) throw new Error('expected an array');
+  if (t.length === 0) throw new Error('empty array');
+  if (t.length > 14) throw new Error('keep length <= 14 for a readable trace');
+  if (t.some(x => typeof x !== 'number')) throw new Error('temperatures must be numbers');
+
+  const n = t.length;
+  const ans = Array(n).fill(0);
+  const st = [];
+  const steps = [];
+
+  for (let i = 0; i < n; i++) {
+    // Pop phase: record one step per pop so each width is explicit, then a final push step.
+    const popped = [];
+    while (st.length && t[i] > t[st[st.length - 1]]) {
+      const j = st.pop();
+      ans[j] = i - j;
+      popped.push({ j, dist: i - j });
+      steps.push({
+        kind: 'pop', i, j, dist: i - j,
+        stackSnapshot: [...st], ansSnapshot: [...ans],
+        note: `<code>t[${i}]=${t[i]}</code> &gt; <code>t[${j}]=${t[j]}</code>, so day ${j} is resolved. Set <code>ans[${j}] = ${i} - ${j} = ${i - j}</code>. Pop.`,
+      });
+    }
+    st.push(i);
+    const topBelow = (st.length >= 2) ? st[st.length - 2] : -1;
+    const reason = topBelow < 0
+      ? 'stack is empty, nothing to pay off'
+      : `<code>t[${topBelow}]=${t[topBelow]}</code> &ge; <code>t[${i}]=${t[i]}</code>, so day ${i} is now waiting`;
+    steps.push({
+      kind: 'push', i, popped, stackSnapshot: [...st], ansSnapshot: [...ans],
+      note: `Push index ${i}: ${reason}.`,
+    });
+  }
+
+  const MAX = 25;
+  const shown = steps.slice(0, MAX);
+  let html = '';
+  shown.forEach((s, k) => {
+    // Strip colouring
+    const cls = {};
+    for (let x = 0; x < n; x++) {
+      if (ansSnapshotHas(s.ansSnapshot, x) && s.ansSnapshot[x] > 0) cls[x] = 'keep';
+    }
+    s.stackSnapshot.forEach(idx => { if (!cls[idx]) cls[idx] = 'in'; });
+    cls[s.i] = (s.kind === 'push') ? 'in' : 'new';
+    if (s.kind === 'pop') cls[s.j] = 'keep';
+    const strip = VIZ.strip(t, { cls });
+
+    // Build the stack display including the popped index as a strike-through below top for this step.
+    const vals = s.stackSnapshot.map(idx => `i=${idx} (${t[idx]})`);
+    const stkCls = {};
+    vals.forEach((_, idx) => { stkCls[idx] = 'in'; });
+    if (s.kind === 'push') stkCls[vals.length - 1] = 'new';
+    let extra = '';
+    if (s.kind === 'pop') {
+      vals.push(`i=${s.j} (${t[s.j]})`);
+      stkCls[vals.length - 1] = 'gone';
+    }
+    const stk = VIZ.stack(vals, { title: 'stack (top up)', cls: stkCls });
+
+    // Also show ans array so progress is visible
+    const ansCls = {};
+    for (let x = 0; x < n; x++) if (s.ansSnapshot[x] > 0) ansCls[x] = 'keep';
+    const ansStrip = VIZ.strip(s.ansSnapshot, { cls: ansCls, labels: Array.from({ length: n }, (_, i) => `ans[${i}]`) });
+
+    const title = s.kind === 'push'
+      ? `Step ${k + 1}: i = ${s.i}, push`
+      : `Step ${k + 1}: i = ${s.i}, pop ${s.j}`;
+    html += VIZ.step(title,
+      '<div style="display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap">' + strip + stk + '</div>' +
+      '<div style="margin-top:10px">' + ansStrip + '</div>',
+      s.note, true);
+  });
+  if (steps.length > MAX) html += `<p class="caption">... ${steps.length - MAX} more steps, same pattern.</p>`;
+
+  document.getElementById('answer').innerHTML =
+    `<b>Answer for temperatures = [${t.join(',')}]:</b> [${ans.join(', ')}]`;
+  return html;
+}, 'Values are temperatures left to right. Try [30,40,50,60] or [90,80,70,60] to see the two extremes.');
+
+function ansSnapshotHas(arr, i) { return i >= 0 && i < arr.length; }
+</script>
+
+</body>
+</html>

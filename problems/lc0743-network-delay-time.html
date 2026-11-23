@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 743 - Network Delay Time</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#shortest-path-union-find">Pattern lesson</a><span>Pattern 11: Graphs - Shortest Path / Union-Find</span></div>
+
+<h1>Network Delay Time</h1>
+<p class="sub">LeetCode 743 &middot; Medium &middot; Pattern: single-source shortest path (Dijkstra) &middot; O((V+E) log V) time, O(V+E) space</p>
+
+<div class="box">
+  <b>Problem.</b> You have <code>n</code> nodes numbered <code>1..n</code>. <code>times[i] = [u, v, w]</code> means a signal
+  from <code>u</code> to <code>v</code> takes <code>w</code> time (directed, non-negative weights).
+  A signal is sent from node <code>k</code>. Return the time until every node has received it, or <code>-1</code> if some
+  node never does.
+  <br><code>times=[[2,1,1],[2,3,1],[3,4,1]], n=4, k=2 &rarr; 2</code>
+  <br>Link: <a href="https://leetcode.com/problems/network-delay-time/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>"Time until the last node hears it" is "<b>the maximum shortest distance</b> from <code>k</code> to any node". So this is
+single-source shortest path on a directed graph with non-negative weights &mdash; the exact problem Dijkstra solves.</p>
+
+<p>Dijkstra keeps a tentative distance <code>dist[v]</code> for every node (infinity at the start, 0 at the source) and a
+min-heap of <code>(distance, node)</code> candidates. Each step pops the <i>cheapest unsettled</i> node, locks in its
+distance, and relaxes its outgoing edges.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Greedy by shortest tentative distance. The first time the heap pops a node, that distance is final, because
+  every edge weight is &ge; 0 so no later path can be cheaper.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>The "stale entry" check is the small trick that lets us <i>push</i> an improved distance instead of expensively
+decreasing a key already inside the heap. We just push a new pair; the old one gets ignored when it finally pops.</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Input format: edges as <code>[[u,v,w],...]</code>. The picture at each step shows the graph with settled nodes green, the
+distance array below, and the heap contents on the right.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>node popped this step</span>
+  <span><i style="background:var(--keep)"></i>settled (distance final)</span>
+  <span><i style="background:var(--win)"></i>relaxed edge</span>
+  <span><i style="background:#fff;border:1px solid #cbd5e1"></i>unseen / unsettled</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="t">int</span> networkDelayTime(vector&lt;vector&lt;<span class="t">int</span>&gt;&gt;&amp; times, <span class="t">int</span> n, <span class="t">int</span> k) {
+    vector&lt;vector&lt;pair&lt;<span class="t">int</span>,<span class="t">int</span>&gt;&gt;&gt; adj(n + <span class="n">1</span>);        <span class="c">// adj[u] = {(v, w), ...}</span>
+    <span class="k">for</span> (<span class="k">auto</span>&amp; t : times) adj[t[<span class="n">0</span>]].push_back({t[<span class="n">1</span>], t[<span class="n">2</span>]});
+
+    vector&lt;<span class="t">int</span>&gt; dist(n + <span class="n">1</span>, INT_MAX);
+    dist[k] = <span class="n">0</span>;
+
+    priority_queue&lt;pair&lt;<span class="t">int</span>,<span class="t">int</span>&gt;, vector&lt;pair&lt;<span class="t">int</span>,<span class="t">int</span>&gt;&gt;, greater&lt;&gt;&gt; pq;
+    pq.push({<span class="n">0</span>, k});
+
+    <span class="k">while</span> (!pq.empty()) {
+        <span class="k">auto</span> [d, u] = pq.top(); pq.pop();
+        <span class="k">if</span> (d &gt; dist[u]) <span class="k">continue</span>;                      <span class="c">// stale entry, skip</span>
+        <span class="k">for</span> (<span class="k">auto</span> [v, w] : adj[u]) {
+            <span class="k">if</span> (d + w &lt; dist[v]) {
+                dist[v] = d + w;
+                pq.push({dist[v], v});
+            }
+        }
+    }
+
+    <span class="t">int</span> ans = <span class="n">0</span>;
+    <span class="k">for</span> (<span class="t">int</span> i = <span class="n">1</span>; i &lt;= n; i++) {
+        <span class="k">if</span> (dist[i] == INT_MAX) <span class="k">return</span> -<span class="n">1</span>;
+        ans = max(ans, dist[i]);
+    }
+    <span class="k">return</span> ans;
+}</pre>
+
+<p><b>Complexity:</b> O((V + E) log V). Each edge is relaxed at most once per push into the heap; the heap holds at most E
+entries. The adjacency list is O(V + E) space, the heap O(E).</p>
+
+<h2>5. The part interviewers ask about: why the first pop is final</h2>
+
+<div class="box insight">
+  <b>Correctness.</b> Suppose Dijkstra pops <code>u</code> with distance <code>d</code>, and some other path to
+  <code>u</code> exists with total cost <code>d' &lt; d</code>. Walk that path from the source: the first node on it that
+  is still unsettled has tentative distance &le; <code>d'</code> (we would have relaxed into it from a settled predecessor).
+  So it is cheaper than <code>u</code> and would have popped first &mdash; contradiction. The first pop is final.
+  <br><br>
+  This argument needs <b>non-negative weights</b>. With a negative edge, a later detour through it could cheapen a node
+  we have already settled, breaking the invariant. For negative weights use Bellman-Ford instead (LC 787).
+</div>
+
+<h3>Why we push duplicates instead of decrease-key</h3>
+
+<p>C++'s <code>priority_queue</code> has no efficient decrease-key. The clean fix is: when we find a cheaper distance,
+<i>push a new pair</i> and let the old one sit. When the stale pair pops, <code>d &gt; dist[u]</code> and we
+<code>continue</code>. The heap stays O(E) and each pop is still O(log V).</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Treating the graph as undirected.</b> Edges are directed. <code>u &rarr; v</code> does not imply
+    <code>v &rarr; u</code>.</li>
+    <li><b>Forgetting the stale check.</b> Without <code>if (d &gt; dist[u]) continue;</code> you re-relax from an
+    out-of-date distance and the result is still correct, but you pay a lot more work. Keep the check.</li>
+    <li><b>1-indexed nodes.</b> Nodes are <code>1..n</code>, so use <code>n + 1</code> sized arrays and check indices
+    <code>1..n</code> for the answer.</li>
+    <li><b>Overflow with INT_MAX.</b> Do <i>not</i> compute <code>dist[u] + w</code> when <code>dist[u] == INT_MAX</code>.
+    The stale check guards us (we only relax after popping a real distance), but a hand-rolled version has to be careful.</li>
+    <li><b>Unreachable node.</b> Return <code>-1</code> as soon as any <code>dist[i]</code> stays infinite. Easy to miss when
+    you are focused on the "max" computation.</li>
+    <li><b>Self-loops.</b> Allowed, don't shorten anything, and the stale check filters the re-pop.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "The answer is the maximum shortest distance from <code>k</code> to any node, so I run Dijkstra. I keep a distance array
+  and a min-heap seeded with <code>(0, k)</code>. Pop the smallest, skip if the popped distance is bigger than the recorded
+  one, otherwise relax every outgoing edge and push improved distances. Non-negative weights make the first pop of each node
+  final. At the end I take the max of the distance array; if any node is still infinity, return <code>-1</code>. The time is
+  O((V+E) log V)."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 1631 Path With Minimum Effort</td><td>Dijkstra on a grid; weight is the max edge on the path, not the sum.</td></tr>
+  <tr><td>LC 1514 Path with Maximum Probability</td><td>Dijkstra on <code>-log(prob)</code> or a max-heap on probability.</td></tr>
+  <tr><td>LC 787 Cheapest Flights Within K Stops</td><td>Shortest path with an extra "number of edges &le; k+1" constraint; Dijkstra fails, use Bellman-Ford.</td></tr>
+  <tr><td>LC 2473 Minimum Cost to Buy Apples</td><td>Dijkstra from every city, then combine with the apple price.</td></tr>
+</table>
+
+<script>
+/* 1. Static idea diagram: a tiny weighted graph with distance labels around each node. */
+(function () {
+  // nodes 1..4 in a square
+  const nodes = [
+    { id: 1, x: 70,  y: 60,  label: '1' },
+    { id: 2, x: 240, y: 60,  label: '2' },
+    { id: 3, x: 70,  y: 180, label: '3' },
+    { id: 4, x: 240, y: 180, label: '4' },
+  ];
+  const edges = [[2, 1, 1], [2, 3, 1], [3, 4, 1], [1, 4, 5]];
+  const html = VIZ.graph(nodes, edges, {
+    directed: true,
+    nodeCls: { 2: 'keep', 1: 'in', 3: 'in', 4: 'in' },
+    edgeCls: { '2-1': 'keep', '2-3': 'keep', '3-4': 'keep' },
+    notes: { 2: 'd=0 (source)', 1: 'd=1', 3: 'd=1', 4: 'd=2' },
+    w: 320, h: 240,
+  });
+  document.getElementById('idea').innerHTML =
+    html + '<div class="caption">Source k=2. Shortest-path tree in green; the answer is max(1, 1, 2) = <b>2</b>.</div>';
+})();
+
+/* 2. Flow of the algorithm */
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Init', lines: ['dist[v] = INF', 'dist[k] = 0', 'push (0, k)'], color: 'green' },
+  { title: '2. Pop smallest', lines: ['(d, u) = heap.pop()', 'if d > dist[u]: skip'], color: 'yellow' },
+  { title: '3. Relax edges', lines: ['for each (v, w) out of u:', 'if d + w < dist[v]:', '  dist[v] = d + w', '  push (dist[v], v)'], color: 'blue' },
+], { loop: 'until heap empty' });
+
+/* 3. Interactive trace */
+(function () {
+  // Simple min-heap implementation (array of [key, value]).
+  function Heap() { this.a = []; }
+  Heap.prototype.push = function (x) {
+    this.a.push(x); let i = this.a.length - 1;
+    while (i > 0) { const p = (i - 1) >> 1; if (this.a[p][0] <= this.a[i][0]) break; [this.a[p], this.a[i]] = [this.a[i], this.a[p]]; i = p; }
+  };
+  Heap.prototype.pop = function () {
+    const top = this.a[0], last = this.a.pop();
+    if (this.a.length) { this.a[0] = last; let i = 0; const n = this.a.length;
+      while (true) {
+        const l = 2*i+1, r = 2*i+2; let m = i;
+        if (l < n && this.a[l][0] < this.a[m][0]) m = l;
+        if (r < n && this.a[r][0] < this.a[m][0]) m = r;
+        if (m === i) break;
+        [this.a[i], this.a[m]] = [this.a[m], this.a[i]]; i = m;
+      }
+    }
+    return top;
+  };
+  Heap.prototype.size = function () { return this.a.length; };
+
+  // Lay the nodes out on a circle so any n fits.
+  function layout(n) {
+    return VIZ.circleLayout(Array.from({length: n}, (_, i) => i + 1), 170, 140, Math.min(110, 30 + n * 15));
+  }
+  function distRow(dist, highlight) {
+    const vals = dist.slice(1).map(d => d === Infinity ? '&infin;' : d);
+    const n = vals.length;
+    return VIZ.strip(vals, {
+      labels: Array.from({length: n}, (_, i) => (i + 1)),
+      cls: (i) => highlight && highlight.has(i + 1) ? 'new' : (dist[i + 1] !== Infinity ? 'in' : 'dim'),
+      small: true,
+    });
+  }
+  function heapView(heap) {
+    const entries = heap.a.slice().sort((a, b) => a[0] - b[0]);
+    if (!entries.length) return '<div class="caption">heap: empty</div>';
+    const labels = entries.map(([d, u]) => `(${d}, ${u})`);
+    return '<div class="caption" style="margin-bottom:3px">heap (sorted ascending):</div>' +
+      VIZ.strip(labels, { index: false, small: true, cls: (i) => i === 0 ? 'new' : 'in' });
+  }
+
+  function run(input) {
+    const edges = VIZ.parse.mat(input.edges);
+    const n = VIZ.parse.int(input.n);
+    const k = VIZ.parse.int(input.k);
+    if (n < 1 || n > 30) return '<div class="box trap">Use 1 &le; n &le; 30 for a readable trace.</div>';
+    const adj = Array.from({length: n + 1}, () => []);
+    for (const e of edges) {
+      if (e.length < 3) return '<div class="box trap">Each edge must be [u, v, w].</div>';
+      adj[e[0]].push([e[1], e[2]]);
+    }
+    const INF = Infinity;
+    const dist = Array(n + 1).fill(INF); dist[k] = 0;
+    const settled = new Set();
+    const heap = new Heap(); heap.push([0, k]);
+    const pos = layout(n);
+    const posById = new Map(pos.map(p => [p.id, p]));
+
+    function drawGraph(pop, relaxed) {
+      const nodeCls = {};
+      for (let i = 1; i <= n; i++) {
+        if (settled.has(i)) nodeCls[i] = 'keep';
+        else if (dist[i] !== INF) nodeCls[i] = 'in';
+      }
+      if (pop !== undefined) nodeCls[pop] = 'new';
+      const edgeCls = {};
+      for (const [u, v] of relaxed || []) edgeCls[u + '-' + v] = 'new';
+      const notes = {};
+      for (let i = 1; i <= n; i++) notes[i] = 'd=' + (dist[i] === INF ? '&infin;' : dist[i]);
+      const allEdges = [];
+      for (let u = 1; u <= n; u++) for (const [v, w] of adj[u]) allEdges.push([u, v, w]);
+      return VIZ.graph(pos, allEdges, { directed: true, nodeCls, edgeCls, notes, w: 360, h: 300 });
+    }
+
+    let html = '';
+    html += VIZ.step('Init',
+      drawGraph(k, []),
+      `dist[${k}] = 0, everything else &infin;. Push <code>(0, ${k})</code> onto the heap.` +
+      '<div style="margin-top:6px">' + distRow(dist, new Set([k])) + heapView(heap) + '</div>',
+      true);
+
+    let stepN = 0;
+    while (heap.size()) {
+      if (stepN >= 24) {
+        const left = heap.size();
+        html += '<div class="caption" style="margin:10px 0">&hellip; trace cut off, ' + left + ' heap entries left.</div>';
+        break;
+      }
+      const [d, u] = heap.pop();
+      if (d > dist[u]) {
+        html += VIZ.step(`Step ${++stepN}: pop (${d}, ${u}) &rarr; stale`,
+          drawGraph(u, []),
+          `Popped <code>(${d}, ${u})</code> but <code>dist[${u}] = ${dist[u]}</code>, so this entry is stale. Skip.` +
+          '<div style="margin-top:6px">' + distRow(dist, new Set()) + heapView(heap) + '</div>',
+          true);
+        continue;
+      }
+      settled.add(u);
+      const relaxed = [], notes = [];
+      for (const [v, w] of adj[u]) {
+        if (d + w < dist[v]) {
+          const old = dist[v];
+          dist[v] = d + w;
+          heap.push([dist[v], v]);
+          relaxed.push([u, v]);
+          notes.push(`relax ${u}&rarr;${v} (w=${w}): dist[${v}] ${old === INF ? '&infin;' : old} &rarr; <b>${dist[v]}</b>, push (${dist[v]}, ${v})`);
+        }
+      }
+      const relaxedSet = new Set(relaxed.map(([, v]) => v));
+      html += VIZ.step(`Step ${++stepN}: pop (${d}, ${u}) &rarr; settle`,
+        drawGraph(u, relaxed),
+        `Settle node <b>${u}</b> at distance <b>${d}</b>. ` +
+        (notes.length ? notes.join('. ') + '.' : 'No outgoing edge improves anything.') +
+        '<div style="margin-top:6px">' + distRow(dist, relaxedSet) + heapView(heap) + '</div>',
+        true);
+    }
+
+    // final answer
+    let ans = 0, bad = false;
+    for (let i = 1; i <= n; i++) {
+      if (dist[i] === INF) { bad = true; break; }
+      if (dist[i] > ans) ans = dist[i];
+    }
+    document.getElementById('answer').innerHTML =
+      bad
+        ? `<b>Answer:</b> some node is unreachable &rarr; <code>-1</code>.`
+        : `<b>Answer:</b> max of dist[1..${n}] = <b>${ans}</b>.`;
+    return html;
+  }
+
+  VIZ.controls('trace', [
+    { id: 'edges', label: 'times =', value: '[[2,1,1],[2,3,1],[3,4,1]]', size: 28 },
+    { id: 'n', label: 'n =', value: '4', size: 3 },
+    { id: 'k', label: 'k =', value: '2', size: 3 },
+  ], run);
+})();
+</script>
+
+</body>
+</html>

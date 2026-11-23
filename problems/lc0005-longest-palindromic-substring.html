@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 5 - Longest Palindromic Substring</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#dp-2d">Pattern lesson</a><span>Pattern 14: DP - 2D / Grids</span></div>
+
+<h1>Longest Palindromic Substring</h1>
+<p class="sub">LeetCode 5 &middot; Medium &middot; Pattern: Expand around center (DP table is the common 2-D alternative) &middot; O(n<sup>2</sup>) time, O(1) space</p>
+
+<div class="box">
+  <b>Problem.</b> Given a string <code>s</code>, return the <b>longest substring</b> that is a palindrome.
+  <br><code>"babad" &rarr; "bab"</code> (or <code>"aba"</code>)
+  &nbsp;&nbsp; <code>"cbbd" &rarr; "bb"</code>
+  &nbsp;&nbsp; <code>"a" &rarr; "a"</code>
+  <br>Link: <a href="https://leetcode.com/problems/longest-palindromic-substring/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Every palindrome has a <b>center</b>. If its length is odd, the center is a single character <code>i</code>. If its
+length is even, the center is between two characters <code>i</code> and <code>i+1</code>. A string of length
+<code>n</code> has exactly <code>2n &minus; 1</code> such centers.</p>
+
+<p>From any center, extend outwards one character at a time, as long as the two outer characters are equal:
+<code>s[l] == s[r]</code>. The moment they differ (or you fall off the string) you have the longest palindrome centred
+there. Try every center and keep the best.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> A palindromic substring is uniquely determined by its center and radius. There are O(n) centers and
+  each one grows for at most O(n) steps, so the whole scan is O(n<sup>2</sup>). We never need to look at any substring
+  that doesn't actually center somewhere, which rules out brute-force O(n<sup>3</sup>).
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>Two cursors <code>l</code> and <code>r</code> start at the center. At every step we check <code>s[l] == s[r]</code>.
+If yes, record the window and push <code>l</code> one left and <code>r</code> one right. If no (or we fall off either
+end) we stop expanding this center and move to the next one.</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Each card below is one <code>expand(l, r)</code> step at some center. The two highlighted cells are the characters
+at positions <code>l</code> and <code>r</code>. Green outlines the current palindrome window; red shows a mismatch that
+stops the expansion. The best palindrome so far is tracked across all centers.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>current <code>s[l]</code> and <code>s[r]</code> being compared</span>
+  <span><i style="background:var(--keep)"></i>palindrome window after this step</span>
+  <span><i style="background:var(--gone)"></i>mismatch &mdash; stop this expansion</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">string</span> longestPalindrome(<span class="t">string</span> s) {
+        <span class="t">int</span> n = s.size();
+        <span class="k">if</span> (n == <span class="n">0</span>) <span class="k">return</span> <span class="n">""</span>;
+        <span class="t">int</span> bestStart = <span class="n">0</span>, bestLen = <span class="n">1</span>;
+        <span class="k">auto</span> expand = [&amp;](<span class="t">int</span> l, <span class="t">int</span> r) {
+            <span class="k">while</span> (l &gt;= <span class="n">0</span> &amp;&amp; r &lt; n &amp;&amp; s[l] == s[r]) { l--; r++; }
+            <span class="t">int</span> len = r - l - <span class="n">1</span>;      <span class="c">// last valid window ran from l+1 to r-1</span>
+            <span class="k">if</span> (len &gt; bestLen) { bestLen = len; bestStart = l + <span class="n">1</span>; }
+        };
+        <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt; n; i++) {
+            expand(i, i);       <span class="c">// odd length center</span>
+            expand(i, i + <span class="n">1</span>);   <span class="c">// even length center</span>
+        }
+        <span class="k">return</span> s.substr(bestStart, bestLen);
+    }
+};</pre>
+
+<p><b>Complexity:</b> O(n<sup>2</sup>) time &mdash; <code>2n &minus; 1</code> centers, each expanding up to <code>n/2</code>
+steps. O(1) extra space.</p>
+
+<h3>Alternative: DP table in O(n<sup>2</sup>) time, O(n<sup>2</sup>) space</h3>
+
+<pre><span class="t">int</span> n = s.size();
+<span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">bool</span>&gt;&gt; dp(n, <span class="t">vector</span>&lt;<span class="t">bool</span>&gt;(n, <span class="k">false</span>));
+<span class="t">int</span> bestStart = <span class="n">0</span>, bestLen = <span class="n">1</span>;
+<span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt; n; i++) dp[i][i] = <span class="k">true</span>;
+<span class="k">for</span> (<span class="t">int</span> len = <span class="n">2</span>; len &lt;= n; len++) {
+    <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i + len &lt;= n; i++) {
+        <span class="t">int</span> j = i + len - <span class="n">1</span>;
+        <span class="k">if</span> (s[i] == s[j] &amp;&amp; (len == <span class="n">2</span> || dp[i+<span class="n">1</span>][j-<span class="n">1</span>]))
+            dp[i][j] = <span class="k">true</span>;
+        <span class="k">if</span> (dp[i][j] &amp;&amp; len &gt; bestLen) { bestLen = len; bestStart = i; }
+    }
+}
+<span class="k">return</span> s.substr(bestStart, bestLen);</pre>
+
+<p><code>dp[i][j]</code> is true if <code>s[i..j]</code> is a palindrome. The recurrence is
+<code>dp[i][j] = (s[i] == s[j]) && dp[i+1][j&minus;1]</code> for lengths &ge; 3, with lengths 1 and 2 as the base.
+Same O(n<sup>2</sup>) time as expand-around-center but O(n<sup>2</sup>) space, so expand is strictly better in
+practice. The DP is still worth knowing because it's the natural fit for Pattern 14 and generalises to
+Longest Palindromic Subsequence (LC 516).</p>
+
+<p>If you need O(n) time, use <b>Manacher's algorithm</b>. In an interview, say "expand around center for O(n<sup>2</sup>),
+Manacher for O(n) if you ask for optimal" &mdash; nobody expects you to code Manacher cold.</p>
+
+<h2>5. The part interviewers ask about: why both centers</h2>
+
+<p>Students often forget the even-length case. On <code>"cbbd"</code>, the odd-only version returns <code>"c"</code> or
+<code>"b"</code> because no single character sits in the middle of the <code>"bb"</code> palindrome; its center is
+between the two <code>b</code>s. Running <code>expand(i, i+1)</code> at every <code>i</code> covers these centers.</p>
+
+<div class="box insight">
+  Any palindrome of length <code>L</code> has its "center" at position <code>(l + r) / 2</code>:
+  <ul>
+    <li>If <code>L</code> is odd, this is one real character index. There are <code>n</code> such centers.</li>
+    <li>If <code>L</code> is even, this falls between two indices. There are <code>n &minus; 1</code> such gaps.</li>
+  </ul>
+  Total: <code>2n &minus; 1</code> centers. Visiting every one guarantees you find the optimal palindrome.
+</div>
+
+<h3>Length formula at a glance</h3>
+
+<p>When <code>expand</code> exits, both <code>l</code> and <code>r</code> are <b>one past</b> the valid window.
+So the valid window is <code>[l+1, r&minus;1]</code> and its length is <code>r &minus; l &minus; 1</code>. If the
+first comparison already fails (odd center on a length-1 palindrome, or even center on two different letters),
+<code>l</code> and <code>r</code> never move, and the length comes out as 1 or 0 accordingly.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Only trying odd centers.</b> You miss every even-length palindrome. <code>"cbbd" &rarr; "b"</code> instead of
+    <code>"bb"</code>.</li>
+    <li><b>Returning the length instead of the substring.</b> Read the signature. LC 5 asks for the actual string, so
+    track <code>bestStart</code> alongside <code>bestLen</code>.</li>
+    <li><b>Off-by-one in <code>bestStart</code>.</b> After the loop exits with <code>s[l] != s[r]</code>, the last valid
+    palindrome starts at <code>l + 1</code>, not <code>l</code>.</li>
+    <li><b>Empty string.</b> The problem says <code>s.length &ge; 1</code>, but your code should still return
+    <code>""</code> for empty input without crashing.</li>
+    <li><b>Confusing with Longest Palindromic Subsequence (LC 516).</b> Subsequence can skip characters; here the
+    letters must be contiguous. The DP recurrences are different.</li>
+    <li><b>"All same characters" worst case.</b> <code>"aaaa...a"</code> makes every center expand to the full length.
+    This is O(n<sup>2</sup>) &mdash; still acceptable, but a correctness check: your code should return the whole string
+    in that case, not just one character.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "Every palindrome has a center. I iterate over all <code>2n &minus; 1</code> centers &mdash; <code>n</code> single
+  characters for odd lengths and <code>n &minus; 1</code> gaps between adjacent characters for even lengths. From each
+  center I run a two-pointer <code>expand(l, r)</code> while <code>s[l] == s[r]</code> and the pointers are in bounds.
+  After the loop the valid window is <code>[l+1, r&minus;1]</code>, length <code>r &minus; l &minus; 1</code>, and I
+  track the longest seen. That's O(n<sup>2</sup>) time, O(1) space. The 2-D DP (<code>dp[i][j]</code> true if
+  <code>s[i..j]</code> is a palindrome) is equivalent in time but costs O(n<sup>2</sup>) space; Manacher's gives O(n)
+  if asked."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 647 Palindromic Substrings</td><td>Same expand loop, but count every window instead of tracking the longest.</td></tr>
+  <tr><td>LC 516 Longest Palindromic Subsequence</td><td>True 2-D DP; same table shape, different recurrence (skips allowed).</td></tr>
+  <tr><td>LC 131 Palindrome Partitioning</td><td>Precompute the "is palindrome" DP table, then backtrack to enumerate splits.</td></tr>
+  <tr><td>LC 214 Shortest Palindrome</td><td>Longest palindromic prefix (specialised center problem) &mdash; often solved with KMP.</td></tr>
+</table>
+
+<script>
+/* Idea diagram: "cbbd" with the four possible centers (c, b, b, d) and the two inter-gaps that matter. */
+(function () {
+  const s = 'cbbd';
+  const n = s.length;
+  const CW = 48, X0 = 60, Y0 = 50;
+  let out = '';
+  for (let i = 0; i < n; i++) {
+    const x = X0 + i * CW;
+    out += `<rect x="${x}" y="${Y0}" width="${CW}" height="${CW}" fill="#ffffff" stroke="#475569" stroke-width="2"/>`;
+    out += `<text x="${x + CW/2}" y="${Y0 + CW/2 + 6}" text-anchor="middle" font-size="18" font-weight="700">${s[i]}</text>`;
+    out += `<text x="${x + CW/2}" y="${Y0 - 10}" text-anchor="middle" font-size="11" fill="#616e7c">${i}</text>`;
+  }
+  // Odd centers: tick above each char
+  for (let i = 0; i < n; i++) {
+    const x = X0 + i * CW + CW/2;
+    out += `<circle cx="${x}" cy="${Y0 + CW + 14}" r="4" fill="#3b82f6"/>`;
+  }
+  // Even centers: tick between adjacent chars
+  for (let i = 0; i < n - 1; i++) {
+    const x = X0 + i * CW + CW;
+    out += `<circle cx="${x}" cy="${Y0 + CW + 14}" r="4" fill="#7c3aed"/>`;
+  }
+  out += `<text x="${X0}" y="${Y0 + CW + 36}" font-size="12" fill="#616e7c"><tspan fill="#3b82f6" font-weight="700">&bull;</tspan> odd centers (n)   <tspan fill="#7c3aed" font-weight="700">&bull;</tspan> even centers (n&minus;1 gaps)</text>`;
+  // Highlight the "bb" center at gap (1,2)
+  const gx = X0 + 1 * CW + CW;
+  out += `<rect x="${X0 + 1 * CW - 4}" y="${Y0 - 4}" width="${2 * CW + 8}" height="${CW + 8}" fill="none" stroke="#15803d" stroke-width="3" rx="8"/>`;
+  out += `<text x="${gx}" y="${Y0 + CW + 60}" text-anchor="middle" font-size="13" font-weight="700" fill="#15803d">expand(1, 2) &rarr; "bb" (len 2)</text>`;
+  out += `<text x="${X0 + 2 * CW}" y="${Y0 + CW + 80}" text-anchor="middle" font-size="12" fill="#616e7c">2n &minus; 1 = 7 total centers for n = 4.</text>`;
+  const W = X0 + n * CW + 40, H = Y0 + CW + 100;
+  document.getElementById('idea').innerHTML =
+    `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${H}">${out}</svg>`;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. For each i', lines: ['center is char i (odd)', 'center is gap i, i+1 (even)'], color: 'green' },
+  { title: '2. expand(l, r)', lines: ['while l >= 0, r < n,', 's[l] == s[r]:', '  l--, r++'], color: 'yellow' },
+  { title: '3. Update best', lines: ['len = r - l - 1', 'if len > best, record', '(start = l+1)'], color: 'blue' },
+]);
+
+/* Interactive trace: expand around every center. */
+VIZ.controls('trace', [
+  { id: 's', label: 's =', value: 'babad', size: 12 },
+], v => {
+  const s = v.s;
+  if (s.length === 0) return '<div class="box trap">String must be non-empty.</div>';
+  if (s.length > 12) return '<div class="box trap">Pick a string of length at most 12 to keep the trace readable.</div>';
+
+  const n = s.length;
+  let bestStart = 0, bestLen = 1;
+  const steps = [];
+
+  const expand = (l, r, kind) => {
+    const origL = l, origR = r;
+    const localSteps = [];
+    // First comparison (or boundary check)
+    while (true) {
+      if (l < 0 || r >= n) {
+        // Boundary hit, no step card, just a note
+        localSteps.push({ l, r, state: 'boundary', winL: l + 1, winR: r - 1, len: r - l - 1 });
+        break;
+      }
+      if (s[l] !== s[r]) {
+        localSteps.push({ l, r, state: 'mismatch', winL: l + 1, winR: r - 1, len: r - l - 1 });
+        break;
+      }
+      localSteps.push({ l, r, state: 'match', winL: l, winR: r, len: r - l + 1 });
+      l--; r++;
+    }
+    // Determine the final valid palindrome window: the LAST match step (if any)
+    const matched = localSteps.filter(x => x.state === 'match');
+    let finalWinL, finalWinR, finalLen;
+    if (matched.length === 0) {
+      // Only possible for even start where s[i] != s[i+1]; palindrome length 0 at this center
+      finalWinL = origL; finalWinR = origL - 1; finalLen = 0;
+    } else {
+      const last = matched[matched.length - 1];
+      finalWinL = last.l; finalWinR = last.r; finalLen = last.r - last.l + 1;
+    }
+    if (finalLen > bestLen) { bestLen = finalLen; bestStart = finalWinL; }
+    steps.push({ origL, origR, kind, localSteps, finalWinL, finalWinR, finalLen });
+  };
+
+  for (let i = 0; i < n; i++) {
+    expand(i, i, 'odd');
+    expand(i, i + 1, 'even');
+  }
+
+  // Render each expansion as a card group. Cap total step cards at 25.
+  const MAX = 25;
+  let html = '';
+  let cardCount = 0;
+  let runningBestLen = 1, runningBestStart = 0;
+
+  for (let c = 0; c < steps.length; c++) {
+    if (cardCount >= MAX) break;
+    const exp = steps[c];
+    const header = `Center ${c + 1}/${steps.length}: <code>expand(${exp.origL}, ${exp.origR})</code> &middot; ${exp.kind === 'odd' ? 'odd center at index ' + exp.origL : 'even center between ' + exp.origL + ' and ' + exp.origR}`;
+
+    for (let k = 0; k < exp.localSteps.length; k++) {
+      if (cardCount >= MAX) break;
+      const st = exp.localSteps[k];
+      const cls = ix => {
+        if (st.state === 'match' && (ix === st.l || ix === st.r)) return 'new';
+        if (st.state === 'mismatch' && (ix === st.l || ix === st.r)) return 'gone';
+        // show the running palindrome window from the last successful match in this expansion so far
+        // compute the window of all previous matches up to k
+        const prevMatches = exp.localSteps.slice(0, k).filter(x => x.state === 'match');
+        if (prevMatches.length > 0) {
+          const last = prevMatches[prevMatches.length - 1];
+          if (ix >= last.l && ix <= last.r && st.state === 'match' && (ix !== st.l && ix !== st.r)) return 'keep';
+          if (ix >= last.l && ix <= last.r && st.state !== 'match') return 'keep';
+        }
+        return '';
+      };
+      const ptrs = {};
+      if (st.l >= 0 && st.l < n) ptrs[st.l] = (ptrs[st.l] ? [...(Array.isArray(ptrs[st.l]) ? ptrs[st.l] : [ptrs[st.l]]), 'l'] : 'l');
+      if (st.r >= 0 && st.r < n) {
+        if (st.l === st.r && ptrs[st.l]) ptrs[st.l] = ['l', 'r'];
+        else ptrs[st.r] = (ptrs[st.r] ? [...(Array.isArray(ptrs[st.r]) ? ptrs[st.r] : [ptrs[st.r]]), 'r'] : 'r');
+      }
+      const vis = VIZ.strip([...s], { cls, ptrs });
+      let note;
+      if (st.state === 'match') {
+        if (exp.kind === 'odd' && st.l === st.r) note = `Start at <code>l = r = ${st.l}</code>. Single char is a palindrome of length 1. Push outwards.`;
+        else note = `<code>s[${st.l}] = s[${st.r}] = "${s[st.l]}"</code> match. Window is <code>s[${st.l}..${st.r}]</code> of length ${st.len}. Push outwards.`;
+      } else if (st.state === 'mismatch') {
+        note = `<code>s[${st.l}] = "${s[st.l]}"</code>, <code>s[${st.r}] = "${s[st.r]}"</code> mismatch. Stop. Longest palindrome at this center is length <b>${exp.finalLen}</b>${exp.finalLen > 0 ? ` (<code>s[${exp.finalWinL}..${exp.finalWinR}] = "${s.substring(exp.finalWinL, exp.finalWinR + 1)}"</code>)` : ''}.`;
+      } else {
+        note = `<code>l = ${st.l}, r = ${st.r}</code> fell off the string. Stop. Longest palindrome at this center is length <b>${exp.finalLen}</b>${exp.finalLen > 0 ? ` (<code>s[${exp.finalWinL}..${exp.finalWinR}] = "${s.substring(exp.finalWinL, exp.finalWinR + 1)}"</code>)` : ''}.`;
+      }
+      // Update running best based on completed expansions.
+      if (k === exp.localSteps.length - 1) {
+        if (exp.finalLen > runningBestLen) { runningBestLen = exp.finalLen; runningBestStart = exp.finalWinL; }
+        note += ` Best so far: <code>"${s.substring(runningBestStart, runningBestStart + runningBestLen)}"</code> (len ${runningBestLen}).`;
+      }
+      const title = k === 0 ? header : `step k = ${k}`;
+      html += VIZ.step(title, vis, note);
+      cardCount++;
+    }
+  }
+  if (cardCount >= MAX && steps.length > 0) {
+    const remaining = steps.slice(0).reduce((a, e) => a + e.localSteps.length, 0) - cardCount;
+    if (remaining > 0) html += `<p class="caption">... ${remaining} more expand steps, same pattern.</p>`;
+  }
+
+  document.getElementById('answer').innerHTML =
+    `<b>Longest palindromic substring of "${s}": "${s.substring(bestStart, bestStart + bestLen)}" (length ${bestLen}).</b>`;
+  return html;
+}, 'Edit s (up to 12 chars). Each card is one comparison inside an expand(l, r) call.');
+</script>
+
+</body>
+</html>

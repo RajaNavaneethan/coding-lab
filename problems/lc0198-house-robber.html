@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 198 - House Robber</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#dp-1d">Pattern lesson</a><span>Pattern 13: Dynamic Programming - 1D</span></div>
+
+<h1>House Robber</h1>
+<p class="sub">LeetCode 198 &middot; Medium &middot; Pattern: 1-D DP (take or skip) &middot; O(n) time, O(1) space</p>
+
+<div class="box">
+  <b>Problem.</b> Each house has <code>nums[i]</code> money. You cannot rob two adjacent houses. Return the maximum
+  total you can rob.
+  <br><code>[1,2,3,1] &rarr; 4</code> (rob 1 and 3) &nbsp;&nbsp;
+  <code>[2,7,9,3,1] &rarr; 12</code> (rob 2, 9 and 1)
+  <br>Link: <a href="https://leetcode.com/problems/house-robber/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>At every house <code>i</code> you have exactly two choices:</p>
+
+<ul>
+  <li><b>Skip</b> house <code>i</code>. The best so far is whatever <code>dp[i&minus;1]</code> was.</li>
+  <li><b>Rob</b> house <code>i</code>. You cannot have used <code>i&minus;1</code>, so you take <code>dp[i&minus;2] + nums[i]</code>.</li>
+</ul>
+
+<p>Pick the bigger of the two. That is the whole recurrence:</p>
+
+<div class="eq">dp[i] = max(dp[i&minus;1], dp[i&minus;2] + nums[i])</div>
+
+<p><code>dp[i]</code> means "best money using houses <code>0..i</code>, whether or not you rob house <code>i</code>".
+That definition is important: it absorbs both choices, so one scalar per index is enough.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Define <code>dp[i]</code> as the best possible so far up to and including <code>i</code>. At each house,
+  the choice is "take this house's money and skip the previous" vs "skip this house and keep the previous best".
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>The recurrence only reads two cells back, so you can replace the array with two scalars (shown in the alternative).</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>The row below is <code>dp</code>. The yellow cell is being filled now; the two blue cells are the sources
+<code>dp[i&minus;1]</code> (skip) and <code>dp[i&minus;2] + nums[i]</code> (rob). The small note under the current cell
+says which branch won.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>cell being filled</span>
+  <span><i style="background:var(--win)"></i>cell being read</span>
+  <span><i style="background:#f8fafc;border:1px solid #cbd5e1"></i>not filled yet</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">int</span> rob(<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; nums) {
+        <span class="t">int</span> n = nums.size();
+        <span class="k">if</span> (n == <span class="n">0</span>) <span class="k">return</span> <span class="n">0</span>;
+        <span class="k">if</span> (n == <span class="n">1</span>) <span class="k">return</span> nums[<span class="n">0</span>];
+        <span class="t">vector</span>&lt;<span class="t">int</span>&gt; dp(n);
+        dp[<span class="n">0</span>] = nums[<span class="n">0</span>];
+        dp[<span class="n">1</span>] = max(nums[<span class="n">0</span>], nums[<span class="n">1</span>]);
+        <span class="k">for</span> (<span class="t">int</span> i = <span class="n">2</span>; i &lt; n; i++)
+            dp[i] = max(dp[i - <span class="n">1</span>], dp[i - <span class="n">2</span>] + nums[i]);
+        <span class="k">return</span> dp[n - <span class="n">1</span>];
+    }
+};</pre>
+
+<p><b>Complexity:</b> one pass, one <code>max</code> per cell: O(n) time. O(n) space for the array.</p>
+
+<h3>Alternative: O(1) space, two rolling variables</h3>
+
+<pre><span class="t">int</span> rob(<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; nums) {
+    <span class="t">int</span> prev2 = <span class="n">0</span>, prev1 = <span class="n">0</span>;        <span class="c">// dp[i-2], dp[i-1]; sentinels before index 0</span>
+    <span class="k">for</span> (<span class="t">int</span> x : nums) {
+        <span class="t">int</span> cur = max(prev1, prev2 + x);
+        prev2 = prev1;
+        prev1 = cur;
+    }
+    <span class="k">return</span> prev1;
+}</pre>
+
+<p>Prefer this form. The two zero sentinels make the first two iterations handle themselves: at index 0,
+<code>cur = max(0, 0 + nums[0]) = nums[0]</code>; at index 1, <code>cur = max(nums[0], 0 + nums[1]) = max(nums[0], nums[1])</code>.</p>
+
+<h2>5. The part interviewers ask about: why the simple greedy fails</h2>
+
+<p>"Just alternate" (rob all even indices or all odd indices) fails on <code>[2,1,1,2]</code>: either strategy picks 3,
+but robbing houses 0 and 3 gives 4. "Rob the biggest remaining" fails on <code>[2,7,9,3,1]</code>: pick 9, then both
+neighbours are banned, and you miss that <code>2+9+1 = 12</code> beats <code>7+3 = 10</code>.</p>
+
+<div class="box insight">
+  Greedy fails because the decision at house <code>i</code> is not local: whether to rob depends on how good the best
+  path through <code>i&minus;2</code> is, which depends on how good <code>i&minus;4</code> was, and so on. DP solves this
+  by remembering, at every prefix, the best achievable total so far.
+</div>
+
+<p>Correctness proof sketch: induction on <code>i</code>. Assume <code>dp[0..i&minus;1]</code> are optimal for their prefixes.
+Any optimal solution for <code>[0..i]</code> either doesn't use <code>i</code> (so it's an optimal solution for <code>[0..i&minus;1]</code>,
+which is <code>dp[i&minus;1]</code>) or it uses <code>i</code> (so the rest is an optimal solution for <code>[0..i&minus;2]</code>,
+which is <code>dp[i&minus;2]</code>, plus <code>nums[i]</code>). Taking the <code>max</code> of the two cases gives
+<code>dp[i]</code>.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Forgetting <code>dp[1] = max(nums[0], nums[1])</code>.</b> If you set <code>dp[1] = nums[1]</code>, you lose
+    cases like <code>[5, 1]</code> whose answer is 5.</li>
+    <li><b>Signed overflow is not a worry on LeetCode constraints</b> (<code>n &le; 100</code>, <code>nums[i] &le; 400</code>),
+    but if the values were much larger you would need <code>long long</code>.</li>
+    <li><b><code>n = 0</code> or <code>n = 1</code>.</b> Handle both explicitly, or start the rolling-variable version
+    with <code>prev2 = prev1 = 0</code>, which gives the right answer for both.</li>
+    <li><b>LC 213 House Robber II</b> (houses in a circle). Reusing this function directly is wrong because the first
+    and last houses are now neighbours. Call <code>rob</code> twice, once on <code>nums[0..n-2]</code> and once on
+    <code>nums[1..n-1]</code>, then take the max.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "Define <code>dp[i]</code> as the maximum money using houses 0 through i. At each house I decide skip or rob. Skip
+  keeps <code>dp[i&minus;1]</code>. Rob takes <code>nums[i]</code> and adds <code>dp[i&minus;2]</code>, because I can't
+  use the neighbour. The recurrence is <code>dp[i] = max(dp[i&minus;1], dp[i&minus;2] + nums[i])</code>, O(n) time.
+  Because I only look back two cells I keep two scalars for O(1) space."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 213 House Robber II</td><td>Circular: run this problem twice, dropping either the first or the last house.</td></tr>
+  <tr><td>LC 337 House Robber III</td><td>Houses on a tree. Return a pair <code>(rob, skip)</code> from each child.</td></tr>
+  <tr><td>LC 740 Delete and Earn</td><td>Bucket values by number, then this exact "take or skip" DP over buckets.</td></tr>
+  <tr><td>LC 70 Climbing Stairs</td><td>Same shape of recurrence, but you count paths (sum) instead of taking a max.</td></tr>
+</table>
+
+<script>
+/* Idea diagram: show that at index 3 of [2,7,9,3,1] you choose between dp[2]=9 (skip) and dp[1]+nums[3]=7+3=10 (rob). */
+(function () {
+  const W = 760, H = 240;
+  const nums = [2, 7, 9, 3, 1];
+  const dp = [2, 7, 9, 10, 12];
+  let s = '';
+  const X0 = 60, DX = 90, CW = 60, CH = 44;
+
+  // Top row: nums
+  nums.forEach((v, i) => {
+    const x = X0 + i * DX;
+    s += `<rect x="${x}" y="20" width="${CW}" height="${CH}" rx="6" fill="#f8fafc" stroke="#475569" stroke-width="2"/>`;
+    s += `<text x="${x + CW / 2}" y="${20 + CH / 2 + 6}" text-anchor="middle" font-size="18" font-weight="700">${v}</text>`;
+    s += `<text x="${x + CW / 2}" y="${12}" text-anchor="middle" font-size="11" fill="#616e7c">nums[${i}]</text>`;
+  });
+
+  // Bottom row: dp
+  dp.forEach((v, i) => {
+    const x = X0 + i * DX;
+    let fill = '#ffffff', stroke = '#475569';
+    if (i === 1 || i === 2) { fill = '#dbeafe'; stroke = '#3b82f6'; }
+    if (i === 3) { fill = '#fde68a'; stroke = '#d97706'; }
+    s += `<rect x="${x}" y="130" width="${CW}" height="${CH}" rx="6" fill="${fill}" stroke="${stroke}" stroke-width="2"/>`;
+    s += `<text x="${x + CW / 2}" y="${130 + CH / 2 + 6}" text-anchor="middle" font-size="18" font-weight="700">${v}</text>`;
+    s += `<text x="${x + CW / 2}" y="${125}" text-anchor="middle" font-size="11" fill="#616e7c">dp[${i}]</text>`;
+  });
+
+  // arrow dp[1] -> dp[3]
+  const target = X0 + 3 * DX + CW / 2;
+  s += `<path d="M${X0 + 1 * DX + CW / 2},${130 + CH} C${X0 + 1 * DX + CW / 2},${210} ${target - 5},${210} ${target - 5},${130 + CH}" fill="none" stroke="#3b82f6" stroke-width="2" marker-end="url(#ar198)"/>`;
+  // arrow dp[2] -> dp[3]
+  s += `<path d="M${X0 + 2 * DX + CW / 2},${130 + CH} C${X0 + 2 * DX + CW / 2},${195} ${target + 5},${195} ${target + 5},${130 + CH}" fill="none" stroke="#3b82f6" stroke-width="2" marker-end="url(#ar198)"/>`;
+  s += `<text x="${X0 + 2 * DX}" y="225" font-size="12" fill="#1f2933">skip: dp[2]=9</text>`;
+  s += `<text x="${X0 + 3 * DX}" y="225" font-size="12" fill="#1f2933">rob: dp[1]+nums[3] = 10</text>`;
+
+  s = `<defs><marker id="ar198" markerWidth="10" markerHeight="10" refX="7" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3b82f6"/></marker></defs>` + s;
+  document.getElementById('idea').innerHTML =
+    `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${H}">${s}</svg>` +
+    `<div class="caption">At index 3, max(9, 10) = 10. The yellow cell takes the larger of the two sources.</div>`;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Base', lines: ['dp[0] = nums[0]', 'dp[1] = max(nums[0], nums[1])'], color: 'green' },
+  { title: '2. Fill left to right', lines: ['for i = 2..n-1', 'dp[i] = max(dp[i-1],', 'dp[i-2] + nums[i])'], color: 'yellow' },
+  { title: '3. Answer', lines: ['return dp[n-1]'], color: 'blue' },
+]);
+
+/* Interactive trace. */
+VIZ.controls('trace', [{ id: 'nums', label: 'nums =', value: '[2,7,9,3,1]', size: 20 }], v => {
+  let nums;
+  try { nums = VIZ.parse.arr(v.nums); }
+  catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  if (!Array.isArray(nums) || nums.some(x => typeof x !== 'number'))
+    return '<div class="box trap">Expected an array of numbers.</div>';
+  const n = nums.length;
+  if (n === 0) return '<div class="box trap">nums is empty, answer is 0.</div>';
+  if (n > 15) return '<div class="box trap">Pick at most 15 houses to keep the trace readable.</div>';
+
+  const dp = new Array(n).fill(null);
+  const steps = [];
+
+  dp[0] = nums[0];
+  steps.push({ i: 0, read: [], note: `Base: <code>dp[0] = nums[0] = ${nums[0]}</code>.`, choice: 'rob' });
+
+  if (n >= 2) {
+    dp[1] = Math.max(nums[0], nums[1]);
+    const choice = nums[1] >= nums[0] ? 'rob' : 'skip';
+    steps.push({ i: 1, read: [0], note: `Base: <code>dp[1] = max(nums[0], nums[1]) = max(${nums[0]}, ${nums[1]}) = ${dp[1]}</code>. ${choice === 'rob' ? 'Rob house 1.' : 'Skip house 1.'}`, choice });
+  }
+
+  for (let i = 2; i < n; i++) {
+    const skip = dp[i - 1], rob = dp[i - 2] + nums[i];
+    dp[i] = Math.max(skip, rob);
+    const choice = rob > skip ? 'rob' : 'skip';
+    steps.push({
+      i,
+      read: [i - 1, i - 2],
+      note: `<code>skip = dp[${i-1}] = ${skip}</code>; <code>rob = dp[${i-2}] + nums[${i}] = ${dp[i-2]} + ${nums[i]} = ${rob}</code>. ${choice === 'rob' ? '<b>Rob</b>' : '<b>Skip</b>'} wins. <code>dp[${i}] = ${dp[i]}</code>.`,
+      choice,
+    });
+  }
+
+  const MAX = 15;
+  const show = steps.length <= MAX ? steps : steps.slice(0, MAX);
+  let html = '';
+  show.forEach((st, k) => {
+    // snapshot of dp up to this step
+    const snap = (() => {
+      const t = new Array(n).fill(null);
+      t[0] = nums[0];
+      if (n >= 2) t[1] = Math.max(nums[0], nums[1]);
+      for (let x = 2; x <= st.i; x++) t[x] = Math.max(t[x - 1], t[x - 2] + nums[x]);
+      return t;
+    })();
+
+    const valsNums = nums.map(x => String(x));
+    const valsDp = snap.map(x => x === null ? '.' : String(x));
+
+    const stripNums = VIZ.strip(valsNums, { cls: (ix) => (ix === st.i ? 'new' : ''), labels: nums.map((_, i) => i) });
+    const stripDp = VIZ.strip(valsDp, {
+      cls: (ix) => {
+        if (ix === st.i) return 'new';
+        if (st.read.includes(ix)) return 'in';
+        if (ix > st.i) return 'dim';
+        return '';
+      },
+      labels: nums.map((_, i) => `dp[${i}]`), index: true,
+    });
+    const vis = `<div style="font-size:12px;color:#616e7c;margin:4px 0 2px">nums</div>${stripNums}<div style="font-size:12px;color:#616e7c;margin:8px 0 2px">dp</div>${stripDp}`;
+    html += VIZ.step(`Step ${k + 1}: fill dp[${st.i}]`, vis, st.note);
+  });
+  if (steps.length > MAX) html += `<p class="caption">... ${steps.length - MAX} more cells, same pattern.</p>`;
+
+  document.getElementById('answer').innerHTML =
+    `<b>Answer for nums = [${nums.join(',')}]: ${dp[n - 1]}</b>`;
+  return html;
+}, 'Pass a comma-separated or JSON array of house values.');
+</script>
+
+</body>
+</html>

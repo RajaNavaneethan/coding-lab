@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 134 - Gas Station</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#greedy">Pattern lesson</a><span>Pattern 16: Greedy</span></div>
+
+<h1>Gas Station</h1>
+<p class="sub">LeetCode 134 &middot; Medium &middot; Pattern: running sum, reset-on-dip greedy &middot; O(n) time, O(1) space</p>
+
+<div class="box">
+  <b>Problem.</b> <code>n</code> gas stations in a circle. Station <code>i</code> has <code>gas[i]</code> fuel; going
+  from <code>i</code> to <code>i+1</code> costs <code>cost[i]</code>. Return the index of the only station you can start
+  from and complete the loop, or <code>-1</code> if impossible.
+  <br><code>gas=[1,2,3,4,5], cost=[3,4,5,1,2] &rarr; 3</code> &nbsp;&nbsp; <code>gas=[2,3,4], cost=[3,4,3] &rarr; -1</code>
+  <br>Link: <a href="https://leetcode.com/problems/gas-station/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Define <code>diff[i] = gas[i] - cost[i]</code>: the net fuel you gain by traversing the hop that starts at
+<code>i</code>. Walk forward from some start, keeping a running tank. The tank is <b>a prefix sum of <code>diff</code></b>
+rooted at the start. The loop is possible from <code>s</code> iff the running tank never goes negative over a full lap.</p>
+
+<p>Two things fall out of this reframing:</p>
+
+<ul>
+  <li>If <code>sum(diff) &lt; 0</code>, no start works. Not enough fuel exists for one full loop.</li>
+  <li>If <code>sum(diff) &ge; 0</code>, exactly one start works and we can find it in one left-to-right pass.</li>
+</ul>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Walk once. Keep a running <code>tank</code>. If it drops below 0 after station <code>i</code>, no station in
+  <code>[start, i]</code> can be a valid start, so reset: <code>start = i + 1</code>, <code>tank = 0</code>. If total
+  <code>diff</code> is non-negative, the final <code>start</code> is the answer; otherwise return <code>-1</code>.
+</div>
+
+<h3>Why the greedy choice is safe (exchange argument)</h3>
+
+<p>Suppose we start at <code>s</code>, run the tank, and at index <code>j</code> it goes negative for the first time.
+Pick any <code>s' &isin; [s+1, j]</code>. Call <code>P(a, b) = diff[a] + diff[a+1] + &hellip; + diff[b]</code>.</p>
+
+<p>Because <code>s</code> did not fail before <code>j</code>, every prefix <code>P(s, s'-1)</code> for <code>s' &le; j</code>
+is <b>&ge; 0</b>. So:</p>
+
+<div class="eq">P(s', j) = P(s, j) &minus; P(s, s'&minus;1) &le; P(s, j) &lt; 0</div>
+
+<p>So station <code>s'</code> also runs the tank negative by <code>j</code>. None of <code>s+1, &hellip;, j</code> can be
+a valid start. We may jump straight to <code>j+1</code> without re-checking them.</p>
+
+<p>Combined with "if total fuel is non-negative there is a valid start somewhere", this proves one left-to-right pass is enough.</p>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Each row shows the stations with their <code>diff</code> values, the running <code>tank</code> under each station, the
+current <code>start</code> candidate, and the current index <code>i</code>. When <code>tank</code> dips below zero we jump
+<code>start</code> forward and reset the tank.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>current index</span>
+  <span><i style="background:var(--keep)"></i>current start candidate</span>
+  <span><i style="background:var(--gone)"></i>skipped (cannot be start)</span>
+  <span><i style="background:var(--win)"></i>walked past, still candidate</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">int</span> canCompleteCircuit(<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; gas, <span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; cost) {
+        <span class="t">int</span> totalTank = <span class="n">0</span>, curTank = <span class="n">0</span>, start = <span class="n">0</span>;
+        <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt; (<span class="t">int</span>)gas.size(); i++) {
+            <span class="t">int</span> diff = gas[i] - cost[i];
+            totalTank += diff;                 <span class="c">// does one full lap even work?</span>
+            curTank  += diff;                  <span class="c">// running tank from current start</span>
+            <span class="k">if</span> (curTank &lt; <span class="n">0</span>) {               <span class="c">// start..i all fail; skip past i</span>
+                start = i + <span class="n">1</span>;
+                curTank = <span class="n">0</span>;
+            }
+        }
+        <span class="k">return</span> totalTank &gt;= <span class="n">0</span> ? start : -<span class="n">1</span>;
+    }
+};</pre>
+
+<p><b>Complexity:</b> single pass, constant work per station. O(n) time, O(1) space. We never wrap around physically
+because once total tank is non-negative, the chosen <code>start</code> is provably valid; we rely on the exchange argument,
+not on a second lap.</p>
+
+<h2>5. The part interviewers ask about: how do we know <code>start</code> actually completes the lap?</h2>
+
+<p>Two things to prove together:</p>
+
+<p><b>(a) If <code>sum(diff) &lt; 0</code> the answer is <code>-1</code>.</b> Over a full lap the tank returns to its
+start value plus <code>sum(diff)</code>. If that is negative, you cannot be where you started with non-negative fuel.
+No start works.</p>
+
+<p><b>(b) If <code>sum(diff) &ge; 0</code>, the final <code>start</code> completes the lap.</b> Call it <code>s</code>.
+By the exchange argument, every reset proves that no earlier station is a valid start, so a valid start, if one exists,
+is <code>&ge; s</code>. From <code>s</code> onward to <code>n - 1</code> the tank never dipped negative (otherwise we would
+have reset again). The remaining concern is the wrap-around <code>[0, s-1]</code>. But</p>
+
+<div class="eq">P(s, n&minus;1) + P(0, s&minus;1) = sum(diff) &ge; 0</div>
+
+<p>and <code>P(s, n-1)</code> is the final <code>curTank</code>, which is itself <code>&ge; 0</code>. So
+<code>P(0, s-1) &ge; -P(s, n-1) &ge; -&infin;</code>&hellip; that is weak. The tighter version uses the fact that
+<b>during the earlier walk</b> the prefix <code>P(0, s-1)</code> dropped <i>below</i> every intermediate low (it is what
+caused the reset at <code>s-1</code>). More carefully: let <code>m</code> be the minimum of all prefix tanks starting at 0.
+That minimum is reached at some index <code>s* - 1</code>, and we set <code>start = s*</code>. From there the running sum
+is <code>P(s*, k) = P(0, k) - m</code>, which is <code>&ge; 0</code> for all <code>k &ge; s*</code> (because <code>m</code>
+was the minimum). For <code>k &lt; s*</code> the wrapped sum is
+<code>P(s*, n-1) + P(0, k) = sum(diff) + (P(0, k) - P(0, s* - 1)) - P(0, s* - 1) + P(0, s* - 1) &ge; sum(diff) &ge; 0</code>
+(using <code>P(0, k) &ge; m = P(0, s* - 1)</code>). So the tank stays non-negative on the whole lap.</p>
+
+<div class="box insight">
+  <b>Picture the proof as a graph.</b> Plot the prefix tank from index 0. The valid start is the index right after the
+  <b>lowest valley</b>. Starting at that index shifts the whole plot up by the depth of the valley, which lifts every
+  value to <code>&ge; 0</code>, and the wrap-around is covered because the total change over one lap is non-negative.
+</div>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Checking <code>totalTank</code> at the end is required.</b> The algorithm will happily return some
+    <code>start</code> even on infeasible inputs; the final guard is what returns <code>-1</code>.</li>
+    <li><b>Do not forget to reset <code>curTank</code> to 0, not to <code>diff</code>.</b> After a reset, the next
+    station is a fresh start with an empty tank, and its own <code>diff</code> is added in the next loop iteration.</li>
+    <li><b>Nested loops that try every start.</b> O(n<sup>2</sup>) accepts smaller cases on LeetCode but fails
+    performance tests. The single-pass greedy is the expected solution.</li>
+    <li><b>Interpreting "exactly one" guarantee.</b> LC guarantees <i>at most</i> one. "Exactly one" is only when total
+    diff is non-negative; in that case this algorithm returns it. Otherwise the answer is <code>-1</code>.</li>
+    <li><b><code>n = 1</code>.</b> You just need <code>gas[0] &ge; cost[0]</code>. The code handles it: one iteration,
+    <code>totalTank = diff</code>; if negative, final guard returns <code>-1</code>, else <code>start = 0</code>.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I define <code>diff[i] = gas[i] - cost[i]</code> and walk once left to right. I keep two running totals: a global
+  <code>totalTank</code> and a local <code>curTank</code> from the current start candidate. Whenever <code>curTank</code>
+  drops below zero, I know no station in <code>[start, i]</code> can be a valid start, so I set <code>start = i + 1</code>
+  and reset <code>curTank</code> to 0. At the end, if <code>totalTank &ge; 0</code> I return the last <code>start</code>,
+  otherwise <code>-1</code>. The greedy skip is justified by an exchange argument on prefix sums. O(n), O(1)."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 53 Maximum Subarray (Kadane's)</td><td>Same "reset running sum when it dips below 0" idea, but max over subarrays.</td></tr>
+  <tr><td>LC 918 Max Subarray in Circular Array</td><td>Circular with Kadane twice (max and min); the circle lives in the same world as this problem.</td></tr>
+  <tr><td>LC 55 Jump Game</td><td>Also a one-pass reachability scan with running state and a safety invariant.</td></tr>
+  <tr><td>LC 2214 Minimum Health to Beat Game</td><td>Running damage with health tank; the shape is the same.</td></tr>
+</table>
+
+<script>
+/* Idea diagram: show diff and prefix tank from start 0 and start 3 for gas=[1,2,3,4,5], cost=[3,4,5,1,2]. */
+(function () {
+  const gas = [1,2,3,4,5], cost = [3,4,5,1,2];
+  const diff = gas.map((g, i) => g - cost[i]);  // [-2,-2,-2,3,3]
+  const n = diff.length;
+  const CW = 60, DX = 76, X0 = 90, Y = 50;
+  const W = X0 + DX * n + 40, H = 320;
+  let s = '';
+  // top: diff cells
+  s += `<text x="30" y="${Y + CW/2 + 6}" font-size="12" fill="#616e7c">diff</text>`;
+  diff.forEach((v, i) => {
+    const x = X0 + i * DX;
+    const neg = v < 0;
+    s += `<rect x="${x}" y="${Y}" width="${CW}" height="${CW}" rx="6" fill="${neg ? '#fecaca' : '#dcfce7'}" stroke="${neg ? '#b91c1c' : '#15803d'}" stroke-width="2"/>`;
+    s += `<text x="${x + CW / 2}" y="${Y + CW / 2 + 7}" text-anchor="middle" font-size="20" font-weight="700">${v > 0 ? '+' + v : v}</text>`;
+    s += `<text x="${x + CW / 2}" y="${Y - 8}" text-anchor="middle" font-size="11" fill="#616e7c">i=${i}</text>`;
+  });
+  // prefix from start=0
+  let p = 0, mn = 0, mnIdx = -1;
+  const pref0 = diff.map(d => { p += d; return p; });
+  pref0.forEach((v, i) => { if (v < mn) { mn = v; mnIdx = i; } });
+  const Y1 = Y + CW + 30;
+  s += `<text x="30" y="${Y1 + CW/2 + 6}" font-size="12" fill="#616e7c">tank from start=0</text>`;
+  pref0.forEach((v, i) => {
+    const x = X0 + i * DX;
+    const neg = v < 0;
+    s += `<rect x="${x}" y="${Y1}" width="${CW}" height="${CW}" rx="6" fill="${i === mnIdx ? '#fde68a' : '#ffffff'}" stroke="${neg ? '#b91c1c' : '#15803d'}" stroke-width="2"/>`;
+    s += `<text x="${x + CW / 2}" y="${Y1 + CW / 2 + 7}" text-anchor="middle" font-size="20" font-weight="700" fill="${neg ? '#b91c1c' : '#15803d'}">${v}</text>`;
+  });
+  s += `<text x="${X0 + mnIdx * DX + CW / 2}" y="${Y1 + CW + 14}" text-anchor="middle" font-size="11" font-weight="700" fill="#d97706">lowest valley at i=${mnIdx}</text>`;
+  // prefix from start=mnIdx+1
+  const s2 = mnIdx + 1;
+  let p2 = 0;
+  const pref2 = Array(n).fill(null);
+  for (let k = 0; k < n; k++) {
+    const idx = (s2 + k) % n;
+    p2 += diff[idx];
+    pref2[idx] = p2;
+  }
+  const Y2 = Y1 + CW + 44;
+  s += `<text x="30" y="${Y2 + CW/2 + 6}" font-size="12" fill="#616e7c">tank from start=${s2}</text>`;
+  for (let k = 0; k < n; k++) {
+    const idx = (s2 + k) % n;
+    const x = X0 + idx * DX;
+    const v = pref2[idx];
+    s += `<rect x="${x}" y="${Y2}" width="${CW}" height="${CW}" rx="6" fill="${idx === s2 ? '#bbf7d0' : '#ffffff'}" stroke="#15803d" stroke-width="2"/>`;
+    s += `<text x="${x + CW / 2}" y="${Y2 + CW / 2 + 7}" text-anchor="middle" font-size="20" font-weight="700" fill="#15803d">${v}</text>`;
+  }
+  s += `<text x="${X0 + s2 * DX + CW/2}" y="${Y2 - 6}" text-anchor="middle" font-size="11" font-weight="700" fill="#15803d">start here</text>`;
+  document.getElementById('idea').innerHTML =
+    `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${H}">${s}</svg>` +
+    `<div class="caption">Starting at i=3 (the index right after the lowest valley) lifts the whole tank curve to be non-negative.</div>`;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Add diff', lines: ['diff = gas[i] - cost[i]', 'totalTank += diff', 'curTank += diff'], color: 'yellow' },
+  { title: '2. Dip below 0?', lines: ['if curTank < 0:', 'start = i + 1', 'curTank = 0'], color: 'red' },
+  { title: '3. End of lap', lines: ['return totalTank>=0', '? start : -1'], color: 'green' },
+], { loop: 'next station' });
+
+/* Interactive trace. */
+VIZ.controls('trace', [
+  { id: 'gas', label: 'gas =', value: '[1,2,3,4,5]', size: 18 },
+  { id: 'cost', label: 'cost =', value: '[3,4,5,1,2]', size: 18 },
+], v => {
+  let gas, cost;
+  try { gas = VIZ.parse.arr(v.gas); cost = VIZ.parse.arr(v.cost); }
+  catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  if (!Array.isArray(gas) || !Array.isArray(cost) || gas.length !== cost.length || !gas.length)
+    return '<div class="box trap">Expected two non-empty arrays of the same length.</div>';
+  if (gas.length > 12) return '<div class="box trap">Pick at most 12 stations to keep the trace readable.</div>';
+
+  const n = gas.length;
+  const diff = gas.map((g, i) => g - cost[i]);
+  let total = 0, cur = 0, start = 0;
+  const steps = [];
+  for (let i = 0; i < n; i++) {
+    const beforeCur = cur;
+    total += diff[i];
+    cur += diff[i];
+    const reset = cur < 0;
+    const startBefore = start;
+    if (reset) {
+      start = i + 1;
+      cur = 0;
+    }
+    steps.push({ i, diff: diff[i], total, curBefore: beforeCur, curAfter: cur, reset, startBefore, startAfter: start });
+  }
+  const answer = total >= 0 ? start : -1;
+
+  const MAX = 20;
+  const show = steps.slice(0, MAX);
+  let html = '';
+  show.forEach((st, k) => {
+    const vals = diff.map(d => (d >= 0 ? '+' + d : String(d)));
+    const cls = (idx) => {
+      if (idx === st.i) return 'new';
+      if (idx === st.startAfter && !st.reset) return 'keep';
+      if (idx === st.startAfter && st.reset) return st.startAfter < n ? 'keep' : '';
+      if (idx < st.startAfter) return 'gone';
+      if (idx > st.i) return 'dim';
+      return 'in';
+    };
+    const notes = { [st.i]: `tank=${st.curAfter}` };
+    const ptrs = {};
+    ptrs[st.i] = 'i';
+    if (st.startAfter < n) {
+      if (ptrs[st.startAfter]) ptrs[st.startAfter] = [ptrs[st.startAfter], 'start'];
+      else ptrs[st.startAfter] = 'start';
+    }
+    const strip = VIZ.strip(vals, { cls, notes, ptrs, labels: diff.map((_, i) => i) });
+    const sign = st.diff >= 0 ? '+' : '';
+    let note = `Add <code>diff[${st.i}] = ${sign}${st.diff}</code>. ` +
+               `tank = <code>${st.curBefore}</code> + <code>${sign}${st.diff}</code> = <code>${st.curBefore + st.diff}</code>. ` +
+               `totalTank = <code>${st.total}</code>. `;
+    if (st.reset) {
+      note += `tank dropped <span class="bad">below 0</span>, so no station in <code>[${st.startBefore}, ${st.i}]</code> ` +
+              `can be a valid start. <b>Reset</b>: start &rarr; <code>${st.startAfter}</code>, tank &rarr; 0.`;
+    } else {
+      note += `tank stays <span class="ok">&ge; 0</span>; start stays at <code>${st.startAfter}</code>.`;
+    }
+    html += VIZ.step(`Step ${k + 1}: i = ${st.i}`, strip, note);
+  });
+  if (steps.length > MAX) html += `<p class="caption">... ${steps.length - MAX} more steps, same pattern.</p>`;
+
+  document.getElementById('answer').innerHTML =
+    `<b>Answer for gas=[${gas.join(',')}], cost=[${cost.join(',')}]: ${answer}</b>` +
+    ` &middot; totalTank = ${total} ${total >= 0 ? '&ge; 0, so start = ' + start : '&lt; 0, so -1'}.`;
+  return html;
+}, 'Give two arrays of the same length.');
+</script>
+
+</body>
+</html>

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 11 - Container With Most Water</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#two-pointers">Pattern lesson</a><span>Pattern 1: Arrays &amp; Two Pointers</span></div>
+
+<h1>Container With Most Water</h1>
+<p class="sub">LeetCode 11 &middot; Medium &middot; Pattern: shrinking-window two pointers &middot; O(n) time, O(1) space</p>
+
+<div class="box">
+  <b>Problem.</b> <code>height[i]</code> is the height of the <code>i</code>-th vertical line. Pick two lines so the
+  rectangle they form with the x-axis holds the most water. Return that area. Water is
+  <code>min(height[l], height[r]) &times; (r - l)</code>.
+  <br><code>[1,8,6,2,5,4,8,3,7] &rarr; 49</code> &nbsp;&nbsp; <code>[1,1] &rarr; 1</code>
+  <br>Link: <a href="https://leetcode.com/problems/container-with-most-water/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Area has two factors: <b>width</b> <code>(r - l)</code> and <b>limiting height</b> <code>min(h[l], h[r])</code>.
+Start with the widest possible rectangle: <code>l = 0, r = n - 1</code>. The width can only shrink from here. So the only
+way to beat the current area is to find a taller limiting height, soon.</p>
+
+<p>Here is the exchange argument. The shorter side is the limit. If you move the <i>taller</i> side inward, the width
+drops <b>and</b> the limit stays the same or drops (it can never exceed the shorter side). So that move cannot help.
+Move the <i>shorter</i> side inward: the width drops, but the limit might finally go up. That is the only move with a
+chance of beating the current area.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Start wide, keep two pointers <code>l</code> and <code>r</code>. Record
+  <code>min(h[l], h[r]) &times; (r - l)</code>. Then move whichever side is <b>shorter</b> one step inward. Stop when the
+  pointers meet.
+</div>
+
+<h3>Why the discarded side can be dropped forever</h3>
+
+<p>Say <code>h[l] &lt; h[r]</code>. For every <code>r' &lt; r</code>, the rectangle <code>(l, r')</code> has smaller width
+and the same limiting side <code>h[l]</code> (since the limit is the min). So its area cannot exceed
+<code>h[l] &times; (r - l)</code>, which we already recorded. Column <code>l</code> cannot be part of a better answer, so we
+retire it. The right pointer plays the symmetric role.</p>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Blue bars are the current window <code>[l, r]</code>. The shorter one is yellow (about to move). Dropped bars go red
+and stay red. The green bars at the end are the pair that produced the best area.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>shorter side (about to move)</span>
+  <span><i style="background:var(--win)"></i>other side of the window</span>
+  <span><i style="background:var(--gone)"></i>already dropped</span>
+  <span><i style="background:var(--keep)"></i>the winning pair</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">int</span> maxArea(<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; height) {
+        <span class="t">int</span> l = <span class="n">0</span>, r = (<span class="t">int</span>)height.size() - <span class="n">1</span>, best = <span class="n">0</span>;
+        <span class="k">while</span> (l &lt; r) {
+            <span class="t">int</span> h = min(height[l], height[r]);
+            best = max(best, h * (r - l));          <span class="c">// record before moving</span>
+            <span class="k">if</span> (height[l] &lt; height[r]) l++;         <span class="c">// move the shorter side</span>
+            <span class="k">else</span> r--;
+        }
+        <span class="k">return</span> best;
+    }
+};</pre>
+
+<p><b>Complexity:</b> each pointer moves inward only, so at most <code>n - 1</code> moves in total. O(n) time, O(1) space.</p>
+
+<h2>5. The part interviewers ask about: ties and "which side moves"</h2>
+
+<div class="box insight">
+  When <code>height[l] == height[r]</code>, you can move <b>either</b> pointer. Both work. The reason: the discarded
+  column has the same height as the surviving limit, so any inner rectangle paired with the discarded column has width
+  strictly smaller and limit at most equal, which cannot beat the current area. The code above uses <code>else r--</code>,
+  which moves <code>r</code> on ties. Interviewers often ask you to defend the tie rule out loud.
+</div>
+
+<p>A sharper way to prune: when you move the shorter side, keep moving it while the next value is <i>not</i> taller than
+the one you just dropped. That extra skip is pure optimisation; the plain version is already O(n) and is what you should
+write first.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Moving the taller side.</b> That strictly reduces width and cannot raise the limit, so you can only match or
+    lose. The algorithm then misses the answer.</li>
+    <li><b>Starting with the two tallest bars.</b> Width matters. Tallest pair <code>[8, 8]</code> at indices 1 and 6 gives
+    width 5, area 40. The real best in <code>[1,8,6,2,5,4,8,3,7]</code> uses indices 1 and 8 for area 49.</li>
+    <li><b>Area <code>&ne;</code> sum of heights.</b> Only the shorter side holds water; water above the taller side spills.</li>
+    <li><b>Overflow.</b> With LC bounds <code>height[i] &le; 10<sup>4</sup></code> and <code>n &le; 10<sup>5</sup></code>,
+    area &le; 10<sup>9</sup>, fits in <code>int</code>. For larger limits, use <code>long long</code>.</li>
+    <li><b>Two bars only.</b> Loop runs once, returns <code>min(h[0], h[1])</code>. The empty / single-bar cases are not in
+    the LC constraints (<code>n &ge; 2</code>), but the code handles them (loop runs 0 times, returns 0).</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "Start with pointers at both ends. The width is maximal, so the only way to beat the current area is to find a taller
+  limiting height. Record the current rectangle, then move the shorter side inward because the other move can only shrink
+  the width while keeping the same limit. Each pointer walks at most n steps, so it is O(n) time and O(1) space. The
+  shorter side is the one with a chance to grow."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 42 Trapping Rain Water</td><td>Same shrinking-window two pointers, but the <i>answer</i> is the sum of water trapped at every column, not one rectangle.</td></tr>
+  <tr><td>LC 167 Two Sum II (sorted)</td><td>Same L/R shape, decision based on sum vs target.</td></tr>
+  <tr><td>LC 15 3Sum / LC 18 4Sum</td><td>Fix anchors, then use L/R to find pairs that complete the sum.</td></tr>
+  <tr><td>LC 977 Squares of a Sorted Array</td><td>L/R walk inward writing the result from the back; same shape, different task.</td></tr>
+</table>
+
+<script>
+/* Idea diagram: show [1,8,6,2,5,4,8,3,7] with the winning pair highlighted (indices 1 and 8). */
+(function () {
+  const H = [1,8,6,2,5,4,8,3,7];
+  const entries = H.map((v, i) => {
+    let cls = '';
+    if (i === 1 || i === 8) cls = 'hl3';
+    return [String(i), v, cls];
+  });
+  document.getElementById('idea').innerHTML =
+    VIZ.bars(entries) +
+    '<div class="caption">Green bars are the winning pair at <code>l=1</code> and <code>r=8</code>: height min(8,7)=7, width 7, area <b>49</b>.</div>';
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Record area', lines: ['h = min(h[l], h[r])', 'best = max(best, h*(r-l))'], color: 'green' },
+  { title: '2. Move shorter side', lines: ['if h[l] < h[r]: l++', 'else: r--'], color: 'yellow' },
+  { title: '3. Pointers met?', lines: ['stop when l == r'], color: 'red' },
+], { loop: 'while l < r' });
+
+/* Interactive trace. */
+VIZ.controls('trace', [
+  { id: 'height', label: 'height =', value: '[1,8,6,2,5,4,8,3,7]', size: 28 },
+], v => {
+  let h;
+  try { h = VIZ.parse.arr(v.height); }
+  catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  if (!Array.isArray(h) || h.length < 2) return '<div class="box trap">Need at least two bars.</div>';
+  if (h.length > 20) return '<div class="box trap">Pick at most 20 bars to keep the trace readable.</div>';
+  if (h.some(x => typeof x !== 'number' || x < 0)) return '<div class="box trap">Heights must be non-negative numbers.</div>';
+
+  let l = 0, r = h.length - 1, best = 0;
+  let bestL = 0, bestR = h.length - 1;
+  const dropped = new Set();
+  const steps = [];
+  while (l < r) {
+    const hl = h[l], hr = h[r], lim = Math.min(hl, hr), width = r - l, area = lim * width;
+    const improved = area > best;
+    if (improved) { best = area; bestL = l; bestR = r; }
+    const moveL = hl < hr;
+    steps.push({ l, r, hl, hr, lim, width, area, best, improved, moveL, droppedSoFar: new Set(dropped), movedIdx: moveL ? l : r });
+    if (moveL) { dropped.add(l); l++; }
+    else { dropped.add(r); r--; }
+  }
+
+  const MAX = 25;
+  const show = steps.slice(0, MAX);
+  let html = '';
+  show.forEach((st, k) => {
+    const entries = h.map((val, i) => {
+      let cls = '';
+      if (st.droppedSoFar.has(i)) cls = '';
+      if (i === st.l || i === st.r) cls = 'hl'; // blue window
+      if (i === st.movedIdx) cls = 'hl2';       // orange: shorter side about to move
+      if (st.droppedSoFar.has(i)) cls = ''; // we'll use strip below instead for cleaner colouring
+      return [String(i), val, cls];
+    });
+    // Build a strip for the bars with proper colour classes (clearer than bars for drop state).
+    const cls = i => {
+      if (st.droppedSoFar.has(i)) return 'gone';
+      if (i === st.movedIdx) return 'new';
+      if (i === st.l || i === st.r) return 'in';
+      return 'dim';
+    };
+    const ptrs = { [st.l]: st.l === st.r ? 'LR' : 'L', [st.r]: 'R' };
+    if (st.l === st.r) ptrs[st.l] = ['L','R'];
+    const barFig = VIZ.bars(h.map((val, i) => {
+      let c = '';
+      if (st.droppedSoFar.has(i)) c = '';
+      else if (i === st.movedIdx) c = 'hl2';
+      else if (i === st.l || i === st.r) c = 'hl';
+      return [String(i), val, c];
+    }));
+    const stripFig = VIZ.strip(h, { cls, ptrs });
+    const text =
+      `Width <code>r - l = ${st.r} - ${st.l} = ${st.width}</code>. ` +
+      `Limit <code>min(${st.hl}, ${st.hr}) = ${st.lim}</code>. ` +
+      `Area <b>${st.area}</b>. ` +
+      (st.improved ? `<span class="ok">new best = ${st.best}</span>. ` : `best stays ${st.best}. `) +
+      `${st.moveL ? '<code>h[l]</code>' : '<code>h[r]</code>'} is the shorter side, move it inward.`;
+    html += VIZ.step(`Step ${k + 1}: l = ${st.l}, r = ${st.r}`, barFig + stripFig, text, true);
+  });
+  if (steps.length > MAX) html += `<p class="caption">... ${steps.length - MAX} more steps, same pattern.</p>`;
+
+  // Final line: show the winning pair in green.
+  const finalCls = i => (i === bestL || i === bestR) ? 'keep' : (dropped.has(i) ? 'gone' : 'dim');
+  const finalStrip = VIZ.strip(h, { cls: finalCls });
+  html += VIZ.step('Winning pair', finalStrip,
+    `Best area <b>${best}</b> at <code>l = ${bestL}</code>, <code>r = ${bestR}</code> with heights ` +
+    `<code>${h[bestL]}</code> and <code>${h[bestR]}</code>.`, true);
+
+  document.getElementById('answer').innerHTML =
+    `<b>Answer for height = [${h.join(',')}]: ${best}</b>`;
+  return html;
+}, 'Values are the bar heights, left to right.');
+</script>
+
+</body>
+</html>

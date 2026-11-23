@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 78 - Subsets</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#backtracking">Pattern lesson</a><span>Pattern 12: Backtracking</span></div>
+
+<h1>Subsets</h1>
+<p class="sub">LeetCode 78 &middot; Medium &middot; Pattern: backtracking (choose / skip) &middot; O(n &middot; 2<sup>n</sup>) time, O(n) extra space</p>
+
+<div class="box">
+  <b>Problem.</b> Given an array of distinct integers <code>nums</code>, return all possible subsets (the power set).
+  The answer may be in any order and must not contain duplicate subsets.
+  <br><code>nums = [1,2,3] &rarr; [[],[1],[2],[3],[1,2],[1,3],[2,3],[1,2,3]]</code>
+  &nbsp;&nbsp; <code>nums = [0] &rarr; [[],[0]]</code>
+  <br>Link: <a href="https://leetcode.com/problems/subsets/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Walk the array left to right. For each element, make a binary choice: <b>skip it</b> or <b>include it</b>. A full
+walk from index 0 to <code>n</code> produces one subset. The complete set of walks is a binary tree of depth <code>n</code>,
+and its 2<sup>n</sup> leaves are the subsets you need.</p>
+
+<p>The engine is backtracking: push the element before you recurse, pop it after. That way the <i>same</i> vector
+<code>cur</code> is reused for every walk, and the "unchoose" step undoes the last push so the next walk starts clean.</p>
+
+<div id="idea-tree"></div>
+
+<div class="box insight">
+  <b>Idea.</b> For each index, branch into two children: skip or include. The leaves of this binary tree are the subsets.
+  Backtracking (push on the way down, pop on the way up) explores every leaf while reusing one vector.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<p>The recursion at index <code>i</code> does two things: first recurse without <code>nums[i]</code>, then push it and
+recurse again. On the way back up, pop so the next branch sees a clean <code>cur</code>.</p>
+
+<div id="algo-flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>The picture below is the full recursion tree. Each node shows <code>cur</code> at that call. Left edge = skip, right
+edge = include. Each leaf is one subset in the answer. Numbers in each node are collected in DFS order (skip first,
+include second), so the leaves are listed left to right exactly as the algorithm emits them.</p>
+
+<div class="legend">
+  <span><i style="background:#dbeafe"></i>recursive call (cur so far)</span>
+  <span><i style="background:#bbf7d0"></i>leaf: subset emitted</span>
+  <span><i style="background:#f8fafc;border:1px solid #cbd5e1"></i>edge label: skip / include nums[i]</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt; subsets(<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; nums) {
+        <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt; ans;
+        <span class="t">vector</span>&lt;<span class="t">int</span>&gt; cur;
+        <span class="t">function</span>&lt;<span class="t">void</span>(<span class="t">int</span>)&gt; dfs = [&amp;](<span class="t">int</span> i) {
+            <span class="k">if</span> (i == (<span class="t">int</span>)nums.size()) { ans.push_back(cur); <span class="k">return</span>; }
+            dfs(i + <span class="n">1</span>);                     <span class="c">// skip nums[i]</span>
+            cur.push_back(nums[i]);         <span class="c">// include nums[i]</span>
+            dfs(i + <span class="n">1</span>);
+            cur.pop_back();                 <span class="c">// unchoose</span>
+        };
+        dfs(<span class="n">0</span>);
+        <span class="k">return</span> ans;
+    }
+};</pre>
+
+<p><b>Complexity:</b> there are 2<sup>n</sup> subsets and each is copied into <code>ans</code> in O(n), so O(n &middot; 2<sup>n</sup>) time.
+Extra space is O(n) for the recursion depth and <code>cur</code>; the output itself is O(n &middot; 2<sup>n</sup>).</p>
+
+<h3>Alternative: the "for-loop" form</h3>
+
+<pre><span class="t">void</span> dfs(<span class="t">int</span> start, <span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; nums,
+         <span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; cur, <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt;&amp; ans) {
+    ans.push_back(cur);                 <span class="c">// every node is a subset</span>
+    <span class="k">for</span> (<span class="t">int</span> i = start; i &lt; (<span class="t">int</span>)nums.size(); i++) {
+        cur.push_back(nums[i]);
+        dfs(i + <span class="n">1</span>, nums, cur, ans);
+        cur.pop_back();
+    }
+}</pre>
+
+<p>Same answers, different shape of tree: here every node (not just the leaf) is a subset, and the fan-out is
+"pick the next element to add". Use the choose/skip form when you want to see the binary structure clearly, and the
+for-loop form when the children at a node are naturally a range of choices (combinations, combination sum).</p>
+
+<h2>5. The part interviewers ask about: order and no duplicates</h2>
+
+<p>Two things come up most often:</p>
+
+<div class="box insight">
+  <b>No subset appears twice</b> because at each index we take exactly one of two paths. Different leaves differ in at
+  least one choice, so they produce different index sets, so they produce different subsets (the input values are distinct).
+  <br><br>
+  <b>The empty subset is included</b> because the first thing the recursion does is skip index 0, then skip 1, ..., all the
+  way down. That walk never pushes anything, so when <code>i == n</code> the empty <code>cur</code> is copied into
+  <code>ans</code>.
+</div>
+
+<p>If the problem had <b>duplicates</b> (LC 90 Subsets II), the two-child view would create duplicate subsets. The fix is
+the for-loop form plus "at each level, skip over duplicates of the just-tried value": sort first, then
+<code>if (i &gt; start &amp;&amp; nums[i] == nums[i-1]) continue;</code>.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Forgetting the pop.</b> If you push and recurse but never <code>pop_back</code>, the sibling branch sees the
+    element still inside <code>cur</code>. All subsets on that branch will be wrong.</li>
+    <li><b>Pushing a reference instead of a copy</b> into <code>ans</code>. <code>ans.push_back(cur)</code> is a copy and
+    is correct. If you store a pointer or reference, every entry will show the final state of <code>cur</code>.</li>
+    <li><b>Empty input.</b> <code>nums = []</code> must return <code>[[]]</code>, not <code>[]</code>. The recursion handles
+    it: index 0 is already the base case, so one empty subset is emitted.</li>
+    <li><b>Single element.</b> <code>nums = [0] &rarr; [[],[0]]</code>. Easy to forget the empty subset.</li>
+    <li><b>n up to 10</b> on LeetCode. 2<sup>10</sup> = 1024, so even bit-mask enumeration works, but backtracking is the
+    standard answer because it generalises to the other subset-style problems.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "At each index I have two choices: skip the element or include it. That is a binary recursion of depth n, so 2<sup>n</sup>
+  leaves, one per subset. I use one shared vector <code>cur</code> and backtrack: push before recursing with "include",
+  pop after. At the base case I copy <code>cur</code> into the answer. The empty subset falls out naturally from the
+  all-skip path. Time is O(n &middot; 2<sup>n</sup>) because I copy each subset, space O(n) for the recursion."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 90 Subsets II</td><td>Same tree, duplicates in input: sort and skip equal siblings at the same level.</td></tr>
+  <tr><td>LC 77 Combinations</td><td>For-loop form: pick k out of n, prune when <code>cur.size() + remaining &lt; k</code>.</td></tr>
+  <tr><td>LC 39 Combination Sum</td><td>Choose/skip with reuse: recurse on <code>i</code> (not <code>i+1</code>) after choose.</td></tr>
+  <tr><td>LC 46 Permutations</td><td>Fan-out "any unused index" instead of binary choose/skip.</td></tr>
+</table>
+
+<script>
+/* Build a static recursion tree for nums = [1,2]. Illustrates the idea. */
+(function () {
+  // Nodes layout: top = root i=0, then two children, etc. Depth 2 -> 4 leaves.
+  const W = 760, H = 310;
+  const nodes = [
+    // id, x, y, label, cls
+    [0, 380, 30,  '[]',   'in'],   // root, call dfs(0)
+    [1, 180, 110, '[]',   'in'],   // skip 1
+    [2, 580, 110, '[1]',  'in'],   // include 1
+    [3, 90,  200, '[]',   'keep'], // skip 1, skip 2 -> leaf []
+    [4, 270, 200, '[2]',  'keep'], // skip 1, include 2 -> leaf [2]
+    [5, 490, 200, '[1]',  'keep'], // include 1, skip 2 -> leaf [1]
+    [6, 670, 200, '[1,2]','keep'], // include 1, include 2 -> leaf [1,2]
+  ];
+  const edges = [
+    [0, 1, 'skip 1'],
+    [0, 2, 'include 1'],
+    [1, 3, 'skip 2'],
+    [1, 4, 'include 2'],
+    [2, 5, 'skip 2'],
+    [2, 6, 'include 2'],
+  ];
+  const col = { in: ['#dbeafe','#3b82f6'], keep: ['#bbf7d0','#15803d'] };
+  let s = '';
+  edges.forEach(([a, b, lab]) => {
+    const A = nodes[a], B = nodes[b];
+    s += `<line x1="${A[1]}" y1="${A[2]+18}" x2="${B[1]}" y2="${B[2]-14}" stroke="#94a3b8" stroke-width="2"/>`;
+    const mx = (A[1] + B[1]) / 2, my = (A[2] + B[2]) / 2 + 2;
+    s += `<text x="${mx}" y="${my}" text-anchor="middle" font-size="11" fill="#475569" font-weight="700">${lab}</text>`;
+  });
+  nodes.forEach(([id, x, y, lab, cls]) => {
+    const [fill, stroke] = col[cls];
+    s += `<rect x="${x-40}" y="${y-14}" width="80" height="30" rx="6" fill="${fill}" stroke="${stroke}" stroke-width="2"/>`;
+    s += `<text x="${x}" y="${y+5}" text-anchor="middle" font-size="13" font-weight="700">${lab}</text>`;
+  });
+  s += `<text x="20" y="260" font-size="12" fill="#616e7c">4 leaves = 4 subsets of [1,2]: [], [2], [1], [1,2]</text>`;
+  document.getElementById('idea-tree').innerHTML =
+    `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${H}">${s}</svg>`;
+})();
+
+document.getElementById('algo-flow').innerHTML = VIZ.flow([
+  { title: '1. Base case', lines: ['if i == n', 'push cur into ans', 'return'], color: 'green' },
+  { title: '2. Skip branch', lines: ['dfs(i + 1)', 'cur unchanged'], color: 'blue' },
+  { title: '3. Include branch', lines: ['cur.push_back(nums[i])', 'dfs(i + 1)', 'cur.pop_back()'], color: 'yellow' },
+]);
+
+/* Interactive recursion tree for arbitrary input. */
+VIZ.controls('trace', [{ id: 'nums', label: 'nums =', value: '[1,2,3]', size: 14 }], v => {
+  let nums;
+  try { nums = VIZ.parse.arr(v.nums); }
+  catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  if (!Array.isArray(nums)) return '<div class="box trap">Could not parse input: expected an array</div>';
+  const n = nums.length;
+  if (n > 4) return '<div class="box trap">Please use at most 4 elements so the tree stays readable (2^4 = 16 leaves).</div>';
+
+  // Build the tree. Each node has (i, cur).
+  // We assign x by in-order of leaves. Depth = n, leaves = 2^n.
+  const leaves = 1 << n;
+  const DX = Math.max(60, Math.floor(820 / Math.max(1, leaves)));
+  const DY = 70;
+  const W = Math.max(500, leaves * DX + 60), H = (n + 1) * DY + 20;
+
+  // Pre-compute positions: leaf index k's x = 30 + (k + 0.5) * DX.
+  // Internal node at depth d, path p: spans leaves [p << (n-d), (p+1) << (n-d)), so x = middle of those.
+  function nodeX(depth, path) {
+    const span = 1 << (n - depth);
+    const first = path * span, last = first + span - 1;
+    return 30 + ((first + last) / 2 + 0.5) * DX;
+  }
+  function nodeY(depth) { return 20 + depth * DY; }
+
+  const emitted = [];       // leaves in DFS order
+  const steps = [];         // for annotation
+  const nodes = [];         // {x, y, label, cls}
+  const edges = [];         // {x1,y1,x2,y2,label}
+
+  function dfs(i, cur, path, depth) {
+    const x = nodeX(depth, path), y = nodeY(depth);
+    const isLeaf = (i === n);
+    nodes.push({ x, y, label: '[' + cur.join(',') + ']', cls: isLeaf ? 'keep' : 'in' });
+    if (isLeaf) { emitted.push([...cur]); return; }
+
+    // skip
+    const lx = nodeX(depth + 1, path * 2), ly = nodeY(depth + 1);
+    edges.push({ x1: x, y1: y + 14, x2: lx, y2: ly - 14, label: 'skip ' + nums[i] });
+    dfs(i + 1, cur, path * 2, depth + 1);
+
+    // include
+    cur.push(nums[i]);
+    const rx = nodeX(depth + 1, path * 2 + 1), ry = nodeY(depth + 1);
+    edges.push({ x1: x, y1: y + 14, x2: rx, y2: ry - 14, label: 'include ' + nums[i] });
+    dfs(i + 1, cur, path * 2 + 1, depth + 1);
+    cur.pop();
+  }
+  dfs(0, [], 0, 0);
+
+  const col = { in: ['#dbeafe', '#3b82f6'], keep: ['#bbf7d0', '#15803d'] };
+  let s = '';
+  edges.forEach(e => {
+    s += `<line x1="${e.x1}" y1="${e.y1}" x2="${e.x2}" y2="${e.y2}" stroke="#94a3b8" stroke-width="2"/>`;
+    const mx = (e.x1 + e.x2) / 2, my = (e.y1 + e.y2) / 2 + 3;
+    s += `<text x="${mx}" y="${my}" text-anchor="middle" font-size="10" fill="#475569" font-weight="700">${VIZ.esc(e.label)}</text>`;
+  });
+  nodes.forEach(nd => {
+    const [fill, stroke] = col[nd.cls];
+    const w = Math.max(44, nd.label.length * 7 + 8);
+    s += `<rect x="${nd.x - w / 2}" y="${nd.y - 14}" width="${w}" height="28" rx="6" fill="${fill}" stroke="${stroke}" stroke-width="2"/>`;
+    s += `<text x="${nd.x}" y="${nd.y + 5}" text-anchor="middle" font-size="12" font-weight="700">${VIZ.esc(nd.label)}</text>`;
+  });
+
+  const treeSvg = `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${H}">${s}</svg>`;
+
+  // Order check next to the tree: list leaves in DFS order with the index they appear in ans.
+  const list = emitted.map((sub, k) =>
+    `<code>ans[${k}] = [${sub.join(',')}]</code>`).join(', ');
+
+  document.getElementById('answer').innerHTML =
+    '<b>' + emitted.length + ' subsets</b> for <code>nums = [' + nums.join(',') + ']</code>' +
+    (emitted.length <= 16 ? ': ' + list : '.');
+
+  return VIZ.step('Full recursion tree', treeSvg,
+    'Blue nodes are internal recursive calls; green rectangles are leaves. ' +
+    'Left edge = skip <code>nums[i]</code>, right edge = include it. ' +
+    'A left-to-right scan of the leaves gives the subsets in the order the algorithm emits them. ' +
+    'There are exactly 2<sup>' + n + '</sup> = ' + emitted.length + ' leaves, no duplicates among them because the inputs are distinct.',
+    true);
+}, 'Pick up to 4 elements to keep the tree readable. The tree is produced by running the choose/skip recursion.');
+</script>
+
+</body>
+</html>

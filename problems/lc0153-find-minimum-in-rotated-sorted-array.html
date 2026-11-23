@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 153 - Find Minimum in Rotated Sorted Array</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#binary-search">Pattern lesson</a><span>Pattern 4: Binary Search</span></div>
+
+<h1>Find Minimum in Rotated Sorted Array</h1>
+<p class="sub">LeetCode 153 &middot; Medium &middot; Pattern: binary search for the pivot &middot; O(log n) time, O(1) space</p>
+
+<div class="box">
+  <b>Problem.</b> A sorted array with distinct values was rotated at some pivot. Return the minimum element.
+  <br><code>[3,4,5,1,2] &rarr; 1</code> &nbsp;&nbsp; <code>[4,5,6,7,0,1,2] &rarr; 0</code> &nbsp;&nbsp; <code>[11,13,15,17] &rarr; 11</code>
+  <br>Link: <a href="https://leetcode.com/problems/find-minimum-in-rotated-sorted-array/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>The minimum is the <i>only</i> point where the array drops. Everywhere else it goes up. Compare
+<code>nums[mid]</code> with <code>nums[hi]</code>:</p>
+
+<ul>
+  <li>If <code>nums[mid] &gt; nums[hi]</code>, the drop (and therefore the minimum) is <b>strictly to the right</b>
+      of <code>mid</code>. The whole left side including <code>mid</code> is above the minimum, discard it.
+      <code>lo = mid + 1</code>.</li>
+  <li>Otherwise <code>nums[mid] &le; nums[hi]</code>, so the right side <code>[mid..hi]</code> is already sorted and
+      <code>nums[mid]</code> is a candidate for the minimum of that side. Discard the right of <code>mid</code>, but
+      keep <code>mid</code> itself. <code>hi = mid</code>.</li>
+</ul>
+
+<p>Shrink until <code>lo == hi</code>; that cell is the minimum. The loop is <code>while (lo &lt; hi)</code> because
+we stop one short of equal to avoid an infinite loop (since <code>hi = mid</code> does not strictly shrink).</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Compare <code>nums[mid]</code> with <code>nums[hi]</code>. The minimum lives on the side that still
+  has the "drop". Half-open shrinking: <code>lo = mid + 1</code> or <code>hi = mid</code>, loop while
+  <code>lo &lt; hi</code>, answer is <code>nums[lo]</code>.
+</div>
+
+<h3>Why we compare against <code>hi</code>, not <code>lo</code></h3>
+
+<p>Picking <code>nums[lo]</code> as the anchor breaks on the unrotated case <code>[1,2,3,4]</code>: everything is
+<code>&ge; nums[lo]</code>, so you cannot tell which side the min is on without a special case. Comparing to
+<code>nums[hi]</code> handles both rotated and unrotated with one rule: <code>nums[mid] &le; nums[hi]</code> means
+<code>mid</code> is in the sorted right suffix (so include it and shrink from the right), <code>nums[mid] &gt; nums[hi]</code>
+means the pivot is between them.</p>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Blue = current window. Yellow = <code>mid</code>. Green stripe = the sorted half (the half we know is sorted
+end-to-end on this step). Red struck-through = the half discarded on this step.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>mid</span>
+  <span><i style="background:var(--keep)"></i>sorted half</span>
+  <span><i style="background:var(--win)"></i>other half (contains the drop)</span>
+  <span><i style="background:var(--gone)"></i>discarded on this step</span>
+  <span><i style="background:#f8fafc;border-color:#cbd5e1"></i>discarded earlier</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">int</span> findMin(<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; nums) {
+        <span class="t">int</span> lo = <span class="n">0</span>, hi = (<span class="t">int</span>)nums.size() - <span class="n">1</span>;
+        <span class="k">while</span> (lo &lt; hi) {
+            <span class="t">int</span> mid = lo + (hi - lo) / <span class="n">2</span>;
+            <span class="k">if</span> (nums[mid] &gt; nums[hi]) lo = mid + <span class="n">1</span>;   <span class="c">// min is strictly right of mid</span>
+            <span class="k">else</span>                      hi = mid;       <span class="c">// min is at mid or left of it</span>
+        }
+        <span class="k">return</span> nums[lo];
+    }
+};</pre>
+
+<p><b>Complexity:</b> each step halves the window, O(log n) time, O(1) space.</p>
+
+<h2>5. The part interviewers ask about: <code>hi = mid</code>, not <code>hi = mid - 1</code></h2>
+
+<div class="box insight">
+  When <code>nums[mid] &le; nums[hi]</code>, <code>nums[mid]</code> itself could be the minimum, so we cannot drop
+  it. The update <code>hi = mid</code> keeps it in the window. That is also why the loop is <code>lo &lt; hi</code>
+  (not <code>&le;</code>): with <code>hi = mid</code>, a one-cell window would recurse on itself forever under a
+  <code>&le;</code> loop.
+  <br><br>
+  Mirror observation: the other branch does <code>lo = mid + 1</code> because <code>nums[mid] &gt; nums[hi]</code>
+  guarantees <code>mid</code> is <i>not</i> the minimum (there is at least <code>nums[hi]</code> below it), so we
+  can safely exclude it.
+</div>
+
+<p><b>LC 154 variant (duplicates allowed).</b> With duplicates <code>nums[mid] == nums[hi]</code> gives no useful
+info. The fix is <code>hi--</code> on equality. Worst case O(n), still O(log n) in expectation.</p>
+
+<pre><span class="c">// LC 154: duplicates allowed</span>
+<span class="k">while</span> (lo &lt; hi) {
+    <span class="t">int</span> mid = lo + (hi - lo) / <span class="n">2</span>;
+    <span class="k">if</span>      (nums[mid] &gt; nums[hi]) lo = mid + <span class="n">1</span>;
+    <span class="k">else</span> <span class="k">if</span> (nums[mid] &lt; nums[hi]) hi = mid;
+    <span class="k">else</span>                           hi--;        <span class="c">// cannot tell, inch down</span>
+}</pre>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Loop condition <code>lo &le; hi</code> with <code>hi = mid</code>.</b> Infinite loop. Use
+    <code>lo &lt; hi</code>.</li>
+    <li><b><code>hi = mid - 1</code> on the <code>&le;</code> branch.</b> You can drop the minimum. Writing
+    <code>hi = mid</code> keeps it alive.</li>
+    <li><b>Not rotated.</b> <code>[1,2,3,4,5]</code>: <code>nums[mid] &le; nums[hi]</code> every step, <code>hi</code>
+    shrinks to <code>lo = 0</code>, returns <code>nums[0] = 1</code>. Correct.</li>
+    <li><b>Length 1.</b> <code>[7]</code>: loop never runs, returns <code>nums[0] = 7</code>.</li>
+    <li><b>Rotated by n (equivalent to not rotated).</b> Same case as above.</li>
+    <li><b>Rotated by exactly 1.</b> <code>[2,1]</code>: <code>lo=0, hi=1, mid=0, nums[0]=2 &gt; nums[1]=1</code>,
+    so <code>lo = 1</code>. Return <code>nums[1] = 1</code>.</li>
+    <li><b>Overflow on <code>(lo + hi) / 2</code>.</b> Not with LC bounds, but write <code>lo + (hi - lo) / 2</code>
+    anyway.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "A rotated sorted array has one 'drop'. I compare <code>nums[mid]</code> with <code>nums[hi]</code>: if
+  <code>nums[mid] &gt; nums[hi]</code>, the drop and therefore the minimum is strictly to the right, so
+  <code>lo = mid + 1</code>. Otherwise the right half from <code>mid</code> is sorted, so the minimum is at
+  <code>mid</code> or to its left, so <code>hi = mid</code>. I stop at <code>lo == hi</code>. O(log n). Comparing to
+  <code>hi</code> (not <code>lo</code>) covers the unrotated case with no special code."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 154 Find Minimum II</td><td>Duplicates: do <code>hi--</code> when <code>nums[mid] == nums[hi]</code>.</td></tr>
+  <tr><td>LC 33 Search in Rotated Sorted Array</td><td>Once you know the pivot (LC 153), two plain binary searches find any target in O(log n).</td></tr>
+  <tr><td>LC 162 Find Peak Element</td><td>Same "which side has the drop" trick, with the inequality flipped.</td></tr>
+  <tr><td>LC 852 Peak Index in a Mountain Array</td><td>Also searches for a special index, not a value.</td></tr>
+</table>
+
+<script>
+/* Idea diagram: show the first step on [4,5,6,7,0,1,2]. */
+(function () {
+  const a = [4,5,6,7,0,1,2];
+  const html =
+    '<p>Window <code>[0..6]</code>, <code>mid = 3</code>, <code>nums[3] = 7</code>, <code>nums[6] = 2</code>. ' +
+    '<code>7 &gt; 2</code> &rarr; the drop is strictly to the right of <code>mid</code>. ' +
+    'Left half (including <code>mid</code>) is still sorted: discard it, <code>lo = 4</code>.</p>' +
+    VIZ.strip(a, {
+      cls: i => i === 3 ? 'new' : (i < 3 ? 'gone' : (i > 3 ? 'in' : 'new')),
+      ptrs: { 0: 'lo', 3: 'mid', 6: 'hi' },
+    });
+  document.getElementById('idea').innerHTML = html;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Compare', lines: ['nums[mid] vs nums[hi]'], color: 'yellow' },
+  { title: '2. Mid above hi?', lines: ['nums[mid] > nums[hi]:', 'min is right of mid', 'lo = mid + 1'], color: 'red' },
+  { title: '3. Mid at or below hi?', lines: ['nums[mid] <= nums[hi]:', 'min is at or left of mid', 'hi = mid'], color: 'green' },
+], { loop: 'while lo < hi' });
+
+/* Interactive trace */
+VIZ.controls('trace', [
+  { id: 'nums', label: 'nums =', value: '[4,5,6,7,0,1,2]', size: 24 },
+], v => {
+  let nums;
+  try { nums = VIZ.parse.arr(v.nums); }
+  catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  if (!Array.isArray(nums) || nums.length === 0) return '<div class="box trap">nums must be a non-empty array.</div>';
+  if (nums.length > 32) return '<div class="box trap">Pick at most 32 numbers to keep the trace readable.</div>';
+
+  const steps = [];
+  let lo = 0, hi = nums.length - 1;
+  const droppedBefore = new Set();
+  if (lo === hi) {
+    steps.push({ lo, hi, mid: lo, trivial: true, droppedBefore: new Set() });
+  }
+  while (lo < hi) {
+    const mid = lo + ((hi - lo) >> 1);
+    const vmid = nums[mid], vhi = nums[hi];
+    let branch, nextLo = lo, nextHi = hi, dropL = -1, dropR = -1;
+    if (vmid > vhi) {
+      branch = 'right';  // min to the right of mid
+      dropL = lo; dropR = mid; nextLo = mid + 1;
+    } else {
+      branch = 'left';   // min at mid or to the left; right half (strictly after mid) is sorted-and-dropped
+      dropL = mid + 1; dropR = hi; nextHi = mid;
+    }
+    steps.push({ lo, hi, mid, vmid, vhi, branch, dropL, dropR, droppedBefore: new Set(droppedBefore) });
+    if (dropL <= dropR) for (let i = dropL; i <= dropR; i++) droppedBefore.add(i);
+    lo = nextLo; hi = nextHi;
+  }
+
+  const MAX = 25;
+  const show = steps.slice(0, MAX);
+  let html = '';
+  show.forEach((st, k) => {
+    if (st.trivial) {
+      html += VIZ.step(`Step ${k + 1}: window [${st.lo}..${st.hi}]`,
+        VIZ.strip(nums, { cls: i => i === st.lo ? 'keep' : 'dim', ptrs: { [st.lo]: ['lo','hi'] } }),
+        '<code>lo == hi</code> already. Return <b>nums[' + st.lo + '] = ' + nums[st.lo] + '</b>.', true);
+      return;
+    }
+    const sortedL = st.branch === 'right' ? st.lo : st.mid;
+    const sortedR = st.branch === 'right' ? st.mid : st.hi;
+    const cls = i => {
+      if (st.droppedBefore.has(i)) return 'dim';
+      if (i === st.mid) return 'new';
+      if (i >= st.dropL && i <= st.dropR && st.dropL !== -1) return 'gone';
+      if (i >= sortedL && i <= sortedR) return 'keep';
+      if (i >= st.lo && i <= st.hi) return 'in';
+      return 'dim';
+    };
+    const ptrs = {};
+    if (st.lo === st.hi && st.lo === st.mid) ptrs[st.lo] = ['lo','mid','hi'];
+    else {
+      ptrs[st.lo] = st.lo === st.mid ? ['lo','mid'] : 'lo';
+      ptrs[st.hi] = st.hi === st.mid ? ['mid','hi'] : 'hi';
+      if (st.mid !== st.lo && st.mid !== st.hi) ptrs[st.mid] = 'mid';
+    }
+    const fig = VIZ.strip(nums, { cls, ptrs });
+    let text;
+    if (st.branch === 'right') {
+      text = `<code>nums[${st.mid}] = ${st.vmid} &gt; nums[${st.hi}] = ${st.vhi}</code>. ` +
+        `Left half <code>[${st.lo}..${st.mid}]</code> is sorted and above the minimum, discard it. ` +
+        `<code>lo = ${st.mid + 1}</code>.`;
+    } else {
+      text = `<code>nums[${st.mid}] = ${st.vmid} &le; nums[${st.hi}] = ${st.vhi}</code>. ` +
+        `Right half <code>[${st.mid}..${st.hi}]</code> is sorted; the minimum is at <code>mid</code> or to its left. ` +
+        `Discard <code>[${st.mid + 1}..${st.hi}]</code>, keep <code>mid</code>. <code>hi = ${st.mid}</code>.`;
+    }
+    html += VIZ.step(`Step ${k + 1}: window [${st.lo}..${st.hi}]`, fig, text, true);
+  });
+  if (steps.length > MAX) html += `<p class="caption">... ${steps.length - MAX} more steps, same pattern.</p>`;
+
+  const ans = nums[lo];
+  html += VIZ.step('Converged', VIZ.strip(nums, { cls: i => i === lo ? 'keep' : 'dim', ptrs: { [lo]: ['lo','hi'] } }),
+    `<code>lo == hi</code>. Return <b>nums[${lo}] = ${ans}</b>.`, true);
+  document.getElementById('answer').innerHTML = `<b>Answer for nums = [${nums.join(',')}]: ${ans}</b>`;
+  return html;
+}, 'nums is a rotated sorted array with distinct values.');
+</script>
+</body>
+</html>

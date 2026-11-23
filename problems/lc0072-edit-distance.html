@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 72 - Edit Distance</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#dp-2d">Pattern lesson</a><span>Pattern 14: DP - 2D / Grids</span></div>
+
+<h1>Edit Distance</h1>
+<p class="sub">LeetCode 72 &middot; Hard &middot; Pattern: 2-D DP on two strings (Levenshtein) &middot; O(m &middot; n) time, O(m &middot; n) space</p>
+
+<div class="box">
+  <b>Problem.</b> Given two strings <code>word1</code> and <code>word2</code>, return the minimum number of operations
+  to convert <code>word1</code> into <code>word2</code>. Operations are <b>insert</b> a character, <b>delete</b> a
+  character, or <b>replace</b> a character, each costing 1.
+  <br><code>"horse" &rarr; "ros" = 3</code> (replace h&rarr;r, delete r, delete e)
+  &nbsp;&nbsp; <code>"intention" &rarr; "execution" = 5</code>
+  <br>Link: <a href="https://leetcode.com/problems/edit-distance/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Define <code>dp[i][j]</code> as the minimum edits to turn <code>word1[0..i)</code> into <code>word2[0..j)</code>.
+Look at the last characters. If they match, do nothing on this pair; the cost is whatever it took to align the shorter
+prefixes:</p>
+
+<ul>
+  <li><b>Match.</b> <code>dp[i][j] = dp[i&minus;1][j&minus;1]</code>.</li>
+  <li><b>Mismatch.</b> Three ways to make this last character line up, pick the cheapest:
+    <ul>
+      <li><b>Replace</b> <code>word1[i&minus;1]</code> with <code>word2[j&minus;1]</code>: cost <code>1 + dp[i&minus;1][j&minus;1]</code>.</li>
+      <li><b>Delete</b> <code>word1[i&minus;1]</code> (consume one from word1, nothing from word2): cost <code>1 + dp[i&minus;1][j]</code>.</li>
+      <li><b>Insert</b> <code>word2[j&minus;1]</code> into word1 (consume one from word2, nothing from word1): cost <code>1 + dp[i][j&minus;1]</code>.</li>
+    </ul>
+  </li>
+</ul>
+
+<div class="eq">dp[i][j] = w1[i&minus;1]=w2[j&minus;1] ? dp[i&minus;1][j&minus;1] : 1 + min(dp[i&minus;1][j&minus;1], dp[i&minus;1][j], dp[i][j&minus;1])</div>
+
+<p>Base: an empty <code>word1</code> needs <code>j</code> inserts to become <code>word2[0..j)</code>, so
+<code>dp[0][j] = j</code>. Symmetrically <code>dp[i][0] = i</code>.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Every edit plan ends with exactly one of four local decisions on the two last characters: skip (they
+  already match), replace, delete the last of word1, insert the last of word2. Each decision reduces the problem to a
+  smaller rectangle in a specific direction. The DP tries all three paid decisions and the free skip.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>Each cell <code>(i, j)</code> depends on three neighbours: diagonal <code>(i&minus;1, j&minus;1)</code>, above
+<code>(i&minus;1, j)</code> and left <code>(i, j&minus;1)</code>. Fill row by row; by the time you reach <code>(i, j)</code>
+all three are ready. The first row and first column are the number of pure inserts / pure deletes to get there.</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>The row/column headers show the two strings (position 0 is the empty prefix). Yellow is the cell being filled.
+Blue are the cells it reads &mdash; on a match that's just the diagonal; on a mismatch all three.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>cell being filled</span>
+  <span><i style="background:var(--win)"></i>cells being read</span>
+  <span><i style="background:var(--keep)"></i>already filled</span>
+  <span><i style="background:#f8fafc;border:1px solid #cbd5e1"></i>not filled yet</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">int</span> minDistance(<span class="t">string</span> word1, <span class="t">string</span> word2) {
+        <span class="t">int</span> m = word1.size(), n = word2.size();
+        <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt; dp(m + <span class="n">1</span>, <span class="t">vector</span>&lt;<span class="t">int</span>&gt;(n + <span class="n">1</span>, <span class="n">0</span>));
+        <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt;= m; i++) dp[i][<span class="n">0</span>] = i;   <span class="c">// delete i chars</span>
+        <span class="k">for</span> (<span class="t">int</span> j = <span class="n">0</span>; j &lt;= n; j++) dp[<span class="n">0</span>][j] = j;   <span class="c">// insert j chars</span>
+        <span class="k">for</span> (<span class="t">int</span> i = <span class="n">1</span>; i &lt;= m; i++) {
+            <span class="k">for</span> (<span class="t">int</span> j = <span class="n">1</span>; j &lt;= n; j++) {
+                <span class="k">if</span> (word1[i-<span class="n">1</span>] == word2[j-<span class="n">1</span>])
+                    dp[i][j] = dp[i-<span class="n">1</span>][j-<span class="n">1</span>];
+                <span class="k">else</span>
+                    dp[i][j] = <span class="n">1</span> + min({dp[i-<span class="n">1</span>][j-<span class="n">1</span>], dp[i-<span class="n">1</span>][j], dp[i][j-<span class="n">1</span>]});
+            }
+        }
+        <span class="k">return</span> dp[m][n];
+    }
+};</pre>
+
+<p><b>Complexity:</b> O(m &middot; n) time &mdash; one constant-work <code>min</code> per cell. O(m &middot; n) space,
+reducible to O(min(m, n)) by rolling one row and keeping a <code>prevDiag</code> variable (same trick as LCS).</p>
+
+<h2>5. The part interviewers ask about: why three neighbours</h2>
+
+<p>The recurrence has three edit choices plus a "match-free" skip. Why not more? Any sequence of edits that converts
+<code>word1[0..i)</code> into <code>word2[0..j)</code> ends with one and only one of these cases for the last
+character on each side:</p>
+
+<table>
+  <tr><th>Last decision</th><th>Cost</th><th>Comes from</th></tr>
+  <tr><td>Characters already match</td><td>0</td><td><code>(i&minus;1, j&minus;1)</code></td></tr>
+  <tr><td>Replace <code>w1[i&minus;1]</code> with <code>w2[j&minus;1]</code></td><td>1</td><td><code>(i&minus;1, j&minus;1)</code></td></tr>
+  <tr><td>Delete <code>w1[i&minus;1]</code></td><td>1</td><td><code>(i&minus;1, j)</code></td></tr>
+  <tr><td>Insert <code>w2[j&minus;1]</code> at the end</td><td>1</td><td><code>(i, j&minus;1)</code></td></tr>
+</table>
+
+<div class="box insight">
+  "Delete from word1" and "insert into word1" are mirror images, so one of them always moves one step up and the other
+  moves one step left. The diagonal step covers both match and replace in one place. No edit can look at anything
+  further than one row/column back, which is why the table has clean row-order fill.
+</div>
+
+<h3>Recovering the edits</h3>
+
+<p>Walk back from <code>dp[m][n]</code>: at each cell, pick the neighbour whose value plus the local cost equals the
+current cell. "Diagonal, no cost increase" means a match; "diagonal, +1" means replace; "above, +1" means delete;
+"left, +1" means insert. The walk is O(m + n).</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Forgetting the first row/column.</b> Without <code>dp[i][0] = i</code> and <code>dp[0][j] = j</code> every
+    cell reads a bogus <code>0</code>, and the answer is wrong (often too small).</li>
+    <li><b>Mixing up insert and delete.</b> They look symmetric and lots of candidates swap them. If you keep "insert
+    into word1 means consume one char from word2", you read <code>dp[i][j&minus;1]</code>; "delete from word1" reads
+    <code>dp[i&minus;1][j]</code>. One rule to anchor it: the index that <b>moves</b> back is the string whose character
+    you <b>consumed</b>.</li>
+    <li><b>Taking only two neighbours.</b> On a mismatch, you need all three (diagonal, above, left). Dropping the
+    diagonal (replace) gives wrong answers like Edit Distance of "a" to "b" being 2 instead of 1.</li>
+    <li><b>One empty string.</b> <code>dp[m][0] = m</code> and <code>dp[0][n] = n</code> handle this correctly &mdash;
+    no need for a special case.</li>
+    <li><b>Case sensitivity.</b> "A" vs "a" is a mismatch (counts as 1), unless the problem says otherwise. LC 72 is
+    case-sensitive.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I define <code>dp[i][j]</code> as the minimum edits to turn <code>word1[0..i)</code> into <code>word2[0..j)</code>.
+  Base: <code>dp[i][0] = i</code>, <code>dp[0][j] = j</code> (pure deletes or inserts). If the last two characters
+  match the cost carries over from the diagonal; otherwise the cell is <code>1 + min(diagonal, above, left)</code> for
+  replace, delete, insert. I fill row by row and return <code>dp[m][n]</code>. O(m &middot; n) time, O(m &middot; n)
+  space; a rolling row drops it to O(min(m, n)). To report the actual edits, walk back from the bottom-right along the
+  chosen predecessor."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 1143 Longest Common Subsequence</td><td>Same table; different recurrence (max overlap vs min edits). Related: <code>edit = m + n &minus; 2 &middot; LCS</code> if replace is banned.</td></tr>
+  <tr><td>LC 583 Delete Operation for Two Strings</td><td>Edit Distance with only delete (no replace, no insert into the first string).</td></tr>
+  <tr><td>LC 161 One Edit Distance</td><td>Decide if the distance is exactly 1 in O(m + n) time &mdash; no DP needed.</td></tr>
+  <tr><td>LC 1312 Minimum Insertions to Palindrome</td><td>Edit distance between <code>s</code> and <code>reverse(s)</code> with delete only.</td></tr>
+</table>
+
+<script>
+/* Idea diagram: a small 4x4 (horse->ros) corner showing the three incoming arrows at one cell. */
+(function () {
+  const CW = 54, X0 = 100, Y0 = 50;
+  // show cells (0,0)..(2,2) with values
+  const dp = [[0,1,2,3],[1,1,2,3],[2,2,2,3],[3,2,3,3],[4,3,3,4],[5,4,4,3]];
+  const w1 = ['""','h','o','r','s','e'], w2 = ['""','r','o','s'];
+  let s = '';
+  // minimal headers
+  for (let j = 0; j < 4; j++) s += `<text x="${X0 + j * CW + CW/2}" y="${Y0 - 10}" text-anchor="middle" font-size="13" font-weight="700" fill="#616e7c">${w2[j]}</text>`;
+  for (let i = 0; i < 6; i++) s += `<text x="${X0 - 18}" y="${Y0 + i * CW + CW/2 + 5}" text-anchor="middle" font-size="13" font-weight="700" fill="#616e7c">${w1[i]}</text>`;
+  for (let i = 0; i < 6; i++) {
+    for (let j = 0; j < 4; j++) {
+      const x = X0 + j * CW, y = Y0 + i * CW;
+      let fill = '#ffffff', stroke = '#475569';
+      if (i === 2 && j === 2) { fill = '#fde68a'; stroke = '#d97706'; }
+      else if ((i === 1 && j === 1) || (i === 1 && j === 2) || (i === 2 && j === 1)) { fill = '#dbeafe'; stroke = '#3b82f6'; }
+      s += `<rect x="${x}" y="${y}" width="${CW}" height="${CW}" fill="${fill}" stroke="${stroke}" stroke-width="2"/>`;
+      s += `<text x="${x + CW/2}" y="${y + CW/2 + 5}" text-anchor="middle" font-size="16" font-weight="700">${dp[i][j]}</text>`;
+    }
+  }
+  // Three arrows into (2,2)
+  const tx = X0 + 2 * CW, ty = Y0 + 2 * CW;
+  const cx = tx + CW/2, cy = ty + CW/2;
+  // diagonal from (1,1)
+  s += `<path d="M${X0 + 1 * CW + CW - 6},${Y0 + 1 * CW + CW - 6} L${cx - 14},${cy - 14}" stroke="#3b82f6" stroke-width="2" marker-end="url(#ar72)"/>`;
+  s += `<text x="${X0 + 1 * CW + CW + 8}" y="${Y0 + 1 * CW + CW + 20}" font-size="11" fill="#3b82f6" font-weight="700">replace</text>`;
+  // above from (1,2)
+  s += `<path d="M${X0 + 2 * CW + CW/2},${Y0 + 1 * CW + CW - 2} L${cx},${cy - 16}" stroke="#3b82f6" stroke-width="2" marker-end="url(#ar72)"/>`;
+  s += `<text x="${X0 + 2 * CW + CW/2 + 6}" y="${Y0 + 1 * CW + CW + 20}" font-size="11" fill="#3b82f6" font-weight="700">delete</text>`;
+  // left from (2,1)
+  s += `<path d="M${X0 + 1 * CW + CW - 2},${Y0 + 2 * CW + CW/2} L${cx - 16},${cy}" stroke="#3b82f6" stroke-width="2" marker-end="url(#ar72)"/>`;
+  s += `<text x="${X0 + 1 * CW + CW + 4}" y="${Y0 + 2 * CW + CW/2 - 6}" font-size="11" fill="#3b82f6" font-weight="700">insert</text>`;
+
+  s += `<text x="${X0 + 4 * CW / 2}" y="${Y0 + 6 * CW + 24}" text-anchor="middle" font-size="13">At (o,o): characters match, so dp[2][2] = dp[1][1] = 2 (free skip). Non-match cells take 1 + min of the 3 blue neighbours.</text>`;
+  s = `<defs><marker id="ar72" markerWidth="10" markerHeight="10" refX="7" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3b82f6"/></marker></defs>` + s;
+  const W = X0 + 4 * CW + 50, H = Y0 + 6 * CW + 50;
+  document.getElementById('idea').innerHTML =
+    `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${H}">${s}</svg>`;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Base', lines: ['dp[i][0] = i (deletes)', 'dp[0][j] = j (inserts)'], color: 'green' },
+  { title: '2. For each (i, j)', lines: ['if w1[i-1] = w2[j-1]:', '  dp[i][j] = dp[i-1][j-1]', 'else dp[i][j] = 1 + min(', '  diag, above, left)'], color: 'yellow' },
+  { title: '3. Answer', lines: ['return dp[m][n]'], color: 'blue' },
+]);
+
+/* Interactive trace. */
+VIZ.controls('trace', [
+  { id: 'w1', label: 'word1 =', value: 'horse', size: 10 },
+  { id: 'w2', label: 'word2 =', value: 'ros', size: 10 },
+], v => {
+  const w1 = v.w1, w2 = v.w2;
+  if (w1.length > 7 || w2.length > 7) return '<div class="box trap">Keep each string under 8 characters to keep the trace readable.</div>';
+
+  const m = w1.length, n = w2.length;
+  const dp = Array.from({length: m + 1}, () => new Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  const steps = [];
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const match = w1[i-1] === w2[j-1];
+      let kind, cost;
+      if (match) { dp[i][j] = dp[i-1][j-1]; kind = 'match'; cost = 0; }
+      else {
+        const d = dp[i-1][j-1], a = dp[i-1][j], l = dp[i][j-1];
+        const best = Math.min(d, a, l);
+        dp[i][j] = 1 + best;
+        if (best === d) kind = 'replace';
+        else if (best === a) kind = 'delete';
+        else kind = 'insert';
+        cost = 1;
+      }
+      steps.push({ i, j, match, kind, cost, val: dp[i][j], diag: dp[i-1][j-1], above: dp[i-1][j], left: dp[i][j-1] });
+    }
+  }
+
+  const colLabels = ['""', ...w2.split('')];
+  const rowLabels = ['""', ...w1.split('')];
+
+  const renderGrid = (filled, cur) => {
+    const R = m + 1, C = n + 1;
+    const show = Array.from({length: R}, () => new Array(C).fill('.'));
+    const clsMap = Array.from({length: R}, () => new Array(C).fill('dim'));
+    for (let i = 0; i <= m; i++) { show[i][0] = i; clsMap[i][0] = 'keep'; }
+    for (let j = 0; j <= n; j++) { show[0][j] = j; clsMap[0][j] = 'keep'; }
+    for (const st of filled) { show[st.i][st.j] = st.val; clsMap[st.i][st.j] = 'keep'; }
+    if (cur) {
+      show[cur.i][cur.j] = cur.val;
+      clsMap[cur.i][cur.j] = 'new';
+      // Mark three neighbours (or just diag on match)
+      clsMap[cur.i - 1][cur.j - 1] = 'in';
+      if (!cur.match) {
+        clsMap[cur.i - 1][cur.j] = 'in';
+        clsMap[cur.i][cur.j - 1] = 'in';
+      }
+    }
+    const w = Math.max(m, n) > 5 ? 30 : 36;
+    let h = `<div class="grid" style="grid-template-columns:30px repeat(${C}, ${w}px)">`;
+    h += '<span></span>';
+    for (let j = 0; j < C; j++) h += `<span style="font-size:13px;color:#616e7c;text-align:center;font-weight:700">${colLabels[j]}</span>`;
+    for (let i = 0; i < R; i++) {
+      h += `<span style="font-size:13px;color:#616e7c;align-self:center;text-align:center;font-weight:700">${rowLabels[i]}</span>`;
+      for (let j = 0; j < C; j++) {
+        const cls = clsMap[i][j];
+        const small = Math.max(m, n) > 5 ? ' small' : '';
+        h += `<div class="cell ${cls}${small}">${show[i][j]}</div>`;
+      }
+    }
+    h += '</div>';
+    return `<div class="figure">${h}</div>`;
+  };
+
+  let html = '';
+  html += VIZ.step('Init',
+    renderGrid([], null),
+    `First column: delete all i chars of word1 (<code>dp[i][0] = i</code>). First row: insert j chars (<code>dp[0][j] = j</code>).`);
+
+  const MAX = 20;
+  const shown = steps.length <= MAX ? steps : steps.slice(0, MAX);
+  const prior = [];
+  shown.forEach((st, k) => {
+    const vis = renderGrid(prior, st);
+    const note = st.match
+      ? `<code>w1[${st.i-1}] = w2[${st.j-1}] = "${w1[st.i-1]}"</code> &rarr; free match. <code>dp[${st.i}][${st.j}] = dp[${st.i-1}][${st.j-1}] = <b>${st.val}</b></code>.`
+      : `<code>"${w1[st.i-1]}" &ne; "${w2[st.j-1]}"</code>. Options: <b>replace</b> ${st.diag}+1, <b>delete</b> ${st.above}+1, <b>insert</b> ${st.left}+1. Best is <b>${st.kind}</b> &rarr; <code>dp[${st.i}][${st.j}] = <b>${st.val}</b></code>.`;
+    html += VIZ.step(`Step ${k + 1}: fill (${st.i}, ${st.j})`, vis, note);
+    prior.push(st);
+  });
+  if (steps.length > MAX) html += `<p class="caption">... ${steps.length - MAX} more cells, same pattern.</p>`;
+
+  document.getElementById('answer').innerHTML =
+    `<b>Edit distance between "${w1}" and "${w2}": ${dp[m][n]}.</b>`;
+  return html;
+}, 'Edit either string (up to 7 chars). The table fills row by row.');
+</script>
+
+</body>
+</html>

@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 146 - LRU Cache</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#linked-lists">Pattern lesson</a><span>Pattern 5: Linked Lists</span></div>
+
+<h1>LRU Cache</h1>
+<p class="sub">LeetCode 146 &middot; Medium &middot; Pattern: hash map + doubly linked list &middot; O(1) get and put</p>
+
+<div class="box">
+  <b>Problem.</b> Design a cache with fixed capacity. Support
+  <code>get(key)</code> (return the value, or -1 if missing) and <code>put(key, value)</code> (insert or overwrite).
+  Both operations must run in O(1). When <code>put</code> would overflow the cache, evict the
+  <b>least recently used</b> key.
+  <br>Link: <a href="https://leetcode.com/problems/lru-cache/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Two separate things need to be fast:</p>
+
+<ol>
+  <li><b>Find a key's value by key.</b> A hash map does this in O(1).</li>
+  <li><b>Track recency, so eviction knows which key is oldest.</b> A doubly linked list where "most recent" lives at
+  the head and "least recent" at the tail does this in O(1) if you can move a known node to the head and delete the
+  tail.</li>
+</ol>
+
+<p>So keep both. The hash map stores <code>key &rarr; pointer to the list node that holds (key, value)</code>, so a
+<code>get</code> can find the node and move it to the head in O(1). The doubly linked list's prev-pointers are what
+make the move O(1): to remove a node, you need its neighbours, and only a doubly linked list hands them to you
+without walking.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Hash map answers "where is key k?" in O(1). Doubly linked list orders nodes by recency so the LRU
+  node is always at the tail. Every operation touches a constant number of pointers.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>Two <b>sentinel nodes</b> (<code>head</code> and <code>tail</code>) sit at the ends of the list and are never
+real cache entries. They remove every null check: <code>head-&gt;next</code> is the most recent real node,
+<code>tail-&gt;prev</code> is the least recent, and both exist on an empty cache (they just point at each other).</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Enter capacity and an operation sequence. The trace shows both the hash map (as a table) and the doubly linked
+list (head on the left = most recent, tail on the right = least recent) after each op.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>node touched this op</span>
+  <span><i style="background:var(--gone)"></i>evicted this op</span>
+  <span><i style="background:var(--keep)"></i>returned value</span>
+  <span><i style="background:#fff;border:1px solid #cbd5e1"></i>unchanged</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> LRUCache {
+    <span class="k">struct</span> Node {
+        <span class="t">int</span> key, val;
+        Node *prev, *next;
+        Node(<span class="t">int</span> k, <span class="t">int</span> v) : key(k), val(v), prev(<span class="k">nullptr</span>), next(<span class="k">nullptr</span>) {}
+    };
+    <span class="t">int</span> cap;
+    Node *head, *tail;                      <span class="c">// sentinels; head->next = MRU, tail->prev = LRU</span>
+    unordered_map&lt;<span class="t">int</span>, Node*&gt; mp;
+
+    <span class="t">void</span> unlink(Node* n) {              <span class="c">// detach n from wherever it is</span>
+        n-&gt;prev-&gt;next = n-&gt;next;
+        n-&gt;next-&gt;prev = n-&gt;prev;
+    }
+    <span class="t">void</span> pushFront(Node* n) {           <span class="c">// insert n right after head</span>
+        n-&gt;next = head-&gt;next;
+        n-&gt;prev = head;
+        head-&gt;next-&gt;prev = n;
+        head-&gt;next = n;
+    }
+
+<span class="k">public</span>:
+    LRUCache(<span class="t">int</span> capacity) : cap(capacity) {
+        head = <span class="k">new</span> Node(<span class="n">0</span>, <span class="n">0</span>);
+        tail = <span class="k">new</span> Node(<span class="n">0</span>, <span class="n">0</span>);
+        head-&gt;next = tail;
+        tail-&gt;prev = head;
+    }
+    <span class="t">int</span> get(<span class="t">int</span> key) {
+        <span class="k">auto</span> it = mp.find(key);
+        <span class="k">if</span> (it == mp.end()) <span class="k">return</span> -<span class="n">1</span>;
+        unlink(it-&gt;second);
+        pushFront(it-&gt;second);              <span class="c">// mark as most recently used</span>
+        <span class="k">return</span> it-&gt;second-&gt;val;
+    }
+    <span class="t">void</span> put(<span class="t">int</span> key, <span class="t">int</span> value) {
+        <span class="k">auto</span> it = mp.find(key);
+        <span class="k">if</span> (it != mp.end()) {               <span class="c">// overwrite + move to front</span>
+            it-&gt;second-&gt;val = value;
+            unlink(it-&gt;second);
+            pushFront(it-&gt;second);
+            <span class="k">return</span>;
+        }
+        <span class="k">if</span> ((<span class="t">int</span>)mp.size() == cap) {       <span class="c">// evict LRU</span>
+            Node* lru = tail-&gt;prev;
+            unlink(lru);
+            mp.erase(lru-&gt;key);
+            <span class="k">delete</span> lru;
+        }
+        Node* n = <span class="k">new</span> Node(key, value);
+        pushFront(n);
+        mp[key] = n;
+    }
+};</pre>
+
+<p><b>Complexity:</b> <code>unordered_map</code> gives O(1) average lookup/insert/erase. Every list operation
+(<code>unlink</code>, <code>pushFront</code>) touches four pointers, so O(1) worst case. Total: O(1) per op, O(capacity)
+space.</p>
+
+<h3>Alternative: <code>std::list</code> + iterator in the map</h3>
+
+<pre><span class="k">class</span> LRUCache {
+    <span class="t">int</span> cap;
+    list&lt;pair&lt;<span class="t">int</span>, <span class="t">int</span>&gt;&gt; dq;                                      <span class="c">// front = MRU</span>
+    unordered_map&lt;<span class="t">int</span>, list&lt;pair&lt;<span class="t">int</span>, <span class="t">int</span>&gt;&gt;::iterator&gt; mp;
+<span class="k">public</span>:
+    LRUCache(<span class="t">int</span> c) : cap(c) {}
+    <span class="t">int</span> get(<span class="t">int</span> k) {
+        <span class="k">auto</span> it = mp.find(k);
+        <span class="k">if</span> (it == mp.end()) <span class="k">return</span> -<span class="n">1</span>;
+        dq.splice(dq.begin(), dq, it-&gt;second);
+        <span class="k">return</span> it-&gt;second-&gt;second;
+    }
+    <span class="t">void</span> put(<span class="t">int</span> k, <span class="t">int</span> v) {
+        <span class="k">auto</span> it = mp.find(k);
+        <span class="k">if</span> (it != mp.end()) {
+            it-&gt;second-&gt;second = v;
+            dq.splice(dq.begin(), dq, it-&gt;second);
+            <span class="k">return</span>;
+        }
+        <span class="k">if</span> ((<span class="t">int</span>)dq.size() == cap) {
+            mp.erase(dq.back().first);
+            dq.pop_back();
+        }
+        dq.push_front({k, v});
+        mp[k] = dq.begin();
+    }
+};</pre>
+
+<p>Prefer when the interviewer is happy with STL. <code>list::splice</code> moves one node in O(1) without
+invalidating iterators, which is why the map stores iterators (not nodes). Behaviour is identical to the
+hand-rolled version; the hand-rolled version is a stronger interview answer because it proves you understand
+the pointer bookkeeping.</p>
+
+<h2>5. The part interviewers ask about: three design choices</h2>
+
+<div class="box insight">
+  <ul>
+    <li><b>Why <i>doubly</i> linked list?</b> To move a known node to the head in O(1), you must remove it from its
+    current spot in O(1), and that needs its predecessor. A singly linked list would force an O(n) walk.</li>
+    <li><b>Why store the key inside the node (not just the value)?</b> When eviction fires, you learn <i>which</i>
+    node to drop (the tail's prev) but still need to erase its entry from the hash map. The map key must come
+    from somewhere &mdash; store it on the node.</li>
+    <li><b>Why sentinels?</b> They turn every <code>unlink</code>/<code>pushFront</code> into unconditional
+    pointer updates. Without sentinels, both methods need extra <code>if</code>s for empty list, inserting at head,
+    deleting the only node, deleting the head/tail. More branches, more bugs.</li>
+  </ul>
+</div>
+
+<p>A classic follow-up: <b>is LRU the "right" eviction policy?</b> It's the right answer here because the problem
+asks for it, but production caches often use LFU (least frequently used), LRU-K, or an admission filter (TinyLFU)
+because pure LRU can be fooled by a single scan that evicts hot data. Mentioning this shows you've thought past
+the problem statement.</p>
+
+<p>A second follow-up: <b>what if we allow concurrent access?</b> The map and the list share state, so you need a
+single lock around the whole op (segmented locks don't help because every op touches recency). Lock-free LRU is a
+research-grade problem.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Erasing from the map by iterator before the delete.</b> On the eviction path, read <code>lru-&gt;key</code>
+    first, then unlink/erase/delete, in that order. If you <code>delete lru</code> before <code>mp.erase(lru-&gt;key)</code>,
+    the key read is a use-after-free.</li>
+    <li><b>Forgetting to move on <code>get</code>.</b> A naive implementation only reorders on <code>put</code>. Then
+    recently-read keys count as "old" and get evicted first.</li>
+    <li><b>Overwrite on <code>put</code>.</b> Must update value <i>and</i> move to the head. If you leave the node where
+    it is, recency is wrong.</li>
+    <li><b>Evicting when the key already exists.</b> On an overwrite, do not evict. You're not adding a new entry.</li>
+    <li><b>Capacity 0.</b> Degenerate: every <code>put</code> instantly evicts; every <code>get</code> returns -1.
+    Keep the code general; the eviction branch handles it.</li>
+    <li><b>Returning the value <i>then</i> moving the node.</b> Fine as long as the node still exists. Just make sure
+    you don't read from <code>it-&gt;second</code> after an erase.</li>
+    <li><b>Singly linked list "optimisation".</b> Someone will suggest removing the <code>prev</code> pointer. It
+    breaks O(1) <code>unlink</code>; don't accept it.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I use a hash map keyed by key, mapping to a node in a doubly linked list that stores (key, value). The list is
+  ordered by recency: head-side is most recently used, tail-side is least. On <code>get</code>, I look up the node
+  in the map and move it to the head. On <code>put</code> for an existing key, I update the value and move it to
+  the head. On <code>put</code> for a new key, if the cache is full I remove the node at the tail and erase its key
+  from the map, then insert the new node at the head. I use two sentinel nodes so the list operations never need
+  null checks. All operations touch a constant number of pointers, so O(1) each."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 460 LFU Cache</td><td>Similar idea, more lists: a doubly linked list per frequency, plus maps for key&rarr;node and freq&rarr;list.</td></tr>
+  <tr><td>LC 432 All O'one Data Structure</td><td>Doubly linked list of buckets by count; hash maps key&rarr;bucket. Same hash-map-plus-list trick.</td></tr>
+  <tr><td>LC 1472 Design Browser History</td><td>Two stacks or an array with a cursor; recency-ordered but no eviction.</td></tr>
+  <tr><td>LC 155 Min Stack</td><td>Auxiliary structure (a monotonic stack of minimums) alongside the main one, same "two data structures that answer different questions" pattern.</td></tr>
+  <tr><td>LC 380 Insert Delete GetRandom O(1)</td><td>Array + hash map pairing to make all three operations O(1).</td></tr>
+</table>
+
+<script>
+const V = VIZ;
+
+/* 1. Idea diagram: show the two structures after put(1,10) put(2,20). */
+(function () {
+  // Map: table HTML
+  const map = `<table style="width:auto;display:inline-block;vertical-align:top;margin-right:16px">
+    <tr><th>key</th><th>node</th></tr>
+    <tr><td>1</td><td>&#8594; node(1,10)</td></tr>
+    <tr><td>2</td><td>&#8594; node(2,20)</td></tr>
+  </table>`;
+  const listDisplay = V.list(['H', '(2,20)', '(1,10)', 'T'], {
+    cls: { 0: 'dim', 3: 'dim' },
+    labels: { 0: 'head', 1: 'MRU', 2: 'LRU', 3: 'tail' },
+    nullEnd: false
+  });
+  document.getElementById('idea').innerHTML =
+    '<div class="figure" style="display:flex;flex-wrap:wrap;align-items:center;gap:12px">' + map + listDisplay + '</div>' +
+    '<p class="caption">After <code>put(1,10) put(2,20)</code> on capacity 2: map maps key to node; the list orders nodes by recency.</p>';
+})();
+
+/* 2. Flow */
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: 'get(k)', lines: ['map.find(k)?', 'yes: unlink, pushFront', 'return node.val', 'no: return -1'], color: 'yellow' },
+  { title: 'put(k,v) hit', lines: ['update node.val', 'unlink, pushFront'], color: 'blue' },
+  { title: 'put(k,v) miss', lines: ['if full: unlink tail->prev', 'map.erase evicted key', 'delete node'], color: 'red' },
+  { title: 'insert new', lines: ['new Node(k,v)', 'pushFront', 'map[k] = node'], color: 'green' },
+]);
+
+/* 3. Interactive trace: implement a real LRU and record each op. */
+VIZ.controls('trace', [
+  { id: 'cap', label: 'capacity =', value: '2', size: 3 },
+  { id: 'ops', label: 'ops =', value: 'put(1,1) put(2,2) get(1) put(3,3) get(2) put(4,4) get(1) get(3) get(4)', size: 70 },
+], v => {
+  const cap = VIZ.parse.int(v.cap);
+  if (cap < 0 || cap > 10) throw new Error('capacity in [0, 10]');
+
+  // Parse ops.
+  const re = /(get|put)\s*\(\s*(-?\d+)\s*(?:,\s*(-?\d+)\s*)?\)/gi;
+  const ops = []; let m;
+  while ((m = re.exec(v.ops))) {
+    if (m[1].toLowerCase() === 'get') ops.push({ op: 'get', k: +m[2] });
+    else {
+      if (m[3] === undefined) throw new Error('put needs a value: put(k, v)');
+      ops.push({ op: 'put', k: +m[2], val: +m[3] });
+    }
+  }
+  if (!ops.length) throw new Error('no ops recognised. Try: put(1,1) get(1)');
+  if (ops.length > 15) throw new Error('keep ops <= 15');
+
+  // Model as an array-of-nodes ordered head..tail with a Map(key -> index-into-array-of-pointers).
+  // For rendering stability, we keep a stable `nodes` array holding (key,val) and derive the list order via a `order` array of indices (head first).
+  const nodes = [];               // nodes[i] = {key, val, alive}
+  const order = [];               // list of indices into `nodes`, head first
+  const map = new Map();          // key -> index into `nodes`
+
+  const indexOf = key => map.has(key) ? map.get(key) : -1;
+
+  const renderOne = (title, note, touched, evicted, returned) => {
+    // Map table
+    const entries = [...map.entries()].sort((a, b) => a[0] - b[0]);
+    let mapHtml = '<table style="width:auto;display:inline-block;vertical-align:top;margin:0 14px 0 0;font-size:13px">' +
+      '<tr><th>key</th><th>&rarr; node</th></tr>';
+    if (!entries.length) mapHtml += '<tr><td colspan="2" style="color:#94a3b8">empty</td></tr>';
+    entries.forEach(([k, idx]) => {
+      const highlight = touched.has(idx);
+      mapHtml += `<tr${highlight ? ' style="background:#fde68a"' : ''}><td><code>${k}</code></td><td>(${nodes[idx].key},${nodes[idx].val})</td></tr>`;
+    });
+    mapHtml += '</table>';
+
+    // Linked list display: sentinels at ends; nodes between.
+    const vals = ['H'];
+    const cls = { 0: 'dim' };
+    const labels = { 0: 'head' };
+    order.forEach((idx, pos) => {
+      vals.push(`(${nodes[idx].key},${nodes[idx].val})`);
+      const cellPos = pos + 1;
+      if (touched.has(idx)) cls[cellPos] = 'new';
+      else if (returned === idx) cls[cellPos] = 'keep';
+    });
+    // evicted nodes to show at the end (strike-through), between content and tail sentinel
+    evicted.forEach(e => {
+      vals.push(`(${e.key},${e.val})`);
+      cls[vals.length - 1] = 'gone';
+    });
+    vals.push('T');
+    cls[vals.length - 1] = 'dim';
+    labels[vals.length - 1] = 'tail';
+    if (order.length) {
+      labels[1] = 'MRU';
+      labels[order.length] = 'LRU';
+    }
+    const listHtml = VIZ.list(vals, { cls, labels, nullEnd: false });
+
+    return VIZ.step(title,
+      '<div style="display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px">' + mapHtml + listHtml + '</div>',
+      note, true);
+  };
+
+  let html = renderOne('Init', `Empty cache with capacity ${cap}.`, new Set(), [], -1);
+  const results = [];
+
+  const moveToFront = idx => {
+    const pos = order.indexOf(idx);
+    if (pos >= 0) order.splice(pos, 1);
+    order.unshift(idx);
+  };
+
+  for (let k = 0; k < ops.length; k++) {
+    const o = ops[k];
+    const touched = new Set();
+    const evicted = [];
+    let returned = -1;
+    let note = '';
+
+    if (o.op === 'get') {
+      const i = indexOf(o.k);
+      if (i < 0) {
+        note = `<code>get(${o.k})</code>: miss &rarr; <b>-1</b>.`;
+        results.push(-1);
+      } else {
+        moveToFront(i);
+        touched.add(i);
+        returned = i;
+        note = `<code>get(${o.k})</code>: hit, value <b>${nodes[i].val}</b>. Node moved to head (now MRU).`;
+        results.push(nodes[i].val);
+      }
+    } else {
+      const i = indexOf(o.k);
+      if (i >= 0) {
+        nodes[i].val = o.val;
+        moveToFront(i);
+        touched.add(i);
+        note = `<code>put(${o.k},${o.val})</code>: key exists, overwrite value and move to head.`;
+      } else {
+        if (order.length === cap && cap > 0) {
+          const evictIdx = order.pop();
+          const ev = nodes[evictIdx];
+          evicted.push({ key: ev.key, val: ev.val });
+          map.delete(ev.key);
+          note = `<code>put(${o.k},${o.val})</code>: miss and cache full. Evict LRU key <b>${ev.key}</b>. `;
+        } else if (cap === 0) {
+          note = `<code>put(${o.k},${o.val})</code>: capacity is 0; nothing stored.`;
+          html += renderOne(`Step ${k + 1}: ${o.op}(${o.k}${o.op === 'put' ? ',' + o.val : ''})`, note, touched, evicted, returned);
+          continue;
+        } else {
+          note = `<code>put(${o.k},${o.val})</code>: miss, room available. `;
+        }
+        const newIdx = nodes.length;
+        nodes.push({ key: o.k, val: o.val });
+        order.unshift(newIdx);
+        map.set(o.k, newIdx);
+        touched.add(newIdx);
+        note += `Insert new node at head.`;
+      }
+    }
+
+    html += renderOne(`Step ${k + 1}: ${o.op}(${o.k}${o.op === 'put' ? ',' + o.val : ''})`, note, touched, evicted, returned);
+  }
+
+  document.getElementById('answer').innerHTML =
+    '<b>get results, in order:</b> [' + results.join(', ') + ']';
+  return html;
+}, 'Change capacity and the op sequence. Each step shows the hash map and the doubly linked list after that op.');
+</script>
+
+</body>
+</html>

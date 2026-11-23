@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 621 - Task Scheduler</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#greedy">Pattern lesson</a><span>Pattern 16: Greedy</span></div>
+
+<h1>Task Scheduler</h1>
+<p class="sub">LeetCode 621 &middot; Medium &middot; Pattern: build the frame around the most-frequent task &middot; O(n) time, O(1) space</p>
+
+<div class="box">
+  <b>Problem.</b> You have tasks (letters) and a cool-down <code>n</code>: the same letter must be at least <code>n</code>
+  slots apart. Each slot takes 1 unit. You can insert idle slots. Return the minimum total slots.
+  <br><code>tasks=["A","A","A","B","B","B"], n=2 &rarr; 8</code> ("A B _ A B _ A B")
+  <br><code>tasks=["A","C","A","B","D","B"], n=1 &rarr; 6</code> (no idles needed)
+  <br>Link: <a href="https://leetcode.com/problems/task-scheduler/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>The task with the <b>highest frequency</b> drives the schedule. Call its count <code>maxFreq</code>. Place that task
+every <code>n + 1</code> slots: that uses it up without ever breaking the cool-down. This builds a <b>frame</b>:</p>
+
+<ul>
+  <li><code>maxFreq &minus; 1</code> gap-blocks, each of width <code>n + 1</code>, each starting with the top task.</li>
+  <li>Plus one <b>final column</b> containing the top task <i>and</i> every other task that is also tied at <code>maxFreq</code>.</li>
+</ul>
+
+<div class="eq">frame length = (maxFreq &minus; 1) &times; (n + 1) + countMax</div>
+
+<p><code>countMax</code> is the number of distinct tasks whose frequency equals <code>maxFreq</code>. The frame is a
+<b>lower bound</b>: you cannot do better because the top task alone needs that much space, and the final column holds
+the other tasks tied with it.</p>
+
+<div id="idea"></div>
+
+<p>What about the non-max tasks? They go into the <code>maxFreq &minus; 1</code> frame rows, filling the gap positions.
+<b>If they do not fit</b>, you simply have more tasks than idle slots, and the answer is just
+<code>tasks.size()</code> &mdash; you can lay all tasks out without any idle gap. So:</p>
+
+<div class="box insight">
+  <b>Idea.</b> Answer = <code>max(tasks.size(), (maxFreq &minus; 1) &times; (n + 1) + countMax)</code>.
+  The frame counts the forced idle time; <code>tasks.size()</code> is the floor when there is no forced idling.
+</div>
+
+<h3>Why the greedy choice is safe</h3>
+
+<p>Two directions:</p>
+
+<p><b>Lower bound.</b> The most-frequent task has <code>maxFreq</code> copies that each demand a cool-down gap of
+<code>n</code>. Between the first and the last there must be at least <code>(maxFreq &minus; 1) &times; (n + 1)</code>
+slots, and if <code>countMax</code> other tasks are tied at <code>maxFreq</code>, their final copies land in the last
+column alongside the top task's final copy, extending the lower bound to <code>(maxFreq &minus; 1) &times; (n + 1) + countMax</code>.
+No valid schedule can be shorter.</p>
+
+<p><b>Upper bound (construction).</b> Fill the <code>maxFreq &minus; 1</code> frame rows row-by-row. Place the top task in
+column 0 of every row. For each other task (sorted by remaining frequency), spread its copies into one column at a time,
+starting in column 1. Because any single task has <code>&le; maxFreq</code> copies, it never needs more than one slot per
+row &mdash; so no two copies of the same task land in the same row, keeping the cool-down. If the frame is too small to
+hold every task, extend by appending the overflow after column 0 of the final column &mdash; the schedule stretches to
+<code>tasks.size()</code>, with zero idles. Either way, we match the lower bound (or the no-idle floor), so the answer is tight.</p>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Enter tasks as a string of letters. The grid draws the frame: rows of width <code>n + 1</code>, filled with the
+top-frequency tasks in column 0 and the remaining tasks spread across the gaps. The final row shows the "tied" tasks.
+Blanks are forced idles.</p>
+
+<div class="legend">
+  <span><i style="background:#e9d5ff"></i>top-frequency tasks</span>
+  <span><i style="background:var(--win)"></i>other tasks filling the gaps</span>
+  <span><i style="background:var(--new)"></i>final column (tied tasks)</span>
+  <span><i style="background:#f8fafc;border:1px dashed #cbd5e1"></i>idle</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">int</span> leastInterval(<span class="t">vector</span>&lt;<span class="t">char</span>&gt;&amp; tasks, <span class="t">int</span> n) {
+        <span class="t">int</span> freq[<span class="n">26</span>] = {<span class="n">0</span>};
+        <span class="k">for</span> (<span class="t">char</span> c : tasks) freq[c - <span class="n">'A'</span>]++;
+        <span class="t">int</span> maxFreq = *max_element(freq, freq + <span class="n">26</span>);
+        <span class="t">int</span> countMax = <span class="n">0</span>;
+        <span class="k">for</span> (<span class="t">int</span> f : freq) <span class="k">if</span> (f == maxFreq) countMax++;
+        <span class="t">int</span> frame = (maxFreq - <span class="n">1</span>) * (n + <span class="n">1</span>) + countMax;
+        <span class="k">return</span> max((<span class="t">int</span>)tasks.size(), frame);
+    }
+};</pre>
+
+<p><b>Complexity:</b> one pass to count, one pass over 26 letters. O(k) where <code>k</code> is tasks.size(), plus O(26)
+work. O(1) space.</p>
+
+<h3>Alternative: priority queue simulation</h3>
+
+<pre><span class="t">int</span> leastInterval(<span class="t">vector</span>&lt;<span class="t">char</span>&gt;&amp; tasks, <span class="t">int</span> n) {
+    <span class="t">int</span> freq[<span class="n">26</span>] = {<span class="n">0</span>}; <span class="k">for</span> (<span class="t">char</span> c : tasks) freq[c - <span class="n">'A'</span>]++;
+    priority_queue&lt;<span class="t">int</span>&gt; pq;
+    <span class="k">for</span> (<span class="t">int</span> f : freq) <span class="k">if</span> (f) pq.push(f);
+    <span class="t">int</span> time = <span class="n">0</span>;
+    <span class="k">while</span> (!pq.empty()) {
+        <span class="t">vector</span>&lt;<span class="t">int</span>&gt; tmp;
+        <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt;= n; i++) {
+            <span class="k">if</span> (!pq.empty()) { tmp.push_back(pq.top() - <span class="n">1</span>); pq.pop(); }
+            time++;
+            <span class="k">if</span> (pq.empty() &amp;&amp; all_of(tmp.begin(), tmp.end(), [](<span class="t">int</span> x){ <span class="k">return</span> x == <span class="n">0</span>; })) <span class="k">break</span>;
+        }
+        <span class="k">for</span> (<span class="t">int</span> x : tmp) <span class="k">if</span> (x) pq.push(x);
+    }
+    <span class="k">return</span> time;
+}</pre>
+
+<p>Simulates each block of <code>n + 1</code> slots by taking the <code>n + 1</code> most-frequent remaining tasks.
+Correct, but O((k)(n + 1) log 26). The math-only formula is faster and sharper for interviews.</p>
+
+<h2>5. The part interviewers ask about: proof that both bounds meet</h2>
+
+<p>Interviewers love this problem because the formula looks like a trick. The two things that must be checked:</p>
+
+<div class="box insight">
+  <b>Why <code>tasks.size()</code> is the right alternative.</b> If the frame has
+  <code>maxFreq &minus; 1</code> gap rows of <code>n + 1</code> slots each, the non-max tasks occupy up to
+  <code>(maxFreq &minus; 1) &times; n</code> gap slots. If the total count of non-max tasks is more than that, the
+  remaining tasks spill past the frame &mdash; and once they do, every one of them extends the schedule by 1 with no
+  idle required (the cool-down is already satisfied because the frame placed cooled tasks far enough back). So the
+  total length becomes exactly <code>tasks.size()</code>.
+</div>
+
+<p>Formally: let <code>k</code> = tasks.size, <code>M</code> = maxFreq, <code>c</code> = countMax. The frame has <code>M - 1</code>
+gap slots after the top-task column, times <code>n</code>, plus <code>M + (c - 1)</code> slots filled by top-tier tasks.
+Non-top-tier count is <code>k - c &middot; M</code> (not quite; it's <code>k - (number of top-tier task copies))</code>; see below).</p>
+
+<p>Easier way to see it: the formula is monotone in each parameter, and both extremes agree:</p>
+
+<ul>
+  <li><b>All one letter.</b> <code>k = M, c = 1</code>: frame = <code>(M - 1)(n + 1) + 1</code>. Correct.</li>
+  <li><b>Many letters, small <code>n</code>.</b> frame can be <code>&le; k</code>; answer is <code>k</code>, no idle. Correct.</li>
+  <li><b>Few letters, big <code>n</code>.</b> frame <code>&gt;&gt; k</code>; answer is frame, lots of idles. Correct.</li>
+</ul>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Multiplying by <code>n</code> instead of <code>n + 1</code>.</b> The frame slot includes the top task itself,
+    so each row is <code>n + 1</code> wide, not <code>n</code>.</li>
+    <li><b>Forgetting <code>countMax</code>.</b> If two tasks tie at <code>maxFreq</code>, their final copies share the
+    last column. Dropping <code>countMax</code> gives the wrong answer for inputs like <code>["A","A","B","B"], n = 2</code>
+    (correct is 5; wrong formula gives 4).</li>
+    <li><b>Returning <code>frame</code> without the <code>max</code> with <code>tasks.size()</code>.</b> Fails when there
+    is no forced idle, e.g. <code>["A","C","A","B","D","B"], n = 1</code> &rarr; 6 (not 4).</li>
+    <li><b>Assuming only uppercase letters.</b> LeetCode guarantees uppercase A&ndash;Z; the <code>freq[26]</code> array
+    uses that. Make sure the input is normalised.</li>
+    <li><b><code>n = 0</code>.</b> No cool-down. Answer is just <code>tasks.size()</code>; the formula agrees:
+    frame = <code>(M - 1) + c &le; k</code>.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I count task frequencies. Let <code>M</code> be the max and <code>c</code> be the number of tasks tied at that max.
+  The most-frequent task alone forces a frame of <code>(M - 1)</code> blocks of width <code>(n + 1)</code>, and the final
+  column holds the <code>c</code> tasks tied with it. That gives <code>(M - 1)(n + 1) + c</code>. If I have more tasks
+  than that frame can hold, no idling is needed and the length is just <code>tasks.size()</code>. The answer is the
+  max of the two. O(k) time, O(1) space."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 358 Rearrange String k Distance Apart</td><td>Same frame idea with letters instead of counts; use a heap/queue when the formula does not suffice.</td></tr>
+  <tr><td>LC 1405 Longest Happy String</td><td>Same "most-frequent letter drives the layout" plus a cap of 2 in a row.</td></tr>
+  <tr><td>LC 767 Reorganize String</td><td>Build the frame of the most-frequent letter and interleave the rest.</td></tr>
+  <tr><td>LC 2365 Task Scheduler II</td><td>Different cool-down model; greedy decision based on next available time.</td></tr>
+</table>
+
+<script>
+/* Idea diagram: build the frame for AAABBB, n=2. */
+(function () {
+  // Example: tasks = AAABBB, n=2. maxFreq=3, countMax=2. frame = 2*3 + 2 = 8.
+  const n = 2;
+  const rows = [['A','B','_'],['A','B','_'],['A','B',null]]; // null = outside the final-column grid
+  const CW = 54, DY = 60, X0 = 40, Y = 30;
+  const COLS = n + 1;
+  const W = X0 + COLS * CW + 320, H = Y + rows.length * DY + 20;
+  let s = '';
+  rows.forEach((row, r) => {
+    row.forEach((cell, c) => {
+      if (cell === null) return;
+      const x = X0 + c * CW;
+      const y = Y + r * DY;
+      let fill = '#ffffff', stroke = '#475569', text = '#1f2933';
+      if (cell === 'A') { fill = '#e9d5ff'; stroke = '#7c3aed'; }
+      else if (cell === 'B') {
+        // last row's B is also in the final column: tied
+        if (r === rows.length - 1) { fill = '#fde68a'; stroke = '#d97706'; }
+        else { fill = '#dbeafe'; stroke = '#3b82f6'; }
+      } else if (cell === '_') { fill = '#f8fafc'; stroke = '#cbd5e1'; }
+      s += `<rect x="${x}" y="${y}" width="${CW - 4}" height="${CW - 4}" rx="6" fill="${fill}" stroke="${stroke}" stroke-width="2"${cell === '_' ? ' stroke-dasharray="4,3"' : ''}/>`;
+      s += `<text x="${x + (CW - 4) / 2}" y="${y + (CW - 4) / 2 + 7}" text-anchor="middle" font-size="20" font-weight="700" fill="${text}">${cell === '_' ? '&middot;' : cell}</text>`;
+    });
+  });
+  // row annotations
+  rows.forEach((row, r) => {
+    const y = Y + r * DY + CW / 2;
+    const isLast = r === rows.length - 1;
+    const txt = isLast ? 'final column (tied: A, B)' : `gap row ${r + 1}: n+1 = ${n + 1} slots`;
+    s += `<text x="${X0 + COLS * CW + 10}" y="${y}" font-size="12" fill="#1f2933">${txt}</text>`;
+  });
+  // header: column numbers
+  for (let c = 0; c < COLS; c++) {
+    s += `<text x="${X0 + c * CW + (CW - 4) / 2}" y="${Y - 6}" text-anchor="middle" font-size="11" fill="#616e7c">col ${c}</text>`;
+  }
+  document.getElementById('idea').innerHTML =
+    `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${H}">${s}</svg>` +
+    `<div class="caption">tasks = AAABBB, n = 2. maxFreq = 3, countMax = 2. Frame length = (3&minus;1)&times;(2+1) + 2 = <b>8</b>. ` +
+    `Linear timeline: <code>A B &middot; A B &middot; A B</code>.</div>`;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Count', lines: ['freq[26]', 'maxFreq = max(freq)'], color: 'yellow' },
+  { title: '2. Count ties', lines: ['countMax = # tasks', 'with f == maxFreq'], color: 'purple' },
+  { title: '3. Frame', lines: ['(maxFreq-1)*(n+1)', '+ countMax'], color: 'blue' },
+  { title: '4. Floor', lines: ['max(tasks.size(),', 'frame)'], color: 'green' },
+]);
+
+/* Interactive trace. Build the frame layout as a grid; show the formula. */
+VIZ.controls('trace', [
+  { id: 'tasks', label: 'tasks =', value: 'AAABBB', size: 14 },
+  { id: 'n', label: 'n =', value: '2', size: 3 },
+], v => {
+  const tasks = String(v.tasks).toUpperCase().replace(/[^A-Z]/g, '');
+  const n = parseInt(v.n, 10);
+  if (!tasks.length) return '<div class="box trap">Need at least one task letter.</div>';
+  if (isNaN(n) || n < 0 || n > 100) return '<div class="box trap">n must be a non-negative integer.</div>';
+  if (tasks.length > 60) return '<div class="box trap">Pick at most 60 tasks to keep the picture readable.</div>';
+
+  const freq = {};
+  for (const c of tasks) freq[c] = (freq[c] || 0) + 1;
+  const entries = Object.entries(freq).sort((a, b) => b[1] - a[1]);  // (letter, count) desc
+  const vals = entries.map(e => e[1]);
+  const maxFreq = Math.max(...vals);
+  const countMax = vals.filter(f => f === maxFreq).length;
+  const frame = (maxFreq - 1) * (n + 1) + countMax;
+  const answer = Math.max(tasks.length, frame);
+
+  // Build grid of the frame. Columns = n+1, Rows = maxFreq.
+  //  * cols 0..countMax-1: tied-letter columns (each tied letter owns a column and appears in every row)
+  //  * cols countMax..n   : gap columns, filled column-by-column with non-max tasks on rows 0..maxFreq-2
+  //                         (last row is "outside the frame" past col countMax-1)
+  const rows = maxFreq;
+  const cols = n + 1;
+  const topLetters = entries.filter(e => e[1] === maxFreq).map(e => e[0]);  // tied letters
+  const others = [];
+  for (const [c, f] of entries) {
+    if (f < maxFreq) for (let k = 0; k < f; k++) others.push(c);
+  }
+  const grid = [];
+  for (let r = 0; r < rows; r++) {
+    const row = [];
+    for (let c = 0; c < cols; c++) row.push({ val: '', cls: 'dim' });
+    grid.push(row);
+  }
+  // Place tied letters: top letter in col 0; other tied letters in cols 1..countMax-1. Each occupies every row.
+  // (The last row cell of a tied column is drawn 'tied' to highlight the final column.)
+  for (let ti = 0; ti < countMax; ti++) {
+    for (let r = 0; r < rows; r++) {
+      grid[r][ti] = { val: topLetters[ti], cls: r === rows - 1 ? 'tied' : 'top' };
+    }
+  }
+  // Non-max tasks fill gap columns (countMax..cols-1), top-to-bottom within each column, skipping the last row.
+  let p = 0;
+  outer: for (let c = countMax; c < cols; c++) {
+    for (let r = 0; r < rows - 1; r++) {
+      if (p >= others.length) break outer;
+      grid[r][c] = { val: others[p++], cls: 'other' };
+    }
+  }
+  const spill = others.length - p;  // tasks that did not fit in the frame
+
+  // Draw the grid.
+  const CW = 46, GAP = 4, X0 = 40, Y0 = 30;
+  const Wg = X0 + cols * (CW + GAP) + 200, Hg = Y0 + rows * (CW + GAP) + 10;
+  let g = '';
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const cell = grid[r][c];
+      const inLastShort = r === rows - 1 && c >= countMax;
+      const x = X0 + c * (CW + GAP);
+      const y = Y0 + r * (CW + GAP);
+      if (inLastShort) {
+        continue;  // draw nothing
+      }
+      let fill = '#ffffff', stroke = '#475569', text = '#1f2933', dash = '';
+      if (cell.cls === 'top') { fill = '#e9d5ff'; stroke = '#7c3aed'; }
+      else if (cell.cls === 'tied') { fill = '#fde68a'; stroke = '#d97706'; }
+      else if (cell.cls === 'other') { fill = '#dbeafe'; stroke = '#3b82f6'; }
+      else { fill = '#f8fafc'; stroke = '#cbd5e1'; dash = ' stroke-dasharray="4,3"'; }
+      g += `<rect x="${x}" y="${y}" width="${CW}" height="${CW}" rx="6" fill="${fill}" stroke="${stroke}" stroke-width="2"${dash}/>`;
+      g += `<text x="${x + CW / 2}" y="${y + CW / 2 + 7}" text-anchor="middle" font-size="18" font-weight="700" fill="${text}">${cell.val || '&middot;'}</text>`;
+    }
+  }
+  // row labels
+  for (let r = 0; r < rows; r++) {
+    const y = Y0 + r * (CW + GAP) + CW / 2 + 5;
+    const label = r === rows - 1 ? `final column (${countMax} slot${countMax === 1 ? '' : 's'})` : `gap row ${r + 1}`;
+    g += `<text x="${X0 + cols * (CW + GAP) + 10}" y="${y}" font-size="12" fill="#1f2933">${label}</text>`;
+  }
+  // header: column numbers
+  for (let c = 0; c < cols; c++) {
+    g += `<text x="${X0 + c * (CW + GAP) + CW / 2}" y="${Y0 - 6}" text-anchor="middle" font-size="11" fill="#616e7c">col ${c}</text>`;
+  }
+  const gridSvg = `<svg class="figure" width="100%" style="max-width:${Wg}px" viewBox="0 0 ${Wg} ${Hg}">${g}</svg>`;
+
+  // Linear timeline below (first row-by-row listing of the frame, then any spill after).
+  // For visual, build the linear schedule of the FRAME only.
+  const timeline = [];
+  for (let r = 0; r < rows - 1; r++) {
+    for (let c = 0; c < cols; c++) {
+      timeline.push(grid[r][c].val || '·');
+    }
+  }
+  // final row: only the countMax tied slots
+  for (let c = 0; c < countMax; c++) timeline.push(grid[rows - 1][c].val);
+  const linearStrip = VIZ.strip(timeline, {
+    cls: (i, v) => {
+      if (v === '·') return 'dim';
+      if (v === topLetters[0]) return 'hit';
+      if (topLetters.includes(v)) return 'new';
+      return 'in';
+    },
+    index: true,
+  });
+
+  // Steps as narrative.
+  let html = '';
+  html += VIZ.step(`1. Count frequencies`, (() => {
+    const bars = entries.map(([c, f]) => [c, f, f === maxFreq ? 'hl2' : 'hl']);
+    return VIZ.bars(bars);
+  })(), `Sorted by frequency: ${entries.map(([c, f]) => `<code>${c}:${f}</code>`).join(', ')}. ` +
+       `<code>maxFreq = ${maxFreq}</code>, <code>countMax = ${countMax}</code> (tied: ${topLetters.map(x => '<code>' + x + '</code>').join(', ')}).`);
+
+  html += VIZ.step(`2. Build the frame`, gridSvg,
+    `Place the top task in column 0 of every row (purple). Tied tasks share the final row (yellow). ` +
+    `The gap columns (1..${n}) hold the remaining ${others.length} task${others.length === 1 ? '' : 's'} (blue). ` +
+    `Grey slots are idle.`, true);
+
+  html += VIZ.step(`3. Linear schedule from the frame`, linearStrip,
+    `Reading the grid row by row gives a valid schedule of length <code>${timeline.length}</code>. ` +
+    `Each row is <code>${cols}</code> slots wide, so the same letter is at least <code>n = ${n}</code> apart.`, true);
+
+  const framePart = `<code>(maxFreq &minus; 1) &times; (n + 1) + countMax = (${maxFreq}&minus;1) &times; (${n}+1) + ${countMax} = ${frame}</code>`;
+  const sizePart = `<code>tasks.size() = ${tasks.length}</code>`;
+  const which = answer === frame && answer > tasks.length ? 'frame wins (idles forced)' :
+                answer === tasks.length && answer > frame ? 'tasks.size() wins (no idles needed, ' + spill + ' spill task' + (spill === 1 ? '' : 's') + ' past the frame)' :
+                'both agree';
+  html += VIZ.step(`4. Combine with tasks.size()`,
+    `<div class="eq">answer = max(${sizePart}, ${framePart}) = <b>${answer}</b></div>`,
+    `${which}.`, true);
+
+  document.getElementById('answer').innerHTML =
+    `<b>Answer for tasks = "${tasks}", n = ${n}: ${answer}</b>`;
+  return html;
+}, 'Enter a string of task letters (A..Z) and a cool-down n.');
+</script>
+
+</body>
+</html>

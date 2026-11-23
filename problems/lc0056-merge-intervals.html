@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 56 - Merge Intervals</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#greedy">Pattern lesson</a><span>Pattern 16: Greedy</span></div>
+
+<h1>Merge Intervals</h1>
+<p class="sub">LeetCode 56 &middot; Medium &middot; Pattern: sort by start, sweep &middot; O(n log n) time, O(n) space</p>
+
+<div class="box">
+  <b>Problem.</b> Given a list of intervals <code>[start<sub>i</sub>, end<sub>i</sub>]</code>, merge all overlapping
+  intervals and return the result.
+  <br><code>[[1,3],[2,6],[8,10],[15,18]] &rarr; [[1,6],[8,10],[15,18]]</code>
+  <br><code>[[1,4],[4,5]] &rarr; [[1,5]]</code> (touching endpoints count as overlapping)
+  <br>Link: <a href="https://leetcode.com/problems/merge-intervals/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Sort by <b>start</b>. Then walk left to right. Keep the "current merged interval" as the last pushed one. For every
+next interval, there are only two cases:</p>
+
+<ul>
+  <li><b>It starts before (or at) the current end</b>: they overlap. Stretch the current end to the max of the two ends.</li>
+  <li><b>It starts after the current end</b>: no overlap. Push it as a new current.</li>
+</ul>
+
+<div id="idea"></div>
+
+<p>Sorting by start is what makes this one pass sufficient. Once sorted, the only interval that could possibly overlap
+the one you are looking at is the most recently merged one &mdash; everything older is strictly to its left and already
+closed off.</p>
+
+<div class="box insight">
+  <b>Idea.</b> After sorting by start, a new interval either extends the current group or starts a new one. One left-to-right
+  pass merges every overlap, because overlapping intervals must be adjacent in sorted order.
+</div>
+
+<h3>Why the greedy choice is safe</h3>
+
+<p><b>Lemma.</b> After sorting by start, any two intervals that overlap are contiguous in sorted order, in the sense that
+some chain of overlapping neighbours links them &mdash; so the walk never "misses" a merge.</p>
+
+<p><b>Proof sketch (exchange argument).</b> Suppose intervals <code>A</code> and <code>C</code> overlap but between them
+in sorted order sits <code>B</code> that does not overlap <code>A</code>. Since start times are sorted,
+<code>A.start &le; B.start &le; C.start</code>. "B does not overlap A" means <code>B.start &gt; A.end</code>. But then
+<code>C.start &ge; B.start &gt; A.end</code>, so <code>C</code> cannot overlap <code>A</code> either &mdash; contradicting
+the assumption. Therefore every chain of overlapping intervals is contiguous in sort order, and a single sweep over the
+sorted list catches them all.</p>
+
+<p><b>Why "merge with the previous" always wins.</b> At each step we compare the new interval only with the <i>last
+merged</i> one. Suppose some earlier merged interval also overlaps the new one. Then it also overlaps the last merged one
+(by the chain argument above), so it has already been merged into the last one. There is nothing to look back for.</p>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Each step draws the sorted intervals as horizontal bars on a number line. Grey bars are not yet seen. Green is the
+current merged interval. Yellow is the one we are checking right now. Red strike-through marks an interval that was
+absorbed (merged into the green).</p>
+
+<div class="legend">
+  <span><i style="background:#fde68a"></i>interval being checked</span>
+  <span><i style="background:#bbf7d0"></i>current merged group</span>
+  <span><i style="background:#fecaca"></i>absorbed into the group</span>
+  <span><i style="background:#e5e7eb"></i>not yet reached</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt; merge(<span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt;&amp; intervals) {
+        sort(intervals.begin(), intervals.end());        <span class="c">// by start, then by end</span>
+        <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt; out;
+        <span class="k">for</span> (<span class="k">auto</span>&amp; iv : intervals) {
+            <span class="k">if</span> (!out.empty() &amp;&amp; iv[<span class="n">0</span>] &lt;= out.back()[<span class="n">1</span>]) {
+                out.back()[<span class="n">1</span>] = max(out.back()[<span class="n">1</span>], iv[<span class="n">1</span>]);  <span class="c">// stretch the end</span>
+            } <span class="k">else</span> {
+                out.push_back(iv);                       <span class="c">// start a new group</span>
+            }
+        }
+        <span class="k">return</span> out;
+    }
+};</pre>
+
+<p><b>Complexity:</b> sorting is O(n log n), the sweep is O(n). O(n) space for the output. The sort dominates.</p>
+
+<h3>Alternative: sort just the starts and ends separately</h3>
+
+<pre><span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt; merge(<span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt;&amp; iv) {
+    <span class="t">int</span> n = iv.size();
+    <span class="t">vector</span>&lt;<span class="t">int</span>&gt; st(n), en(n);
+    <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt; n; i++) { st[i] = iv[i][<span class="n">0</span>]; en[i] = iv[i][<span class="n">1</span>]; }
+    sort(st.begin(), st.end()); sort(en.begin(), en.end());
+    <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt; out;
+    <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>, j = <span class="n">0</span>; i &lt; n; i++)
+        <span class="k">if</span> (i == n - <span class="n">1</span> || st[i + <span class="n">1</span>] &gt; en[i])  { out.push_back({st[j], en[i]}); j = i + <span class="n">1</span>; }
+    <span class="k">return</span> out;
+}</pre>
+
+<p>Decouples starts from ends. Useful when the inputs come as two separate arrays. Same O(n log n).</p>
+
+<h2>5. The part interviewers ask about: what if the input is a stream?</h2>
+
+<p>If intervals arrive one at a time and you must keep them merged, this exact algorithm is O(n) per insert in the worst
+case (you may extend the last group, or insert in the middle). A classic follow-up:</p>
+
+<div class="box insight">
+  <b>Insert Interval (LC 57)</b> &mdash; if the existing list is already sorted and merged, inserting one new interval is
+  O(n): walk through, copy the ones strictly before, merge all that overlap into a single stretched interval, then copy
+  the rest. For <i>k</i> inserts into an unordered stream, maintain a balanced BST / <code>std::set</code> keyed by start;
+  each insert finds predecessors/successors in O(log n), merges them, and reinserts. Total O(k log k).
+</div>
+
+<p>Another good follow-up: <b>why not Union-Find?</b> You could union each pair whose intervals overlap, but detecting
+"which pairs overlap" without sorting is quadratic. Sort + sweep is strictly simpler. Union-Find helps when the "overlap"
+relation is given explicitly (edges), not derived from numeric positions.</p>
+
+<p><b>Open vs closed endpoints.</b> LC 56 treats touching endpoints as overlap (<code>[1,4]</code> and <code>[4,5]</code>
+merge). If the problem said "open intervals" or "strictly overlap", change <code>&le;</code> to <code>&lt;</code> in the
+compare. The algorithm is otherwise identical.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Sorting by end instead of start.</b> Works for some other interval problems (greedy scheduling, LC 435) but
+    not for merging &mdash; the chain argument above relies on start order.</li>
+    <li><b>Using <code>&lt;</code> instead of <code>&le;</code>.</b> <code>[[1,4],[4,5]]</code> must merge to
+    <code>[1,5]</code>. If you use strict inequality you return two intervals.</li>
+    <li><b>Using <code>iv[1]</code> for the extended end instead of <code>max(out.back()[1], iv[1])</code>.</b>
+    Breaks on nested intervals like <code>[[1,10],[2,3],[4,5]]</code>: the correct answer is <code>[[1,10]]</code>, not
+    <code>[[1,5]]</code>.</li>
+    <li><b>Modifying the input in place without being asked.</b> Sorting intervals mutates the caller's array; mention
+    this in interviews if it is a constraint.</li>
+    <li><b>Single interval or empty input.</b> The code handles both: an empty input gives an empty output, a single
+    interval gives a one-element output.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I sort by start, then walk left to right. I keep an output list. For each interval I check only the last pushed one:
+  if the new start is <code>&le;</code> that end, I stretch the end to the max; otherwise I push the new interval as a
+  new group. One pass covers every merge because sorting by start forces overlapping intervals to be contiguous.
+  O(n log n) time, O(n) output space."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 57 Insert Interval</td><td>Same merge logic applied once with a single new interval.</td></tr>
+  <tr><td>LC 435 Non-overlapping Intervals</td><td>Sort by <b>end</b> this time; greedy pick-earliest-end.</td></tr>
+  <tr><td>LC 252 Meeting Rooms</td><td>Just "any overlap?"; sort by start and check adjacent pairs.</td></tr>
+  <tr><td>LC 253 Meeting Rooms II</td><td>Count overlapping groups; sweep line (+1 at start, -1 at end) or min-heap by end.</td></tr>
+  <tr><td>LC 986 Interval List Intersections</td><td>Two already-sorted lists; two-pointer walk, intersect pairs.</td></tr>
+</table>
+
+<script>
+/* Helper: draw horizontal interval bars on a shared number line in SVG. */
+function drawIntervals(intervals, state, title) {
+  const n = intervals.length;
+  if (!n) return '';
+  const minX = Math.min(...intervals.map(iv => iv[0]));
+  const maxX = Math.max(...intervals.map(iv => iv[1]));
+  const span = Math.max(1, maxX - minX);
+  const PAD_L = 50, PAD_R = 50, W = 760, H_PER = 28, HTOP = 36, HBOT = 32;
+  const H = HTOP + n * H_PER + HBOT;
+  const scale = x => PAD_L + (x - minX) / span * (W - PAD_L - PAD_R);
+  // ticks every ceil(span/8) units
+  const tickStep = Math.max(1, Math.ceil(span / 8));
+  let ticks = '';
+  for (let x = minX; x <= maxX; x += tickStep) {
+    const px = scale(x);
+    ticks += `<line x1="${px}" y1="${HTOP - 6}" x2="${px}" y2="${HTOP}" stroke="#94a3b8" stroke-width="1"/>`;
+    ticks += `<text x="${px}" y="${HTOP - 10}" text-anchor="middle" font-size="11" fill="#616e7c">${x}</text>`;
+  }
+  // axis
+  const axis = `<line x1="${PAD_L - 5}" y1="${HTOP}" x2="${W - PAD_R + 5}" y2="${HTOP}" stroke="#334155" stroke-width="2"/>`;
+  // bars
+  let bars = '';
+  intervals.forEach((iv, i) => {
+    const [a, b] = iv;
+    const x1 = scale(a), x2 = scale(b);
+    const y = HTOP + 8 + i * H_PER;
+    const h = H_PER - 10;
+    const s = state[i] || {};
+    const col = {
+      current: { fill: '#bbf7d0', stroke: '#15803d' },
+      checking: { fill: '#fde68a', stroke: '#d97706' },
+      absorbed: { fill: '#fecaca', stroke: '#b91c1c' },
+      done:     { fill: '#dbeafe', stroke: '#3b82f6' },
+      future:   { fill: '#f1f5f9', stroke: '#cbd5e1' },
+    }[s.kind || 'future'];
+    bars += `<rect x="${x1}" y="${y}" width="${Math.max(2, x2 - x1)}" height="${h}" rx="4" fill="${col.fill}" stroke="${col.stroke}" stroke-width="2"${s.kind === 'future' ? ' stroke-dasharray="4,3"' : ''}/>`;
+    const label = s.kind === 'absorbed' ? `[${a},${b}] merged` : `[${a},${b}]`;
+    bars += `<text x="${(x1 + x2) / 2}" y="${y + h / 2 + 5}" text-anchor="middle" font-size="12" font-weight="700" fill="${col.stroke}"${s.kind === 'absorbed' ? ' text-decoration="line-through"' : ''}>${label}</text>`;
+    bars += `<text x="${PAD_L - 10}" y="${y + h / 2 + 5}" text-anchor="end" font-size="11" fill="#616e7c">#${i}</text>`;
+  });
+  const t = title ? `<text x="${W / 2}" y="18" text-anchor="middle" font-size="13" font-weight="700" fill="#1f2933">${title}</text>` : '';
+  return `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${H}">${t}${ticks}${axis}${bars}</svg>`;
+}
+
+/* Idea diagram: show two touching intervals being merged on a number line. */
+(function () {
+  const ivs = [[1, 3], [2, 6], [8, 10], [15, 18]];
+  const sorted = ivs.slice().sort((a, b) => a[0] - b[0]);
+  const state = [
+    { kind: 'absorbed' }, { kind: 'current' }, { kind: 'done' }, { kind: 'done' },
+  ];
+  // Rewrite: first interval becomes [1,6] (merged), second is absorbed into it.
+  // Show the result: [[1,6], [8,10], [15,18]] as the "after" picture.
+  const after = [[1, 6], [8, 10], [15, 18]];
+  const stateAfter = [{ kind: 'current' }, { kind: 'current' }, { kind: 'current' }];
+  const html = drawIntervals(sorted, [
+    { kind: 'current' }, { kind: 'absorbed' }, { kind: 'done' }, { kind: 'done' },
+  ], 'before (sorted by start)') +
+    drawIntervals(after, stateAfter, 'after merging') +
+    '<div class="caption">[1,3] and [2,6] overlap (2 &le; 3), so the first group stretches its end to max(3,6)=6. ' +
+    '[8,10] and [15,18] start new groups because their starts exceed the previous end.</div>';
+  document.getElementById('idea').innerHTML = html;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Sort', lines: ['by start,', 'then by end'], color: 'yellow' },
+  { title: '2. Overlap?', lines: ['iv[0] <= last.end'], color: 'blue' },
+  { title: '3a. Stretch', lines: ['last.end = max(', 'last.end, iv[1])'], color: 'green' },
+  { title: '3b. New group', lines: ['out.push_back(iv)'], color: 'purple' },
+]);
+
+/* Interactive trace. */
+VIZ.controls('trace', [{ id: 'ivs', label: 'intervals =', value: '[[1,3],[2,6],[8,10],[15,18]]', size: 32 }], v => {
+  let ivs;
+  try { ivs = VIZ.parse.mat(v.ivs); }
+  catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  if (!Array.isArray(ivs) || !ivs.length ||
+      !ivs.every(iv => Array.isArray(iv) && iv.length === 2 && typeof iv[0] === 'number' && typeof iv[1] === 'number' && iv[0] <= iv[1]))
+    return '<div class="box trap">Expected a non-empty array of [start, end] pairs with start &le; end.</div>';
+  if (ivs.length > 10) return '<div class="box trap">Pick at most 10 intervals to keep the picture readable.</div>';
+
+  const sorted = ivs.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const out = [];
+  const steps = [];
+  // Map sorted idx -> absorbed by which output idx (for colouring the stacked view)
+  const absorbedInto = new Array(sorted.length).fill(-1);  // -1 = own group
+  const groupOfIdx = new Array(sorted.length).fill(-1);     // which group each sorted interval joined
+  const owners = [];  // owners[g] = index into sorted whose iv became the current group's bar
+
+  sorted.forEach((iv, i) => {
+    if (out.length && iv[0] <= out[out.length - 1][1]) {
+      // merge
+      const g = out.length - 1;
+      const before = out[g].slice();
+      out[g][1] = Math.max(out[g][1], iv[1]);
+      groupOfIdx[i] = g;
+      absorbedInto[i] = owners[g];
+      steps.push({ kind: 'merge', i, iv, before, after: out[g].slice(), g });
+    } else {
+      owners.push(i);
+      out.push(iv.slice());
+      groupOfIdx[i] = out.length - 1;
+      steps.push({ kind: 'new', i, iv, g: out.length - 1 });
+    }
+  });
+
+  const MAX = 20;
+  const show = steps.slice(0, MAX);
+  let html = '';
+
+  // Opening step: show sorted order.
+  html += VIZ.step('Sort by start',
+    drawIntervals(sorted, sorted.map(() => ({ kind: 'future' })), 'input, sorted by start'),
+    `Sorted order: ${sorted.map(iv => '<code>[' + iv[0] + ',' + iv[1] + ']</code>').join(', ')}.`, true);
+
+  show.forEach((st, k) => {
+    // Build state for every sorted interval at this moment.
+    const state = sorted.map((_, idx) => {
+      if (idx === st.i) return { kind: 'checking' };
+      if (idx > st.i) return { kind: 'future' };
+      // idx < i: we've already handled it
+      if (st.kind === 'merge' && idx === st.i) return { kind: 'checking' };
+      // mark absorbed vs still-current-group representative
+      const g = groupOfIdx[idx];
+      // Representative of a group is `owners[g]`; others in that group are absorbed.
+      if (owners[g] === idx) return { kind: g === out.length - 1 ? 'current' : 'done' };
+      return { kind: 'absorbed' };
+    });
+    // On a merge step, the current interval is "checking" and will become part of group g.
+    // After the step: show the stretched group's new size by also drawing the "after" view below.
+    const title = st.kind === 'merge'
+      ? `#${st.i} = [${st.iv[0]}, ${st.iv[1]}] &rarr; merge into group ${st.g}`
+      : `#${st.i} = [${st.iv[0]}, ${st.iv[1]}] &rarr; new group ${st.g}`;
+    const img = drawIntervals(sorted, state, title);
+
+    let note;
+    if (st.kind === 'merge') {
+      note = `<code>iv.start = ${st.iv[0]} &le; last.end = ${st.before[1]}</code>: overlap. ` +
+             `Stretch last group's end to <code>max(${st.before[1]}, ${st.iv[1]}) = ${st.after[1]}</code>. ` +
+             `Group ${st.g} is now <code>[${st.after[0]}, ${st.after[1]}]</code>.`;
+    } else {
+      const prev = st.g > 0 ? `last.end = ${out[st.g - 1][1]}` : 'no previous group';
+      note = `${st.g > 0 ? '<code>iv.start = ' + st.iv[0] + ' &gt; ' + prev + '</code>: no overlap' : 'first interval'}. ` +
+             `Push <code>[${st.iv[0]}, ${st.iv[1]}]</code> as a new group.`;
+    }
+    html += VIZ.step(`Step ${k + 1}`, img, note, true);
+  });
+  if (steps.length > MAX) html += `<p class="caption">... ${steps.length - MAX} more intervals, same pattern.</p>`;
+
+  // Final result bars.
+  html += VIZ.step('Result',
+    drawIntervals(out, out.map(() => ({ kind: 'current' })), 'merged intervals'),
+    `Final list: ${out.map(iv => '<code>[' + iv[0] + ',' + iv[1] + ']</code>').join(', ')}.`, true);
+
+  document.getElementById('answer').innerHTML =
+    `<b>Answer: [${out.map(iv => '[' + iv[0] + ',' + iv[1] + ']').join(', ')}]</b>`;
+  return html;
+}, 'Give a JSON array of [start, end] pairs, e.g. [[1,3],[2,6]].');
+</script>
+
+</body>
+</html>

@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 191 - Number of 1 Bits</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#bit-manipulation">Pattern lesson</a><span>Pattern 18: Bit Manipulation</span></div>
+
+<h1>Number of 1 Bits</h1>
+<p class="sub">LeetCode 191 &middot; Easy &middot; Pattern: Brian Kernighan's bit trick &middot; O(k) time where k = popcount(n), O(1) space</p>
+
+<div class="box">
+  <b>Problem.</b> Given a 32-bit unsigned integer <code>n</code>, return the number of <code>1</code> bits it has (also
+  called the Hamming weight).
+  <br><code>n = 00000000000000000000000000001011 &rarr; 3</code>
+  &nbsp;&nbsp; <code>n = 10000000 &rarr; 1</code>
+  &nbsp;&nbsp; <code>n = 11111111111111111111111111111101 &rarr; 31</code>
+  <br>Link: <a href="https://leetcode.com/problems/number-of-1-bits/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>The trick: <code>n &amp; (n &minus; 1)</code> clears the lowest set bit of <code>n</code>, and only that bit.</p>
+
+<p>Here is why. Let the lowest set bit be at position <code>p</code>. Then <code>n</code> ends with
+<code>1</code> followed by <code>p</code> zeros. Subtracting one flips that <code>1</code> to <code>0</code> and flips
+all <code>p</code> trailing zeros to ones (classic borrow). ANDing the two keeps the bits above <code>p</code>
+unchanged, zeros the bit at <code>p</code> (now <code>1 &amp; 0</code>), and zeros the bits below <code>p</code>
+(now <code>0 &amp; 1</code>). Net effect: one bit disappeared.</p>
+
+<div id="idea"></div>
+
+<p>So each time you do <code>n = n &amp; (n &minus; 1)</code> you remove exactly one <code>1</code>. Count how many
+times you can do it before <code>n</code> becomes <code>0</code>. That count is the answer.</p>
+
+<div class="box insight">
+  <b>Idea.</b> <code>n &amp; (n &minus; 1)</code> peels off the lowest set bit. Loop until <code>n = 0</code>, counting
+  the peels. The loop runs exactly <code>popcount(n)</code> times, not 32.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>A naive version checks all 32 bits with <code>n &amp; 1</code> then <code>n &gt;&gt;= 1</code>. That is O(32) always.
+Brian Kernighan's version is O(popcount), which is faster when there are only a few set bits (common on real data).</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Each card shows <code>n</code> as an 8-bit strip, <code>n &minus; 1</code> underneath, and their AND on the next row.
+Yellow highlights the lowest set bit (the one that disappears this step) and all the zeros below it (which flip during
+the subtraction). After the AND the yellow block becomes all zeros.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>lowest set bit (and trailing zeros) &mdash; this is what the subtract-and-AND clears</span>
+  <span><i style="background:var(--win)"></i>bits above, unchanged by the trick</span>
+  <span><i style="background:var(--keep)"></i>final value (0)</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">int</span> hammingWeight(<span class="t">uint32_t</span> n) {
+        <span class="t">int</span> count = <span class="n">0</span>;
+        <span class="k">while</span> (n) {
+            n &amp;= n - <span class="n">1</span>;        <span class="c">// clear the lowest set bit</span>
+            count++;
+        }
+        <span class="k">return</span> count;
+    }
+};</pre>
+
+<p><b>Complexity:</b> the loop runs once per set bit, so O(popcount(n)) time, at most 32. O(1) space.</p>
+
+<h3>Alternative: shift-and-check</h3>
+
+<pre><span class="t">int</span> hammingWeight(<span class="t">uint32_t</span> n) {
+    <span class="t">int</span> count = <span class="n">0</span>;
+    <span class="k">while</span> (n) {
+        count += n &amp; <span class="n">1</span>;
+        n &gt;&gt;= <span class="n">1</span>;
+    }
+    <span class="k">return</span> count;
+}</pre>
+
+<p>Simple and fine on <code>uint32_t</code>. Use the Kernighan form when you want to show you know it, or when the input
+is sparse and you want fewer iterations. If the interviewer allows it, mention that modern CPUs have a dedicated
+instruction (<code>__builtin_popcount</code> / <code>POPCNT</code>) that does this in one cycle.</p>
+
+<h2>5. The part interviewers ask about: the follow-up on many calls</h2>
+
+<p>"What if this function is called many times?" The question is pointing at a lookup table. Pre-compute popcount for
+every 8-bit byte (256 entries) once. Then for a 32-bit input, split it into four bytes, sum the four table lookups.
+Each call becomes four array reads and three adds &mdash; constant time, no loop.</p>
+
+<div class="box insight">
+  Trade memory for time once (256 bytes of table). Every subsequent call pays four cached loads instead of up to 32
+  loop iterations.
+</div>
+
+<p>Another natural follow-up: "Why unsigned?" Right-shifting a negative signed value in C++ is
+implementation-defined before C++20 and often "arithmetic" (sign extended), so the loop could spin forever on a
+negative input. <code>uint32_t</code> fills the top with zeros, which is what the algorithm needs.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Signed <code>int</code> and right shift.</b> <code>n &gt;&gt;= 1</code> on a signed negative value may keep the
+    sign bit, so the loop never terminates. Use <code>uint32_t</code> as the problem specifies.</li>
+    <li><b><code>n = 0</code>.</b> The loop body never runs. Count is 0. The <code>while</code> condition handles this
+    for free.</li>
+    <li><b><code>n = 0xFFFFFFFF</code>.</b> Count is 32. The loop runs 32 times. Signed types would overflow during
+    <code>n &minus; 1</code> if you treated them as signed, but on <code>uint32_t</code> this is defined wrap-around and
+    the AND still works.</li>
+    <li><b>Writing <code>n &amp; n &minus; 1</code> without parentheses.</b> <code>&amp;</code> has lower precedence than
+    <code>&minus;</code> in C++, so this one parses correctly &mdash; but it is still easier to read as
+    <code>n &amp; (n &minus; 1)</code>. The dangerous one is <code>n &amp;= n - 1</code>; that is fine too, but adding
+    parentheses is a cheap habit.</li>
+    <li><b>Thinking the loop is always O(32).</b> It is O(popcount). A number with 3 set bits loops 3 times, not 32.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I use <code>n &amp; (n &minus; 1)</code>. Subtracting one flips the lowest set bit to 0 and the zeros below it to 1s.
+  ANDing with the original zeroes that lowest set bit and the trailing region. So each operation removes exactly one 1.
+  I loop while <code>n</code> is non-zero and count. That runs <code>popcount(n)</code> times, at most 32. If the
+  function is hit a lot, I would precompute an 8-bit popcount table and do four lookups per 32-bit value."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 338 Counting Bits</td><td>Return popcount for 0..n. Use <code>dp[i] = dp[i &gt;&gt; 1] + (i &amp; 1)</code>, or call this per i.</td></tr>
+  <tr><td>LC 231 Power of Two</td><td>A power of two has exactly one set bit, so <code>n &gt; 0 &amp;&amp; (n &amp; (n &minus; 1)) == 0</code>.</td></tr>
+  <tr><td>LC 461 Hamming Distance</td><td>popcount(x ^ y). Reuse this routine on the XOR of the two numbers.</td></tr>
+  <tr><td>LC 190 Reverse Bits</td><td>Different bit trick but same unsigned-32-bit setting.</td></tr>
+</table>
+
+<script>
+/* Idea diagram: show one application of n & (n-1) on n = 0b01011100 (92). Lowest set bit is at position 2. */
+(function () {
+  const WIDTH = 8;
+  const bits = v => {
+    const u = (v & ((1 << WIDTH) - 1)) >>> 0;
+    const out = [];
+    for (let i = WIDTH - 1; i >= 0; i--) out.push((u >> i) & 1);
+    return out;
+  };
+  const labels = (() => { const a = []; for (let i = WIDTH - 1; i >= 0; i--) a.push('b' + i); return a; })();
+
+  const n = 0b01011100; // 92
+  const nm1 = n - 1;    // 91 = 0b01011011
+  const aft = n & nm1;  // 88 = 0b01011000
+  // position of lowest set bit:
+  let p = 0; while (((n >> p) & 1) === 0) p++;
+
+  const highlightNew = i => (WIDTH - 1 - i <= p) ? 'new' : '';   // bit p and below -> yellow
+  const highlightKeep = i => (WIDTH - 1 - i > p) ? 'in' : '';     // bits above p -> blue (unchanged region)
+  const highlightResult = i => (WIDTH - 1 - i > p) ? 'in' : '';   // after: bits above unchanged, bits <=p are 0
+
+  const host = document.getElementById('idea');
+  host.innerHTML =
+    `<div style="margin-top:10px;font-size:13px;color:#616e7c">n = ${n} = 01011100<sub>2</sub>, lowest set bit at position ${p}</div>` +
+    VIZ.strip(bits(n), { labels, cls: i => highlightNew(i) || highlightKeep(i), small: true }) +
+    `<div style="margin-top:8px;font-size:13px;color:#616e7c">n &minus; 1 = ${nm1} = 01011011<sub>2</sub> (bit ${p} flipped to 0, trailing zeros flipped to 1)</div>` +
+    VIZ.strip(bits(nm1), { labels, cls: i => highlightNew(i) || highlightKeep(i), small: true }) +
+    `<div style="margin-top:8px;font-size:13px;color:#616e7c">n &amp; (n &minus; 1) = ${aft} = 01011000<sub>2</sub> (lowest set bit cleared, nothing else changed)</div>` +
+    VIZ.strip(bits(aft), { labels, cls: i => highlightResult(i), small: true });
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Init', lines: ['count = 0'], color: 'green' },
+  { title: '2. Peel a bit', lines: ['n = n & (n - 1)', 'count = count + 1'], color: 'yellow' },
+  { title: '3. Repeat', lines: ['until n = 0'], color: 'purple' },
+  { title: '4. Answer', lines: ['return count'], color: 'blue' },
+], { loop: 'loop until n = 0' });
+
+/* Interactive trace: show n (bits), n-1 (bits), n & (n-1) (bits) for each iteration. */
+VIZ.controls('trace', [
+  { id: 'n', label: 'n =', value: '11', size: 10 },
+], v => {
+  let n;
+  try { n = VIZ.parse.int(v.n); }
+  catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  if (n < 0) return '<div class="box trap">n must be a non-negative integer (unsigned on LeetCode).</div>';
+  if (n > 65535) return '<div class="box trap">Pick n &le; 65535 so the 8-bit / 16-bit strips stay readable.</div>';
+
+  // Pick a strip width that covers the input (8, 16 or 32 bits).
+  const WIDTH = n < 256 ? 8 : (n < 65536 ? 16 : 32);
+  const bits = v => {
+    // use BigInt-safe path only above 2^30; here WIDTH <=16 is fine with >>>.
+    const u = (v >>> 0) & ((WIDTH === 32) ? 0xFFFFFFFF : ((1 << WIDTH) - 1));
+    const out = [];
+    for (let i = WIDTH - 1; i >= 0; i--) out.push((u >> i) & 1);
+    return out;
+  };
+  const labels = (() => { const a = []; for (let i = WIDTH - 1; i >= 0; i--) a.push('b' + i); return a; })();
+
+  let cur = n >>> 0;
+  let count = 0;
+  const steps = [];
+
+  // record the starting state
+  steps.push({ kind: 'start', n: cur });
+
+  while (cur) {
+    const prev = cur;
+    const prevMinus1 = (cur - 1) >>> 0;
+    const next = (prev & prevMinus1) >>> 0;
+    // find position of lowest set bit of prev
+    let p = 0; while (((prev >>> p) & 1) === 0) p++;
+    count++;
+    steps.push({ kind: 'peel', prev, prevMinus1, next, p, count });
+    cur = next;
+    if (steps.length > 40) break;
+  }
+
+  const MAX = 25;
+  const show = steps.length <= MAX ? steps : steps.slice(0, MAX);
+  let html = '';
+
+  show.forEach((st, k) => {
+    if (st.kind === 'start') {
+      const b = bits(st.n);
+      const visual =
+        `<div style="font-size:12px;color:#616e7c">starting n = ${st.n}</div>` +
+        VIZ.strip(b, { labels, cls: () => '', small: true });
+      html += VIZ.step(`Step ${k + 1}: start`, visual,
+        `Count the <code>1</code> bits above. The loop will peel them off one by one.`, true);
+      return;
+    }
+    const bPrev = bits(st.prev);
+    const bMinus = bits(st.prevMinus1);
+    const bNext = bits(st.next);
+
+    const yellowMask = i => (WIDTH - 1 - i <= st.p) ? 'new' : '';
+    const resultMask = i => (st.next === 0 && WIDTH - 1 - i > st.p) ? 'keep' : ((WIDTH - 1 - i > st.p) ? '' : '');
+
+    const visual =
+      `<div style="font-size:12px;color:#616e7c">n = ${st.prev} &nbsp; (lowest set bit at position ${st.p})</div>` +
+      VIZ.strip(bPrev, { labels, cls: i => yellowMask(i), small: true }) +
+      `<div style="font-size:12px;color:#616e7c;margin-top:8px">n &minus; 1 = ${st.prevMinus1}</div>` +
+      VIZ.strip(bMinus, { labels, cls: i => yellowMask(i), small: true }) +
+      `<div style="font-size:12px;color:#616e7c;margin-top:8px">n &amp; (n &minus; 1) = ${st.next}</div>` +
+      VIZ.strip(bNext, { labels, cls: i => (st.next === 0 ? '' : '') || (WIDTH - 1 - i > st.p ? '' : ''), small: true });
+
+    const text = `Peel bit ${st.p}. One more <code>1</code> removed. <b>count = ${st.count}</b>.` +
+      (st.next === 0 ? ' <code>n</code> is now 0, loop ends.' : '');
+    html += VIZ.step(`Step ${k + 1}: n &amp;= n - 1`, visual, text, true);
+  });
+  if (steps.length > MAX) html += `<p class="caption">... ${steps.length - MAX} more steps, same pattern.</p>`;
+
+  document.getElementById('answer').innerHTML = `<b>Answer: ${count}</b> set bit(s) in ${n}.`;
+  return html;
+}, 'Enter n as a decimal number. The strip width adjusts to 8 or 16 bits automatically.');
+</script>
+
+</body>
+</html>

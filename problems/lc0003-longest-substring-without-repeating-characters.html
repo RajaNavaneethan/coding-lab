@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 3 - Longest Substring Without Repeating Characters</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#sliding-window">Pattern lesson</a><span>Pattern 2: Sliding Window</span></div>
+
+<h1>Longest Substring Without Repeating Characters</h1>
+<p class="sub">LeetCode 3 &middot; Medium &middot; Pattern: variable-size sliding window &middot; O(n) time, O(min(n, &Sigma;)) space</p>
+
+<div class="box">
+  <b>Problem.</b> Given a string <code>s</code>, find the length of the longest substring that contains no repeated
+  character.
+  <br><code>"abcabcbb" &rarr; 3</code> &nbsp;&nbsp; <code>"bbbbb" &rarr; 1</code> &nbsp;&nbsp; <code>"pwwkew" &rarr; 3</code>
+  <br>Link: <a href="https://leetcode.com/problems/longest-substring-without-repeating-characters/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Grow a window to the right one character at a time. The window is <b>valid</b> when every letter inside appears at
+most once. When the new character <code>s[r]</code> was already inside the window, shrink from the left until it is
+gone.</p>
+
+<p>The key accelerator: you do not need to shrink one step at a time. If you remember the <b>last position</b> of every
+character, you can jump the left pointer directly past the previous copy.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>So the question becomes:</b> keep a map <code>last[c] = last index of c</code>. On every <code>r</code>, if
+  <code>last[s[r]] &ge; l</code>, set <code>l = last[s[r]] + 1</code>. Then write <code>last[s[r]] = r</code> and update
+  <code>best</code>.
+</div>
+
+<p>Why one jump works: <code>l</code> can only move forward. If <code>last[s[r]]</code> is before <code>l</code>, that
+copy is already outside the window, so no shrink is needed. If it is inside, moving <code>l</code> to
+<code>last[s[r]] + 1</code> removes exactly that copy and leaves everything to its right.</p>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>just added (r)</span>
+  <span><i style="background:var(--win)"></i>inside the window</span>
+  <span><i style="background:var(--gone)"></i>jumped over by l</span>
+  <span><i style="background:var(--keep)"></i>duplicate that forced the jump</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="t">int</span> lengthOfLongestSubstring(<span class="t">string</span> s) {
+    <span class="t">int</span> last[<span class="n">128</span>];                         <span class="c">// last index each ASCII char was seen</span>
+    fill(last, last + <span class="n">128</span>, <span class="n">-1</span>);
+    <span class="t">int</span> l = <span class="n">0</span>, best = <span class="n">0</span>;
+    <span class="k">for</span> (<span class="t">int</span> r = <span class="n">0</span>; r &lt; (<span class="t">int</span>)s.size(); r++) {
+        <span class="t">int</span> c = (<span class="t">unsigned</span> <span class="t">char</span>)s[r];
+        <span class="k">if</span> (last[c] &gt;= l) l = last[c] + <span class="n">1</span>;      <span class="c">// jump past the previous copy</span>
+        last[c] = r;
+        best = max(best, r - l + <span class="n">1</span>);
+    }
+    <span class="k">return</span> best;
+}</pre>
+
+<p><b>Complexity:</b> each index is visited once by <code>r</code> and the left pointer only moves forward, so O(n). The
+<code>last</code> array is fixed at 128 ASCII slots, so O(1) space; for arbitrary Unicode it is O(min(n, &Sigma;)) with
+a hash map.</p>
+
+<h3>Alternative: shrink one step at a time with a <code>Set</code></h3>
+
+<pre><span class="t">int</span> lengthOfLongestSubstring(<span class="t">string</span> s) {
+    unordered_set&lt;<span class="t">char</span>&gt; seen;
+    <span class="t">int</span> l = <span class="n">0</span>, best = <span class="n">0</span>;
+    <span class="k">for</span> (<span class="t">int</span> r = <span class="n">0</span>; r &lt; (<span class="t">int</span>)s.size(); r++) {
+        <span class="k">while</span> (seen.count(s[r])) { seen.erase(s[l]); l++; }
+        seen.insert(s[r]);
+        best = max(best, r - l + <span class="n">1</span>);
+    }
+    <span class="k">return</span> best;
+}</pre>
+
+<p>Easier to explain. Still O(n) amortised (each char enters and leaves at most once), but with hashing overhead and no
+jump trick. Prefer the index map in C++; this version is cleaner in interviews when you want "pure sliding window".</p>
+
+<h2>5. The part interviewers ask about: <code>last[c] &ge; l</code>, not <code>last[c] != -1</code></h2>
+
+<p>You might be tempted to write <code>if (last[c] != -1)</code>. That is wrong, because an old copy from <i>outside</i>
+the current window is irrelevant. Example: <code>"abba"</code>.</p>
+
+<div class="box insight">
+  <b>Why the inequality.</b> At index <code>r = 3</code> (<code>'a'</code>), <code>last['a'] = 0</code>, but <code>l</code>
+  has already moved to <code>2</code> because of the earlier <code>'b','b'</code> clash. Using
+  <code>last[c] &ge; l</code> correctly says "the previous <code>'a'</code> is <b>not</b> in the window", so no jump
+  needed. The answer is <code>2</code> (<code>"ba"</code>). The wrong check would set <code>l = 1</code>, counting the
+  stale index, and give a wrong answer <code>3</code>.
+</div>
+
+<p><b>Follow-up: longest substring with at most <i>k</i> distinct characters (LC 340).</b> Same window shape, but the
+invariant is "distinct count &le; k" instead of "every char appears once". Use a count map and shrink while
+<code>distinct &gt; k</code>.</p>
+
+<p><b>Why not sort or hash the substring?</b> Any such approach needs to try O(n<sup>2</sup>) substrings. The window
+works because adding a letter can only increase the duplicate count, and removing from the left can only decrease it,
+so the valid region is a single interval of right endpoints for each left &mdash; a monotone structure a window
+exploits.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Not clearing stale indices.</b> Using <code>last[c] != -1</code> instead of <code>last[c] &ge; l</code> gives
+      wrong answers on strings like <code>"abba"</code>. Expected <code>2</code>, bug gives <code>3</code>.</li>
+    <li><b>Updating <code>last[c]</code> before the jump check.</b> Then every character would jump to itself and
+      <code>l</code> would equal <code>r</code> forever, returning <code>1</code>. Jump first, then record.</li>
+    <li><b>Using <code>size_t</code> or <code>unsigned</code> for <code>l</code> and <code>r</code>.</b> Fine here (both
+      only move forward), but mixing them with signed arithmetic (<code>r - l + 1</code>) can produce surprising values.
+      Keep both <code>int</code>.</li>
+    <li><b>Only sizing the array for lowercase.</b> The problem allows ASCII symbols, digits and spaces. Use 128 or a
+      hash map.</li>
+    <li><b>Empty string.</b> Answer is <code>0</code>. The loop body never runs, which is correct.</li>
+    <li><b>Spaces and symbols count.</b> <code>" !$"</code> has three distinct characters so the answer is <code>3</code>.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I grow a window to the right and shrink from the left whenever the new character is already in it. To avoid shrinking
+  one step at a time, I keep a map from character to its last index. When <code>s[r]</code> was last seen at or after
+  <code>l</code>, I jump <code>l</code> to <code>last[s[r]] + 1</code>. Then I update <code>last[s[r]] = r</code> and the
+  answer with the new window length. O(n) time, O(&Sigma;) space."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>Window is valid when&hellip;</th></tr>
+  <tr><td>LC 424 Longest Repeating Character Replacement</td><td>length &minus; maxFreq &le; k. Also variable window.</td></tr>
+  <tr><td>LC 340 Longest Substring with At Most K Distinct</td><td>distinct chars &le; k.</td></tr>
+  <tr><td>LC 159 Longest Substring with At Most Two Distinct</td><td>K = 2 case of LC 340.</td></tr>
+  <tr><td>LC 76 Minimum Window Substring</td><td>Window covers all required counts; shrink to minimise.</td></tr>
+  <tr><td>LC 1695 Maximum Erasure Value</td><td>Same window on an int array; sum the unique numbers.</td></tr>
+</table>
+
+<script>
+/* Count bars for the characters inside the current window. */
+function countBars(freq) {
+  const letters = Object.keys(freq).filter(c => freq[c] > 0).sort();
+  if (!letters.length) return '<span style="font-size:12px;color:#616e7c">(empty window)</span>';
+  const mx = Math.max(...letters.map(c => freq[c]));
+  return '<div class="bars">' + letters.map(c =>
+    `<div class="bar${freq[c] === mx && mx > 1 ? ' hl2' : ''}"><b>${freq[c]}</b><div style="height:${freq[c] * 16}px"></div>${esc(c)}</div>`
+  ).join('') + '</div>';
+}
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+/* Strip with L/R and in/new/gone/keep classes. */
+function strip(s, cls, l, r, jumpFrom) {
+  const idx = '<div class="idx">' + [...s].map((_, i) => `<span>${i}</span>`).join('') + '</div>';
+  const cells = '<div class="strip">' + [...s].map((c, i) =>
+    `<div class="cell ${cls[i] || ''}">${esc(c)}</div>`).join('') + '</div>';
+  const ptr = '<div class="ptr">' + [...s].map((_, i) => {
+    if (i === l && i === r) return '<span>L R</span>';
+    if (i === l) return '<span>L</span>';
+    if (i === r) return '<span>R</span>';
+    return '<span></span>';
+  }).join('') + '</div>';
+  let arrow = '';
+  if (jumpFrom !== undefined && jumpFrom !== null && jumpFrom < l) {
+    arrow = `<div style="font-size:12px;color:var(--paint);margin-top:2px">&nearr; l jumped from ${jumpFrom} to ${l}</div>`;
+  }
+  return idx + cells + ptr + arrow;
+}
+
+/* Static idea diagram: "abcabcbb" at r = 3 showing the jump. */
+(function () {
+  const s = 'abcabcbb';
+  const cls = ['keep','in','in','new','','','',''];
+  const html = strip(s, cls, 1, 3, 0) +
+    '<div class="caption">At <code>r = 3</code> we see another <code>a</code>. The previous <code>a</code> is at index 0 ' +
+    '(green). Jump <code>l</code> from 0 to 1 so the window is <code>"bca"</code>, length 3. No per-step shrinking.</div>';
+  document.getElementById('idea').innerHTML = `<div class="figure">${html}</div>`;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Expand right', lines: ['c = s[r]'], color: 'yellow' },
+  { title: '2. Duplicate inside?', lines: ['if last[c] >= l:', 'l = last[c] + 1'], color: 'red' },
+  { title: '3. Record', lines: ['last[c] = r', 'best = max(best,', 'r - l + 1)'], color: 'green' },
+], { loop: 'next r' });
+
+/* Interactive trace. */
+VIZ.controls('trace', [{ id: 's', label: 's =', value: 'abcabcbb', size: 20 }], v => {
+  const s = v.s;
+  if (!s.length) {
+    document.getElementById('answer').innerHTML = '<b>Answer for "": 0</b>';
+    return '<p class="caption">Empty string: answer is 0.</p>';
+  }
+  if (s.length > 20)
+    return '<div class="box trap">Pick at most 20 characters to keep the trace readable.</div>';
+
+  const last = {};
+  const freq = {};
+  let l = 0, best = 0, bestL = 0, bestR = -1;
+  const MAX_STEPS = 24;
+  let html = '';
+  const total = s.length;
+  const limit = Math.min(total, MAX_STEPS);
+
+  for (let r = 0; r < limit; r++) {
+    const c = s[r];
+    const prevLast = last[c];
+    const jumped = prevLast !== undefined && prevLast >= l;
+    const oldL = l;
+    const dropped = [];
+    if (jumped) {
+      for (let i = l; i <= prevLast; i++) {
+        freq[s[i]]--; if (freq[s[i]] === 0) delete freq[s[i]];
+        dropped.push(i);
+      }
+      l = prevLast + 1;
+    }
+    freq[c] = (freq[c] || 0) + 1;
+    last[c] = r;
+    const len = r - l + 1;
+    const improved = len > best;
+    if (improved) { best = len; bestL = l; bestR = r; }
+
+    const cls = [];
+    for (let i = l; i <= r; i++) cls[i] = 'in';
+    cls[r] = 'new';
+    dropped.forEach(i => cls[i] = 'gone');
+    if (jumped) cls[prevLast] = 'keep';   // mark the duplicate that caused the jump
+
+    let verdict = `Char <b>${esc(c)}</b>. `;
+    if (jumped) {
+      verdict += `Previous <code>${esc(c)}</code> at index ${prevLast} is inside the window. ` +
+                 `Jump <code>l: ${oldL} &rarr; ${prevLast + 1}</code>. `;
+    } else if (prevLast !== undefined) {
+      verdict += `Previous <code>${esc(c)}</code> was at ${prevLast}, outside the window (<code>${prevLast} &lt; l=${l}</code>). No jump. `;
+    } else {
+      verdict += `First time we have seen <code>${esc(c)}</code>. `;
+    }
+    verdict += `Window <b>"${esc(s.slice(l, r + 1))}"</b>, length ${len}. best = <b>${best}</b>${improved ? ' &#9650;' : ''}.`;
+
+    html += `<div class="step"><div><h4>r = ${r}, l = ${l}</h4>${strip(s, cls, l, r, jumped ? oldL : null)}</div>` +
+      `<div style="display:flex;gap:16px;align-items:flex-end"><div class="text">${verdict}</div>${countBars(freq)}</div></div>`;
+  }
+  if (total > MAX_STEPS) {
+    html += `<p class="caption">... ${total - MAX_STEPS} more steps, same pattern.</p>`;
+    // finish the computation silently for the answer line
+    for (let r = MAX_STEPS; r < total; r++) {
+      const c = s[r];
+      if (last[c] !== undefined && last[c] >= l) l = last[c] + 1;
+      last[c] = r;
+      const len = r - l + 1;
+      if (len > best) { best = len; bestL = l; bestR = r; }
+    }
+  }
+
+  document.getElementById('answer').innerHTML =
+    `<b>Answer for "${esc(s)}": ${best}</b>` +
+    (best > 0 ? ` &mdash; one longest window is <code>"${esc(s.slice(bestL, bestR + 1))}"</code>` : '');
+  return html;
+}, 'Give a string, any ASCII characters allowed.');
+</script>
+
+</body>
+</html>

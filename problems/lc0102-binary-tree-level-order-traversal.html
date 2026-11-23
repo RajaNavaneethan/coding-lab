@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 102 - Binary Tree Level Order Traversal</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#trees">Pattern lesson</a><span>Pattern 8: Trees (DFS/BFS)</span></div>
+
+<h1>Binary Tree Level Order Traversal</h1>
+<p class="sub">LeetCode 102 &middot; Medium &middot; Pattern: BFS with per-level batching &middot; O(n) time, O(w) space</p>
+
+<div class="box">
+  <b>Problem.</b> Return the values of a binary tree level by level, left to right, as a list of lists.
+  <br><code>[3,9,20,null,null,15,7] &rarr; [[3],[9,20],[15,7]]</code>
+  <br>Link: <a href="https://leetcode.com/problems/binary-tree-level-order-traversal/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Breadth-first search already visits a tree level by level, but a plain BFS gives one flat list. To split it into
+levels, record the queue's size at the start of each round and pop exactly that many nodes. Those are the nodes of the
+current level; everything they push during this round belongs to the next level.</p>
+
+<p>The size snapshot is the whole trick. Without it, the queue mixes two levels and you can't tell where one ends and the
+next begins.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Standard BFS, but at the top of each round freeze <code>sz = q.size()</code> and pop exactly that many
+  nodes into one level. Push their children for the next round.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Each card shows a single BFS round. Yellow nodes are the ones popped this round (they form one level); blue nodes are
+still in the queue; green nodes have already been emitted on earlier rounds.</p>
+
+<div class="legend">
+  <span><i style="background:#fde68a;border-color:#d97706"></i>popped this round (current level)</span>
+  <span><i style="background:#dbeafe;border-color:#3b82f6"></i>in the queue (next level)</span>
+  <span><i style="background:#bbf7d0;border-color:#15803d"></i>already emitted</span>
+</div>
+
+<div id="trace"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt; levelOrder(<span class="t">TreeNode</span>* root) {
+    <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt; out;
+    <span class="k">if</span> (!root) <span class="k">return</span> out;
+    <span class="t">queue</span>&lt;<span class="t">TreeNode</span>*&gt; q;
+    q.push(root);
+    <span class="k">while</span> (!q.empty()) {
+        <span class="t">int</span> sz = (<span class="t">int</span>)q.size();                 <span class="c">// frozen width of this level</span>
+        <span class="t">vector</span>&lt;<span class="t">int</span>&gt; level;
+        <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt; sz; i++) {
+            <span class="t">TreeNode</span>* n = q.front(); q.pop();
+            level.push_back(n-&gt;val);
+            <span class="k">if</span> (n-&gt;left)  q.push(n-&gt;left);
+            <span class="k">if</span> (n-&gt;right) q.push(n-&gt;right);
+        }
+        out.push_back(level);
+    }
+    <span class="k">return</span> out;
+}</pre>
+
+<p><b>Complexity:</b> each node enters and leaves the queue once, O(n) time. The queue holds at most one full level, so
+O(w) space, where w is the maximum width of the tree. For a balanced tree w &asymp; n/2.</p>
+
+<h3>Alternative: DFS with depth</h3>
+
+<pre><span class="k">void</span> dfs(<span class="t">TreeNode</span>* n, <span class="t">int</span> d, <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt;&amp; out) {
+    <span class="k">if</span> (!n) <span class="k">return</span>;
+    <span class="k">if</span> ((<span class="t">int</span>)out.size() == d) out.push_back({});   <span class="c">// first visit at this depth</span>
+    out[d].push_back(n-&gt;val);
+    dfs(n-&gt;left,  d + <span class="n">1</span>, out);
+    dfs(n-&gt;right, d + <span class="n">1</span>, out);
+}</pre>
+
+<p>Same O(n) time, O(h) stack. Use this when you'd rather avoid an explicit queue, or when the parent problem is already
+recursive. BFS wins when you need "stop at the first level with property X" because you can early-exit at that round.</p>
+
+<h2>5. The part interviewers ask about: the size-snapshot trick</h2>
+
+<div class="box insight">
+  Why not use a sentinel like <code>nullptr</code> between levels? That works, but you then have to push and pop the
+  sentinel, and the queue stops being pure "pointers to real nodes". The size snapshot is cheaper, clearer, and generalises
+  to every BFS-by-level variant: zigzag (LC 103), right-side view (LC 199), average per level (LC 637), bottom-up order
+  (LC 107, just reverse the output).
+</div>
+
+<p>What if you don't need levels, just a flat BFS order? Drop the inner <code>for</code> and the <code>level</code>
+vector &mdash; push into one flat output. That's the plain BFS skeleton that also powers LC 100 (same tree with two
+queues) and LC 199 (right-side view by remembering the last node of each level).</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Reading <code>q.size()</code> inside the inner loop.</b> The size changes as you push children. Freeze it once
+    at the start of the round.</li>
+    <li><b>Pushing a null child.</b> The null test <code>if (n-&gt;left)</code> is required or the queue fills up with
+    nulls and crashes on <code>n-&gt;val</code> dereference.</li>
+    <li><b>Empty tree.</b> Must return <code>[]</code>, not <code>[[]]</code>. The early <code>if (!root)</code> handles
+    it.</li>
+    <li><b>Using a stack by accident.</b> Pop from the wrong end and you get DFS, which doesn't preserve left-to-right at
+    each level the way BFS does.</li>
+    <li><b>Appending to <code>out</code> before you have any children.</b> You end up with an empty trailing level.
+    The outer <code>while</code> only runs when the queue is non-empty, so this doesn't bite &mdash; unless you forgot
+    the early return for the empty tree.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "Standard BFS splits into levels if, at the start of each round, I freeze the queue size and pop exactly that many
+  nodes. Those nodes are the current level; everything they push belongs to the next round. One pass over every node,
+  O(n) time, O(w) space for the queue. The same trick extends to zigzag, right-side view, and bottom-up order."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 103 Zigzag Level Order</td><td>Same BFS, reverse every other level before pushing.</td></tr>
+  <tr><td>LC 107 Level Order II (bottom-up)</td><td>Same BFS, reverse the whole output at the end.</td></tr>
+  <tr><td>LC 199 Right Side View</td><td>Same BFS, emit only the last node of each level.</td></tr>
+  <tr><td>LC 637 Average of Levels</td><td>Same BFS, sum each level and divide.</td></tr>
+  <tr><td>LC 111 Minimum Depth</td><td>Same BFS, return the first level that holds a leaf (early exit).</td></tr>
+  <tr><td>LC 116 Populating Next Pointers</td><td>Same BFS skeleton, link siblings in each level.</td></tr>
+</table>
+
+<script>
+document.getElementById('idea').innerHTML =
+  VIZ.tree([3,9,20,null,null,15,7], {
+    cls: { 0: 'keep', 1: 'in', 2: 'in', 5: 'new', 6: 'new' },
+    notes: { 0: 'L0', 1: 'L1', 2: 'L1', 5: 'L2', 6: 'L2' }
+  }) +
+  '<div class="caption">Depth labels: BFS pops one depth at a time by freezing the queue size.</div>';
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Freeze',  lines: ['sz = q.size()'], color: 'blue' },
+  { title: '2. Pop sz',  lines: ['for i < sz:', 'pop, record'], color: 'yellow' },
+  { title: '3. Push kids', lines: ['push left, right', 'if non-null'], color: 'purple' },
+  { title: '4. Save level', lines: ['out.push(level)'], color: 'green' },
+], { loop: 'while queue not empty' });
+
+/* Trace: each card = one BFS round. */
+VIZ.controls('trace', [
+  { id: 'root', label: 'root =', value: '[3,9,20,null,null,15,7]', size: 28 },
+], v => {
+  const arr = VIZ.parse.tree(v.root);
+  const root = VIZ.buildTree(arr);
+  if (!root) return '<div class="box good"><b>Empty tree &rarr; []</b></div>';
+
+  const steps = [];
+  const emitted = {};      // id -> 'keep'
+  const result = [];
+  let queue = [root];      // array of nodes
+  let round = 0;
+
+  while (queue.length) {
+    const sz = queue.length;
+    const popped = queue.slice(0, sz);
+    const nextQ = [];
+    for (let i = 0; i < sz; i++) {
+      const n = popped[i];
+      if (n.left)  nextQ.push(n.left);
+      if (n.right) nextQ.push(n.right);
+    }
+    const level = popped.map(n => n.val);
+    result.push(level);
+
+    const cls = {};
+    popped.forEach(n => cls[n.id] = 'new');
+    nextQ.forEach(n => cls[n.id] = 'in');
+    Object.keys(emitted).forEach(k => cls[k] = 'keep');
+
+    steps.push({
+      title: 'round ' + round + ' (sz=' + sz + ')',
+      cls,
+      text: 'Pop <code>' + sz + '</code> node(s). Level ' + round + ' = <b>[' + level.join(',') + ']</b>. ' +
+            'Push ' + nextQ.length + ' child(ren) for the next round. ' +
+            'Queue now: [' + nextQ.map(n => n.val).join(',') + '].',
+    });
+
+    popped.forEach(n => emitted[n.id] = true);
+    queue = nextQ;
+    round++;
+    if (round > 25) break;
+  }
+
+  const html = steps.map(s =>
+    VIZ.step(s.title, VIZ.tree(root, { cls: s.cls }), s.text)
+  ).join('');
+  const resultStr = '[' + result.map(l => '[' + l.join(',') + ']').join(',') + ']';
+  return html + '<div class="box good"><b>Answer: ' + resultStr + '</b></div>';
+});
+</script>
+</body>
+</html>

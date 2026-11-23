@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 338 - Counting Bits</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#bit-manipulation">Pattern lesson</a><span>Pattern 18: Bit Manipulation</span></div>
+
+<h1>Counting Bits</h1>
+<p class="sub">LeetCode 338 &middot; Easy &middot; Pattern: DP on bits (<code>i &gt;&gt; 1</code> subproblem) &middot; O(n) time, O(n) space for output</p>
+
+<div class="box">
+  <b>Problem.</b> For an integer <code>n</code>, return an array <code>ans</code> of length <code>n + 1</code> where
+  <code>ans[i]</code> is the number of <code>1</code> bits in the binary representation of <code>i</code>.
+  <br><code>n = 2 &rarr; [0,1,1]</code> &nbsp;&nbsp;
+  <code>n = 5 &rarr; [0,1,1,2,1,2]</code>
+  <br>Link: <a href="https://leetcode.com/problems/counting-bits/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Chop off the last bit. The number <code>i</code> in binary is the number <code>i &gt;&gt; 1</code> with one extra bit
+on the right, and that extra bit is <code>i &amp; 1</code>. So:</p>
+
+<div class="eq">popcount(i) = popcount(i &gt;&gt; 1) + (i &amp; 1)</div>
+
+<p>The right-shift value <code>i &gt;&gt; 1</code> is always smaller than <code>i</code>, so by the time you reach
+<code>i</code> you have already computed its answer. One DP table, filled from left to right, each cell is one shift
+plus one AND plus one add.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> The popcount of <code>i</code> is the popcount of <code>i</code> with its last bit removed, plus one if
+  that last bit was a 1. Store popcounts in order and read the <code>i &gt;&gt; 1</code> cell to compute cell <code>i</code>.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>Running popcount per index with Brian Kernighan or <code>__builtin_popcount</code> is O(n log n) in the worst case
+and does not use the structure between indices. The DP trades that for pure O(n).</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>The table below has one row per <code>i</code>. Columns show <code>i</code> in decimal and binary, the source cell
+<code>dp[i &gt;&gt; 1]</code>, the parity bit <code>i &amp; 1</code>, and the filled cell <code>dp[i]</code>. The yellow
+row is being computed; the blue row above is the source it reads.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>row being computed</span>
+  <span><i style="background:var(--win)"></i>source row <code>dp[i &gt;&gt; 1]</code></span>
+  <span><i style="background:#f8fafc;border:1px solid #cbd5e1"></i>not filled yet</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">vector</span>&lt;<span class="t">int</span>&gt; countBits(<span class="t">int</span> n) {
+        <span class="t">vector</span>&lt;<span class="t">int</span>&gt; dp(n + <span class="n">1</span>, <span class="n">0</span>);
+        <span class="k">for</span> (<span class="t">int</span> i = <span class="n">1</span>; i &lt;= n; i++)
+            dp[i] = dp[i &gt;&gt; <span class="n">1</span>] + (i &amp; <span class="n">1</span>);
+        <span class="k">return</span> dp;
+    }
+};</pre>
+
+<p><b>Complexity:</b> one pass, O(1) work per index: O(n) time. The output is O(n) by definition; no extra space
+beyond it.</p>
+
+<h3>Alternative: lowest-bit recurrence</h3>
+
+<pre><span class="t">vector</span>&lt;<span class="t">int</span>&gt; countBits(<span class="t">int</span> n) {
+    <span class="t">vector</span>&lt;<span class="t">int</span>&gt; dp(n + <span class="n">1</span>, <span class="n">0</span>);
+    <span class="k">for</span> (<span class="t">int</span> i = <span class="n">1</span>; i &lt;= n; i++)
+        dp[i] = dp[i &amp; (i - <span class="n">1</span>)] + <span class="n">1</span>;    <span class="c">// drop the lowest set bit</span>
+    <span class="k">return</span> dp;
+}</pre>
+
+<p>Same O(n), different recurrence. It uses <code>i &amp; (i &minus; 1)</code> (the Kernighan trick from LC 191) to find a
+subproblem that is strictly smaller. The <code>i &gt;&gt; 1</code> form is a hair faster in practice because the shift
+and AND can be folded by the compiler, but both are correct and both are fine to mention.</p>
+
+<h2>5. The part interviewers ask about: why this is DP and not just popcount in a loop</h2>
+
+<p>You can call <code>__builtin_popcount(i)</code> for each <code>i</code> and finish in O(n) too, because that intrinsic
+is one CPU instruction on modern hardware. The interview question is testing a different muscle: can you spot the
+recurrence <em>between</em> the answers? That is what unlocks follow-ups like "do it without any builtin" and "do it in
+one pass with no multiplication, no division, no modulo".</p>
+
+<div class="box insight">
+  Every integer <code>i &gt; 0</code> can be split as "<code>i &gt;&gt; 1</code> shifted left by one, with
+  <code>i &amp; 1</code> added back". That split means <code>popcount(i)</code> never depends on anything other than one
+  cell to its left in the DP table, and you fill left to right.
+</div>
+
+<p>If asked to prove the recurrence: let <code>b<sub>k</sub>b<sub>k&minus;1</sub>&hellip;b<sub>1</sub>b<sub>0</sub></code>
+be the binary form of <code>i</code>. Then <code>i &gt;&gt; 1 =
+b<sub>k</sub>b<sub>k&minus;1</sub>&hellip;b<sub>1</sub></code>, dropping the last bit. The popcount of the shifted number
+is the popcount of <code>i</code> minus <code>b<sub>0</sub></code>, and <code>b<sub>0</sub> = i &amp; 1</code>. Rearrange
+and you have the recurrence.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b><code>n = 0</code>.</b> The result is <code>[0]</code>. The loop body never runs, which is correct.</li>
+    <li><b>Allocating <code>n</code> instead of <code>n + 1</code>.</b> You need indices <code>0..n</code> inclusive, so
+    the vector has length <code>n + 1</code>. Off-by-one here is the most common bug.</li>
+    <li><b>Writing <code>i &amp; 1</code> as <code>i % 2</code>.</b> They agree for non-negative <code>i</code>, which is
+    all this problem uses, so this is only a style and a tiny-perf nit, not a correctness bug.</li>
+    <li><b>Trying to use <code>dp[i / 2]</code> as the source but then mixing in signed negatives.</b> This problem
+    guarantees <code>0 &le; n &le; 10<sup>5</sup></code>, so this is theoretical. On signed negatives,
+    <code>i &gt;&gt; 1</code> is implementation-defined before C++20 (usually arithmetic shift), while <code>i / 2</code>
+    truncates toward zero, so they disagree.</li>
+    <li><b>Thinking you must sort by popcount or iterate bit by bit.</b> You don't. Index order <code>i = 1..n</code>
+    already visits every <code>i &gt;&gt; 1</code> before <code>i</code>.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "Chop off the lowest bit. <code>i</code> has one more bit than <code>i &gt;&gt; 1</code>, and that extra bit is
+  <code>i &amp; 1</code>. So <code>dp[i] = dp[i &gt;&gt; 1] + (i &amp; 1)</code>. Fill left to right from
+  <code>dp[0] = 0</code>. One shift, one AND, one add per cell. O(n) time and no extra space beyond the output. An
+  equivalent recurrence drops the lowest set bit instead: <code>dp[i] = dp[i &amp; (i &minus; 1)] + 1</code>."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 191 Number of 1 Bits</td><td>Popcount for a single value using the Kernighan trick.</td></tr>
+  <tr><td>LC 1356 Sort Integers by Bits</td><td>Needs popcount for each value; this DP computes them all once.</td></tr>
+  <tr><td>LC 461 Hamming Distance</td><td>popcount(x ^ y). The DP table is overkill for a single pair.</td></tr>
+  <tr><td>LC 1310 XOR Queries</td><td>Prefix XOR, a related "fill 0..n once, answer in O(1)" idea.</td></tr>
+</table>
+
+<script>
+/* Idea diagram: show popcount(13) = popcount(6) + 1. 13 = 1101, 6 = 110, last bit of 13 is 1. */
+(function () {
+  const WIDTH = 5;
+  const bits = v => {
+    const out = []; for (let i = WIDTH - 1; i >= 0; i--) out.push((v >> i) & 1); return out;
+  };
+  const labels = (() => { const a = []; for (let i = WIDTH - 1; i >= 0; i--) a.push('b' + i); return a; })();
+
+  const host = document.getElementById('idea');
+  host.innerHTML =
+    `<div style="margin-top:10px;font-size:13px;color:#616e7c">i = 13 = 01101<sub>2</sub></div>` +
+    VIZ.strip(bits(13), { labels, cls: i => (WIDTH - 1 - i === 0) ? 'new' : (bits(13)[i] === 1 ? 'in' : ''), small: true }) +
+    `<div style="margin-top:8px;font-size:13px;color:#616e7c">i &gt;&gt; 1 = 6 = 00110<sub>2</sub> &nbsp;(drop the yellow bit)</div>` +
+    VIZ.strip(bits(6), { labels, cls: i => bits(6)[i] === 1 ? 'in' : '', small: true }) +
+    `<div style="margin-top:8px;font-size:13px;color:#616e7c">popcount(13) = popcount(6) + (13 &amp; 1) = 2 + 1 = 3</div>`;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Base', lines: ['dp[0] = 0'], color: 'green' },
+  { title: '2. Fill left to right', lines: ['for i = 1..n', 'dp[i] = dp[i >> 1]', '       + (i & 1)'], color: 'yellow' },
+  { title: '3. Answer', lines: ['return dp'], color: 'blue' },
+]);
+
+/* Interactive trace: show the DP table as a wide-table of rows, highlight current and source. */
+VIZ.controls('trace', [
+  { id: 'n', label: 'n =', value: '10', size: 6 },
+], v => {
+  let n;
+  try { n = VIZ.parse.int(v.n); }
+  catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  if (n < 0) return '<div class="box trap">n must be &ge; 0.</div>';
+  if (n > 20) return '<div class="box trap">Pick n &le; 20 so the trace stays readable.</div>';
+
+  const dp = new Array(n + 1).fill(0);
+  const steps = [];
+  // record initial state (just dp[0])
+  steps.push({ i: 0, src: -1, parity: 0, init: true });
+  for (let i = 1; i <= n; i++) {
+    dp[i] = dp[i >> 1] + (i & 1);
+    steps.push({ i, src: i >> 1, parity: i & 1, init: false });
+  }
+
+  const binaryOf = (v, width) => {
+    let s = '';
+    for (let b = width - 1; b >= 0; b--) s += ((v >> b) & 1);
+    return s;
+  };
+  const widthFor = v => Math.max(1, 32 - Math.clz32(v || 1));
+  const WIDTH = Math.max(3, widthFor(n));
+
+  let html = '';
+  const MAX = 25;
+  const show = steps.length <= MAX ? steps : steps.slice(0, MAX);
+
+  show.forEach((st, k) => {
+    // Build a small HTML table of dp[0..i]
+    let t = `<table style="font-size:13px"><tr><th>i</th><th>binary</th><th>dp[i &gt;&gt; 1]</th><th>i &amp; 1</th><th>dp[i]</th></tr>`;
+    for (let j = 0; j <= st.i; j++) {
+      const cur = j === st.i && !st.init;
+      const isSrc = (!st.init && j === st.src);
+      const bg = cur ? 'background:#fde68a' : (isSrc ? 'background:#dbeafe' : '');
+      const srcCell = j === 0 ? '&mdash;' : `dp[${j >> 1}] = ${dp[j >> 1]}`;
+      const parity = j === 0 ? 0 : (j & 1);
+      t += `<tr style="${bg}"><td><b>${j}</b></td><td><code>${binaryOf(j, WIDTH)}</code></td><td>${srcCell}</td><td>${parity}</td><td><b>${dp[j]}</b></td></tr>`;
+    }
+    t += `</table>`;
+
+    let text;
+    if (st.init) {
+      text = `Base case: <code>dp[0] = 0</code>, since 0 has no set bits.`;
+    } else {
+      text = `<code>dp[${st.i}] = dp[${st.src}] + (${st.i} &amp; 1) = ${dp[st.src]} + ${st.parity} = <b>${dp[st.i]}</b></code>.`;
+    }
+    html += VIZ.step(`Step ${k + 1}: ${st.init ? 'init dp[0]' : 'fill dp[' + st.i + ']'}`, t, text, true);
+  });
+  if (steps.length > MAX) html += `<p class="caption">... ${steps.length - MAX} more rows, same pattern.</p>`;
+
+  document.getElementById('answer').innerHTML = `<b>Answer: dp = [${dp.join(', ')}]</b>`;
+  return html;
+}, 'Pick a small n to see every row fill. Yellow = row being filled, blue = row it reads.');
+</script>
+
+</body>
+</html>

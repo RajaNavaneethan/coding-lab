@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 50 - Pow(x, n)</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#math-design">Pattern lesson</a><span>Pattern 19: Math / Design</span></div>
+
+<h1>Pow(x, n)</h1>
+<p class="sub">LeetCode 50 &middot; Medium &middot; Pattern: Fast exponentiation (binary exponentiation) &middot; O(log |n|) time, O(1) space</p>
+
+<div class="box">
+  <b>Problem.</b> Compute <code>x<sup>n</sup></code> where <code>x</code> is a <code>double</code> and <code>n</code>
+  is a 32-bit signed <code>int</code> (so <code>n</code> can be as low as <code>INT_MIN = -2147483648</code>).
+  <br>Examples: <code>pow(2.0, 10) = 1024.0</code>, <code>pow(2.1, 3) = 9.261</code>, <code>pow(2.0, -2) = 0.25</code>.
+  <br>Link: <a href="https://leetcode.com/problems/powx-n/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Naive multiplication takes <code>n</code> steps. Fast exponentiation uses the identity
+<code>x<sup>n</sup> = (x<sup>2</sup>)<sup>n/2</sup></code> when <code>n</code> is even and
+<code>x<sup>n</sup> = x &middot; (x<sup>2</sup>)<sup>(n-1)/2</sup></code> when <code>n</code> is odd. Halving
+<code>n</code> every step gives <code>O(log n)</code> multiplications.</p>
+
+<p>Reading <code>n</code> in binary makes it concrete. Write <code>n = b<sub>k</sub>&hellip;b<sub>1</sub>b<sub>0</sub></code>
+in binary. Then
+<code>x<sup>n</sup> = &prod;<sub>i: b<sub>i</sub>=1</sub> x<sup>2<sup>i</sup></sup></code>.
+Keep a <code>cur</code> that holds <code>x<sup>2<sup>i</sup></sup></code> and square it each iteration; multiply it
+into <code>ans</code> whenever the current bit is 1.</p>
+
+<div id="idea"></div>
+
+<p>Negative <code>n</code>: replace <code>x</code> with <code>1/x</code> and make <code>n</code> positive. There is one
+sharp edge: <code>n = INT_MIN</code> cannot be negated as an <code>int</code> (<code>-INT_MIN</code> doesn't fit). Promote
+to <code>long long</code> first, then negate.</p>
+
+<div class="box insight">
+  <b>Idea.</b> Treat the exponent as a binary number. Each bit tells you whether to multiply the current square into
+  the answer. Each step squares the current factor and shifts the bit out. <code>O(log |n|)</code>.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>Think of it as a worker (<code>cur</code>) walking up the powers of two: after <code>i</code> steps,
+<code>cur = x<sup>2<sup>i</sup></sup></code>. A supervisor (<code>ans</code>) only takes <code>cur</code> on board when
+the current bit of <code>n</code> is 1.</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>The trace below shows the loop in action. Each card has three columns: the remaining bits of <code>N</code> (with
+the low bit highlighted), the current factor <code>cur = x<sup>2<sup>i</sup></sup></code>, and the running answer
+<code>ans</code>. A yellow cell on the bit row means "this bit is 1, multiply <code>cur</code> into <code>ans</code>".</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>current (low) bit of N, acted on this step</span>
+  <span><i style="background:var(--win)"></i>bits still to process</span>
+  <span><i style="background:var(--keep)"></i><code>ans</code> after a multiply</span>
+  <span><i style="background:var(--gone)"></i>bit = 0, skipped</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">double</span> myPow(<span class="t">double</span> x, <span class="t">int</span> n) {
+        <span class="t">long</span> <span class="t">long</span> N = n;              <span class="c">// promote so -INT_MIN is representable</span>
+        <span class="k">if</span> (N &lt; <span class="n">0</span>) { x = <span class="n">1</span> / x; N = -N; }
+        <span class="t">double</span> ans = <span class="n">1.0</span>, cur = x;
+        <span class="k">while</span> (N &gt; <span class="n">0</span>) {
+            <span class="k">if</span> (N &amp; <span class="n">1</span>) ans *= cur;
+            cur *= cur;
+            N &gt;&gt;= <span class="n">1</span>;
+        }
+        <span class="k">return</span> ans;
+    }
+};</pre>
+
+<p><b>Complexity:</b> O(log |n|) time &mdash; one loop iteration per bit of <code>|n|</code>, at most 31 for a 32-bit
+<code>int</code> (32 for <code>INT_MIN</code> after promotion). O(1) space.</p>
+
+<h3>Alternative: recursive halving</h3>
+
+<pre><span class="t">double</span> fastPow(<span class="t">double</span> x, <span class="t">long</span> <span class="t">long</span> N) {
+    <span class="k">if</span> (N == <span class="n">0</span>) <span class="k">return</span> <span class="n">1.0</span>;
+    <span class="t">double</span> half = fastPow(x, N / <span class="n">2</span>);
+    <span class="k">return</span> (N % <span class="n">2</span>) ? half * half * x : half * half;
+}</pre>
+
+<p>Same complexity. Clean on a whiteboard. Prefer the iterative version in C++ for stack safety and because it
+visibly shows the bit decomposition &mdash; interviewers like seeing the <code>N &amp; 1</code> / <code>N &gt;&gt;= 1</code>
+dance.</p>
+
+<h2>5. The part interviewers ask about: three subtle points</h2>
+
+<div class="box insight">
+  <ul>
+    <li><b>Why <code>long long N = n</code>?</b> <code>INT_MIN = -2<sup>31</sup></code>, and <code>-INT_MIN =
+    2<sup>31</sup></code> does not fit in <code>int</code> (that would be <code>INT_MAX + 1</code>). Promoting first
+    makes the negation safe.</li>
+    <li><b>Why multiply <code>ans *= cur</code> before squaring, not after?</b> Order matters because <code>cur</code>
+    at iteration <code>i</code> represents <code>x<sup>2<sup>i</sup></sup></code>. If bit <code>i</code> is 1, that is
+    the factor we need to collect <i>now</i>. Squaring first would skip the current bit's contribution.</li>
+    <li><b>Why does it work for negatives?</b> <code>x<sup>-n</sup> = (1/x)<sup>n</sup></code>. Replacing <code>x</code>
+    with <code>1/x</code> up front removes the sign and the rest of the loop is identical.</li>
+  </ul>
+</div>
+
+<h3>The halving recursion as a picture</h3>
+
+<div id="recur"></div>
+
+<p>Each level halves the exponent. The depth is <code>log<sub>2</sub> n</code>, so <code>n = 10</code> finishes in
+4 recursive calls, not 10 multiplications.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b><code>n = INT_MIN</code>.</b> <code>-n</code> as an <code>int</code> overflows. Promote <code>n</code> to
+    <code>long long</code> first. This is the single most asked follow-up on this problem.</li>
+    <li><b><code>x = 0, n &lt; 0</code>.</b> LeetCode guarantees this won't happen, but say so if asked: it's
+    division by zero.</li>
+    <li><b><code>x = 1</code> or <code>x = -1</code> with huge <code>|n|</code>.</b> Answer is 1 or &plusmn;1 and the
+    algorithm handles it; worth noting as a quick sanity test.</li>
+    <li><b>Floating point error.</b> The problem accepts answers within <code>1e-5</code>. Fast exponentiation keeps
+    error logarithmic in <code>n</code>; naive multiplication accumulates it linearly &mdash; another reason the
+    log-time method wins.</li>
+    <li><b>Starting <code>cur = x</code>, not <code>cur = 1</code>.</b> After zero loop iterations <code>cur</code>
+    should equal <code>x<sup>2<sup>0</sup></sup> = x</code>.</li>
+    <li><b>Starting <code>ans = 1.0</code>, not <code>ans = x</code>.</b> The answer collects factors as bits of
+    <code>n</code> are read; it must start empty (multiplicative identity).</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I read <code>n</code> in binary. I keep <code>cur = x<sup>2<sup>i</sup></sup></code>, squaring it every step. When
+  the low bit of <code>n</code> is 1, I multiply <code>cur</code> into <code>ans</code>. Then I shift <code>n</code>
+  right by one. This finishes in <code>O(log |n|)</code> multiplications. For negative <code>n</code>, I invert
+  <code>x</code> up front. The only trap is <code>n = INT_MIN</code>: <code>-INT_MIN</code> doesn't fit in an
+  <code>int</code>, so I promote <code>n</code> to <code>long long</code> first."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 372 Super Pow</td><td>Same binary exponentiation but under a modulus; exponent given as a digit array.</td></tr>
+  <tr><td>LC 29 Divide Two Integers</td><td>Analogous doubling trick: repeatedly double the divisor to subtract the biggest chunk.</td></tr>
+  <tr><td>LC 70 Climbing Stairs</td><td>Fibonacci can be lifted to O(log n) via fast-exp of the 2&times;2 matrix.</td></tr>
+  <tr><td>LC 1922 Count Good Numbers</td><td>Needs modular fast exponentiation of two bases, same loop structure.</td></tr>
+  <tr><td>LC 509 Fibonacci Number</td><td>With matrix exponentiation, same halving idea applied to a 2&times;2 matrix.</td></tr>
+</table>
+
+<script>
+/* 1. Static idea diagram: 2^10 using binary exponentiation. Show N = 1010_2, cur squares each step, ans collects. */
+(function () {
+  const V = VIZ;
+  // Trace of 2^10:
+  // start: N=1010, cur=2,     ans=1
+  // bit 0 (0): N=101,  cur=4,    ans=1
+  // bit 1 (1): N=10,   cur=16,   ans=4
+  // bit 2 (0): N=1,    cur=256,  ans=4
+  // bit 3 (1): N=0,    cur=...,  ans=1024
+  function cell(txt, cls, w) { return `<div class="cell small ${cls || ''}" style="min-width:${w || 30}px">${txt}</div>`; }
+  const rows = [
+    ['init', '1010', [1,0,1,0], 2,    1,    'cur = x = 2'],
+    ['bit b<sub>0</sub> = 0', '101',  [1,0,1,0], 4,    1,    'skip, cur = 4'],
+    ['bit b<sub>1</sub> = 1', '10',   [1,0,1,0], 16,   4,    'ans *= cur &rarr; ans = 4, cur = 16'],
+    ['bit b<sub>2</sub> = 0', '1',    [1,0,1,0], 256,  4,    'skip, cur = 256'],
+    ['bit b<sub>3</sub> = 1', '0',    [1,0,1,0], null, 1024, 'ans *= cur &rarr; ans = 1024'],
+  ];
+  let html = '<div class="figure"><table style="width:auto;font-size:13px"><tr><th>step</th><th>N (binary)</th><th>cur</th><th>ans</th><th>action</th></tr>';
+  rows.forEach(r => {
+    html += `<tr><td>${r[0]}</td><td style="font-family:monospace">${r[1]}</td><td>${r[3] ?? '&mdash;'}</td><td>${r[4]}</td><td style="text-align:left">${r[5]}</td></tr>`;
+  });
+  html += '</table></div>';
+  html += '<div class="caption">2<sup>10</sup> = 2<sup>2</sup> &middot; 2<sup>8</sup> = 4 &middot; 256 = 1024 &mdash; only the bits set to 1 contribute.</div>';
+  document.getElementById('idea').innerHTML = html;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Normalise sign', lines: ['N = (long long) n', 'if N < 0: x = 1/x; N = -N'], color: 'blue' },
+  { title: '2. If bit is 1', lines: ['ans *= cur'], color: 'green' },
+  { title: '3. Square the factor', lines: ['cur *= cur'], color: 'yellow' },
+  { title: '4. Shift N right', lines: ['N >>= 1'], color: 'purple' },
+], { loop: 'while N > 0' });
+
+/* Recursion-halving picture. Levels of fastPow(2, N) for N = 10. */
+(function () {
+  // fastPow(2, 10) -> fastPow(2, 5) -> fastPow(2, 2) -> fastPow(2, 1) -> fastPow(2, 0) = 1
+  // The tree is actually linear because each call makes one recursive call. Draw it horizontally.
+  const nodes = [
+    { id: 0, label: 'N=10', x: 70,  y: 50 },
+    { id: 1, label: 'N=5',  x: 220, y: 50 },
+    { id: 2, label: 'N=2',  x: 370, y: 50 },
+    { id: 3, label: 'N=1',  x: 520, y: 50 },
+    { id: 4, label: 'N=0',  x: 670, y: 50 },
+  ];
+  const edges = [[0,1],[1,2],[2,3],[3,4]];
+  const notes = { 0:'/2', 1:'odd&rarr;x', 2:'/2', 3:'odd&rarr;x' };
+  const g = VIZ.graph(nodes, edges, {
+    directed: true, w: 760, h: 110,
+    nodeCls: { 4: 'keep' },
+    notes: notes,
+  });
+  document.getElementById('recur').innerHTML = g +
+    '<div class="caption">Linear recursion for <code>fastPow(2, 10)</code>: 4 levels, <code>log<sub>2</sub> 10</code>. At each level, if N was odd we also multiply by <code>x</code> on the way back up.</div>';
+})();
+
+/* Interactive trace of binary exponentiation. */
+VIZ.controls('trace', [
+  { id: 'x', label: 'x =', value: '2.0', size: 8 },
+  { id: 'n', label: 'n =', value: '10', size: 8 },
+], v => {
+  const INT_MAX = 2147483647, INT_MIN = -2147483648;
+  const x0 = parseFloat(v.x);
+  const n0 = parseInt(v.n, 10);
+  if (Number.isNaN(x0)) throw new Error('x must be a number');
+  if (Number.isNaN(n0)) throw new Error('n must be an integer');
+  if (n0 < INT_MIN || n0 > INT_MAX) throw new Error('n out of 32-bit range');
+
+  let x = x0;
+  // Promote to a JS "big enough" integer for N; JS numbers are doubles, 2^31 is well within exact range.
+  let N = n0;
+  const normalisedNote = [];
+  if (N < 0) {
+    x = 1 / x;
+    N = -N;      // safe because we're in JS; the C++ note explains the long-long promotion
+    normalisedNote.push(`<code>n &lt; 0</code>: flip <code>x &rarr; 1/x = ${fmt(x)}</code>, make <code>N = ${N}</code>.`);
+  }
+  if (n0 === INT_MIN) {
+    normalisedNote.push(`Note: <code>n = INT_MIN</code>. In C++, <code>-n</code> as <code>int</code> would overflow &mdash; we promoted <code>n</code> to <code>long long</code> first, so <code>N = 2<sup>31</sup> = ${N}</code> is representable.`);
+  }
+
+  let ans = 1.0, cur = x;
+  let html = '';
+  const bits = N === 0 ? [0] : N.toString(2).split('').map(Number);          // MSB first
+  const bitsLSBFirst = [...bits].reverse();                                   // index 0 = LSB
+
+  html += VIZ.step('Init',
+    renderState(bitsLSBFirst, -1, cur, ans, false, false, false),
+    `<code>x = ${fmt(x0)}</code>, <code>n = ${n0}</code>.${normalisedNote.length ? ' ' + normalisedNote.join(' ') : ''} Loop invariant: after step <i>i</i>, <code>cur = x<sup>2<sup>i</sup></sup></code>.`);
+
+  if (N === 0) {
+    html += VIZ.step('Done', renderState([0], -1, cur, 1.0, false, false, true), `<code>N = 0</code>, loop never runs. Any non-zero <code>x<sup>0</sup> = 1</code>.`);
+    document.getElementById('answer').innerHTML = `<b>pow(${v.x}, ${v.n}) &rarr; 1</b>`;
+    return html;
+  }
+
+  let i = 0, step = 0;
+  let remaining = bitsLSBFirst.slice();
+  while (N > 0 && step < 25) {
+    const bit = N & 1;
+    const didMul = bit === 1;
+    const ansBefore = ans;
+    if (didMul) ans *= cur;
+    const curAfter = cur * cur;
+    const note = didMul
+      ? `Bit <code>b<sub>${i}</sub> = 1</code>: <code>ans = ${fmt(ansBefore)} &times; ${fmt(cur)} = ${fmt(ans)}</code>. Then square: <code>cur &rarr; ${fmt(curAfter)}</code>. Shift <code>N &rarr; ${N >> 1}</code>.`
+      : `Bit <code>b<sub>${i}</sub> = 0</code>: skip the multiply, <code>ans</code> stays <code>${fmt(ans)}</code>. Square: <code>cur &rarr; ${fmt(curAfter)}</code>. Shift <code>N &rarr; ${N >> 1}</code>.`;
+    html += VIZ.step(
+      `Step ${step + 1}: bit ${i} = ${bit}`,
+      renderState(remaining, 0, cur, ans, didMul, !didMul, false),
+      note);
+    cur = curAfter;
+    N = N >>> 1;
+    remaining = remaining.slice(1);
+    i++;
+    step++;
+  }
+  html += VIZ.step('Done', renderState([0], -1, cur, ans, false, false, true),
+    `<code>N = 0</code>, loop ends. Answer: <b>${fmt(ans)}</b>.`);
+
+  document.getElementById('answer').innerHTML = `<b>pow(${v.x}, ${v.n}) &rarr; ${fmt(ans)}</b>${Math.abs(ans) < 1e-5 ? ' (very small: large negative exponent)' : ''}`;
+  return html;
+}, 'Try (2, 10), (2.1, 3), (2, -2), (2, -2147483648), (1, 2147483647).');
+
+function fmt(x) {
+  if (!Number.isFinite(x)) return String(x);
+  if (x === 0) return '0';
+  const a = Math.abs(x);
+  if (a >= 1e-3 && a < 1e9) {
+    const s = x.toFixed(6);
+    return s.replace(/\.?0+$/, '');
+  }
+  return x.toExponential(3);
+}
+
+function renderState(bitsLSBFirst, lsbIdx, cur, ans, didMul, skipped, isDone) {
+  const V = VIZ;
+  const bitsForDisplay = bitsLSBFirst.length ? bitsLSBFirst : [0];
+  // Show bits with LSB on the LEFT (matches "we consume the low bit each iteration").
+  const cls = (i) => {
+    if (i === lsbIdx) return didMul ? 'new' : (skipped ? 'gone' : 'new');
+    return 'in';
+  };
+  const bitStrip = V.strip(bitsForDisplay.map(b => String(b)), { cls, small: true, labels: bitsForDisplay.map((_, i) => `b${i}`) });
+  const curBox = `<div class="cell small keep" style="min-width:70px">${fmt(cur)}</div>`;
+  const ansBox = `<div class="cell small ${isDone ? 'keep' : (didMul ? 'new' : 'in')}" style="min-width:70px">${fmt(ans)}</div>`;
+  return `<div style="display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap">
+    <div><div style="font-size:12px;color:#616e7c;margin-bottom:2px">remaining bits of <code>N</code> (LSB left)</div>${bitStrip}</div>
+    <div><div style="font-size:12px;color:#616e7c;margin-bottom:2px"><code>cur = x<sup>2<sup>i</sup></sup></code></div>${curBox}</div>
+    <div><div style="font-size:12px;color:#616e7c;margin-bottom:2px"><code>ans</code></div>${ansBox}</div>
+  </div>`;
+}
+</script>
+
+</body>
+</html>

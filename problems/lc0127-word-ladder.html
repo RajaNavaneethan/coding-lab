@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 127 - Word Ladder</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#graphs-bfs-dfs">Pattern lesson</a><span>Pattern 10: Graphs - BFS/DFS</span></div>
+
+<h1>Word Ladder</h1>
+<p class="sub">LeetCode 127 &middot; Hard &middot; Pattern: BFS by level over an implicit word graph &middot; O(N &middot; L &middot; 26) time, O(N &middot; L) space</p>
+
+<div class="box">
+  <b>Problem.</b> Given <code>beginWord</code>, <code>endWord</code>, and a <code>wordList</code>, return the length
+  of the shortest transformation sequence from <code>beginWord</code> to <code>endWord</code> (including both
+  endpoints). Each step must change exactly one letter and every intermediate word must be in the list. Return 0 if
+  no such sequence exists.
+  <br><code>begin = "hit", end = "cog", list = ["hot","dot","dog","lot","log","cog"] &rarr; 5</code>
+  <br>&nbsp;&nbsp;("hit" &rarr; "hot" &rarr; "dot" &rarr; "dog" &rarr; "cog")
+  <br><code>begin = "hit", end = "cog", list = ["hot","dot","dog","lot","log"] &rarr; 0</code>
+  <br>Link: <a href="https://leetcode.com/problems/word-ladder/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Think of the words as nodes of a graph with an edge between any two words that differ in exactly one letter. The
+shortest sequence is the <b>shortest path</b> from <code>beginWord</code> to <code>endWord</code> in that graph.
+Shortest path on an unweighted graph is just BFS by levels; the level number when the end word pops out of the queue
+is the answer.</p>
+
+<p>Building the graph explicitly (<code>N<sup>2</sup></code> word pairs) is too slow when <code>N</code> is large.
+Generate neighbours <b>on the fly</b> instead: for the current word of length <code>L</code>, try every one-letter
+mutation (<code>L &times; 26</code> candidates) and keep the ones that are in the dictionary. That gives an
+<code>O(N &middot; L &middot; 26)</code> BFS, dominated by the mutation generation.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> BFS on an implicit word graph. Edges are "differ by one letter". Explore the frontier level by level;
+  the first level that contains <code>endWord</code> is the answer. Compute neighbours by trying every letter in
+  every slot and checking the dictionary &mdash; cheaper than building the full adjacency list.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>The crucial discipline is <b>mark on push, not on pop</b>. If you only remove a word from the dictionary when you
+pop it, a word can be enqueued many times from different parents in the same level, costing an extra factor. Remove
+the word from the dictionary (or add to <code>visited</code>) the moment it is pushed, so each word enters the queue
+exactly once.</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Each step is one level of BFS. The frontier is drawn as a strip of words with the
+<span style="color:#d97706;font-weight:700">yellow</span> word being expanded. Discovered neighbours are drawn below
+in <span style="color:#2563eb;font-weight:700">blue</span>, and already-visited words appear
+<span style="color:#15803d;font-weight:700">green</span>. When <code>endWord</code> appears, the level number is the
+answer.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>word being expanded</span>
+  <span><i style="background:var(--win)"></i>new word discovered this step</span>
+  <span><i style="background:var(--keep)"></i>already visited</span>
+  <span><i style="background:#e9d5ff"></i>target reached</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">int</span> ladderLength(<span class="t">string</span> beginWord, <span class="t">string</span> endWord, <span class="t">vector</span>&lt;<span class="t">string</span>&gt;&amp; wordList) {
+        <span class="t">unordered_set</span>&lt;<span class="t">string</span>&gt; dict(wordList.begin(), wordList.end());
+        <span class="k">if</span> (!dict.count(endWord)) <span class="k">return</span> <span class="n">0</span>;
+        <span class="t">unordered_set</span>&lt;<span class="t">string</span>&gt; visited;
+        <span class="t">queue</span>&lt;<span class="t">string</span>&gt; q;
+        q.push(beginWord);
+        visited.insert(beginWord);
+        <span class="t">int</span> steps = <span class="n">1</span>;                                     <span class="c">// counts words, not edges</span>
+        <span class="k">while</span> (!q.empty()) {
+            <span class="t">int</span> sz = q.size();                               <span class="c">// one BFS level</span>
+            <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt; sz; i++) {
+                <span class="t">string</span> w = q.front(); q.pop();
+                <span class="k">if</span> (w == endWord) <span class="k">return</span> steps;
+                <span class="k">for</span> (<span class="t">int</span> k = <span class="n">0</span>; k &lt; (<span class="t">int</span>)w.size(); k++) {
+                    <span class="t">char</span> orig = w[k];
+                    <span class="k">for</span> (<span class="t">char</span> c = <span class="n">'a'</span>; c &lt;= <span class="n">'z'</span>; c++) {
+                        <span class="k">if</span> (c == orig) <span class="k">continue</span>;
+                        w[k] = c;
+                        <span class="k">if</span> (dict.count(w) &amp;&amp; !visited.count(w)) {
+                            visited.insert(w);                   <span class="c">// mark on push</span>
+                            q.push(w);
+                        }
+                    }
+                    w[k] = orig;                                 <span class="c">// restore for next slot</span>
+                }
+            }
+            steps++;
+        }
+        <span class="k">return</span> <span class="n">0</span>;
+    }
+};</pre>
+
+<p><b>Complexity.</b> Each word is enqueued at most once (<code>N</code> words). Expanding a word tries
+<code>L &times; 26</code> mutations, each a hash lookup. Total time <code>O(N &middot; L &middot; 26)</code>. Space is
+dominated by the dictionary set and the queue, <code>O(N &middot; L)</code>.</p>
+
+<h3>Alternative: bidirectional BFS</h3>
+
+<pre><span class="c">// Keep two frontiers (begin and end). Each step expand the SMALLER one.
+// Terminate when a newly generated neighbour sits in the other frontier.
+// Complexity drops roughly from b^d to 2 * b^(d/2) in the branching factor b and depth d.</span>
+</pre>
+
+<p>Same big-O but much faster in practice when <code>N</code> is big and the two words are far apart. Worth
+mentioning for interviews that care about constants; implementation is a bit fiddly (swap frontiers to always expand
+the smaller side, so neither side gets stuck exploring a huge frontier).</p>
+
+<h2>5. The part interviewers ask about: counting words vs. edges</h2>
+
+<div class="box insight">
+  LC 127 asks for the <b>number of words</b> in the shortest sequence, which equals (number of edges) + 1. Start the
+  counter at 1 (for <code>beginWord</code>), bump it after each full level is processed, and return it the moment
+  <code>endWord</code> is popped. Starting at 0 and bumping before the pop gives you edges, not words &mdash;
+  off by one.
+</div>
+
+<p>Second question: why generate neighbours by letter mutation rather than pre-build an adjacency list? With
+<code>N</code> up to <code>5000</code> and <code>L</code> up to <code>10</code>, the direct adjacency build is
+<code>O(N<sup>2</sup> &middot; L) &approx; 2.5 &middot; 10<sup>8</sup></code>; the on-the-fly form is
+<code>O(N &middot; L &middot; 26) &approx; 10<sup>6</sup></code>. The flipped-form adjacency with "wildcard patterns"
+(<code>"h*t"</code>) is a middle ground some solutions use; it is roughly the same big-O as mutation but a bit
+different in constants, and both are standard answers.</p>
+
+<p>Third: why remove from <code>dict</code> (or add to <code>visited</code>) on push, not on pop? Because the first
+time BFS enqueues a word is the shortest path to it; later rediscoveries are strictly longer and would duplicate work.
+Marking at push time keeps every word's queue count at 1 and the overall complexity clean.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>endWord not in dict.</b> Must return 0 before starting. Checking after the BFS runs is still correct but
+    wastes a traversal.</li>
+    <li><b>Off-by-one on <code>steps</code>.</b> Return <code>steps</code> on the pop of <code>endWord</code>; starting
+    at 1 counts words. If you start at 0 you need an extra +1 at the return.</li>
+    <li><b>Marking on pop.</b> The same word enters the queue many times, blowing the time bound and sometimes causing
+    MLE on large inputs. Mark on push.</li>
+    <li><b>Including <code>c == orig</code> in the mutation loop.</b> It skips to a dictionary hit on the same word,
+    which is already visited, so no bug &mdash; but it wastes a hash lookup per slot. Skip it.</li>
+    <li><b>beginWord in dict.</b> The problem says <code>beginWord</code> is <b>not</b> necessarily in the dict and
+    the sequence counts it. Do not require it to be a dictionary word; the generated neighbours still check against
+    the dict.</li>
+    <li><b>Infinite loop on self-mutation.</b> If you forget the <code>c == orig</code> skip you must still guard
+    against revisiting via <code>visited</code>, which the code above does.</li>
+    <li><b>Modifying <code>w</code> without restoring it.</b> The <code>w[k] = orig</code> line at the end of each
+    slot is mandatory so the next slot mutates the original letter, not whatever you left behind.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "The words form an implicit graph: two words are neighbours iff they differ in one letter. Shortest sequence is a
+  shortest-path BFS from <code>beginWord</code>. I process the queue in <b>levels</b> and keep a counter that
+  increments once per level, so the counter is the sequence length when <code>endWord</code> pops. Neighbours are
+  generated on the fly by trying every letter in every slot and checking the dictionary &mdash; cheaper than building
+  all edges. Mark words visited at push time so each word enters the queue exactly once. O(N &middot; L &middot; 26)
+  time, O(N &middot; L) space. For much larger inputs I would do bidirectional BFS."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 126 Word Ladder II</td><td>Return all shortest sequences. BFS to layer, then DFS back along parent links.</td></tr>
+  <tr><td>LC 752 Open the Lock</td><td>Shortest BFS on 4-digit codes; neighbours are &plusmn;1 on any wheel.</td></tr>
+  <tr><td>LC 433 Minimum Genetic Mutation</td><td>Same shape with alphabet {A, C, G, T} and length 8.</td></tr>
+  <tr><td>LC 773 Sliding Puzzle</td><td>Shortest-path BFS on an encoded board state; neighbours are legal swaps.</td></tr>
+  <tr><td>LC 854 K-Similar Strings</td><td>BFS where neighbours are one-swap-closer strings; same &ldquo;level counter&rdquo; trick.</td></tr>
+</table>
+
+<script>
+/* 1. Idea diagram: the small graph for the LeetCode example. */
+(function () {
+  // Nodes: hit, hot, dot, lot, dog, log, cog
+  const nodes = [
+    { id:'hit', x: 60,  y: 160 },
+    { id:'hot', x: 180, y: 160 },
+    { id:'dot', x: 300, y: 80  },
+    { id:'lot', x: 300, y: 240 },
+    { id:'dog', x: 420, y: 80  },
+    { id:'log', x: 420, y: 240 },
+    { id:'cog', x: 540, y: 160 },
+  ];
+  const edges = [['hit','hot'],['hot','dot'],['hot','lot'],['dot','dog'],['dot','lot'],['lot','log'],['dog','log'],['dog','cog'],['log','cog']];
+  // Highlight the path hit -> hot -> dot -> dog -> cog
+  const nodeCls = {hit:'keep',hot:'keep',dot:'keep',dog:'keep',cog:'hit',lot:'',log:''};
+  const edgeCls = { 'hit-hot':'keep', 'hot-dot':'keep', 'dot-dog':'keep', 'dog-cog':'keep' };
+  document.getElementById('idea').innerHTML =
+    VIZ.graph(nodes, edges, { w: 600, h: 320, nodeCls, edgeCls, directed: false }) +
+    '<div class="caption">Shortest ladder from <code>hit</code> to <code>cog</code> (length 5). ' +
+    'Green edges are on the path BFS finds first.</div>';
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Seed', lines: ['queue = [beginWord]', 'visited = {beginWord}', 'steps = 1'], color: 'green' },
+  { title: '2. Level loop', lines: ['take q.size() words', 'as one level', 'process each one'], color: 'yellow' },
+  { title: '3. Neighbours', lines: ['for each slot k', 'for c in a..z (c != orig):', '  if dict.has(w\') &&', '  not visited: push'], color: 'blue' },
+  { title: '4. End of level', lines: ['steps++', 'return steps when', 'endWord is popped'], color: 'red' },
+], { loop: 'until queue empty' });
+
+/* Interactive trace: level BFS with word mutation.
+   Input: begin, end, list (JSON) */
+VIZ.controls('trace', [
+  { id: 'begin', label: 'beginWord =', value: 'hit', size: 8 },
+  { id: 'end',   label: 'endWord =',   value: 'cog', size: 8 },
+  { id: 'list',  label: 'wordList =',  value: '["hot","dot","dog","lot","log","cog"]', size: 44 },
+], v => {
+  const begin = (v.begin || '').trim();
+  const end = (v.end || '').trim();
+  let list;
+  try { list = JSON.parse(v.list.trim()); }
+  catch (e) { return '<div class="box trap">Could not parse wordList as JSON array of strings.</div>'; }
+  if (!Array.isArray(list) || list.some(x => typeof x !== 'string'))
+    return '<div class="box trap">wordList must be a JSON array of strings.</div>';
+  if (!begin.length || !end.length) return '<div class="box trap">beginWord and endWord must be non-empty.</div>';
+  if (begin.length !== end.length || list.some(w => w.length !== begin.length))
+    return '<div class="box trap">All words must be the same length.</div>';
+  if (list.length > 12) return '<div class="box trap">Keep the word list to at most 12 words for a readable trace.</div>';
+
+  const dict = new Set(list);
+  const steps = [];
+  const CAP = 25;
+  const visited = new Set();
+  const parent = new Map();                 // for reporting the path
+  if (!dict.has(end)) {
+    document.getElementById('answer').innerHTML = '<b>Answer: 0.</b> endWord <code>' + end + '</code> is not in the dictionary.';
+    return VIZ.step('endWord missing', '<div class="caption">Dictionary does not contain <code>' + end + '</code>.</div>',
+      'Return <code>0</code> immediately.', true);
+  }
+
+  const q = [begin];
+  visited.add(begin);
+  let level = 1;
+  let found = false;
+  let ans = 0;
+
+  function wordCard(words, highlightCur, highlightNew, highlightDone) {
+    const cls = (i) => {
+      const w = words[i];
+      if (highlightCur && w === highlightCur) return 'new';
+      if (highlightDone && w === highlightDone) return 'hit';
+      if (highlightNew && highlightNew.has(w)) return 'in';
+      if (visited.has(w)) return 'keep';
+      return '';
+    };
+    const w = 42;
+    const row = '<div class="strip" style="flex-wrap:wrap;max-width:600px">' +
+      words.map((val, i) =>
+        '<div class="cell small ' + (cls(i) || '') + '" style="min-width:' + w + 'px;height:28px;font-size:13px">' + VIZ.esc(val) + '</div>'
+      ).join('') + '</div>';
+    return '<div class="figure">' + row + '</div>';
+  }
+
+  while (q.length && !found && steps.length < CAP) {
+    const sz = q.length;
+    const levelWords = q.slice();
+    const newThisLevel = new Set();
+
+    // Snapshot of the level BEFORE expansion
+    steps.push(VIZ.step('Level ' + level + ' starts  —  ' + sz + ' word' + (sz === 1 ? '' : 's'),
+      wordCard(levelWords),
+      'Queue holds <b>' + sz + '</b> words at this level. Expanding each in turn...', true));
+    if (steps.length >= CAP) break;
+
+    for (let i = 0; i < sz && !found; i++) {
+      const w = q.shift();
+      if (w === end) { found = true; ans = level; break; }
+
+      const neighbours = [];
+      const arr = [...w];
+      for (let k = 0; k < arr.length; k++) {
+        const orig = arr[k];
+        for (let cc = 97; cc <= 122; cc++) {
+          const ch = String.fromCharCode(cc);
+          if (ch === orig) continue;
+          arr[k] = ch;
+          const cand = arr.join('');
+          if (dict.has(cand) && !visited.has(cand)) {
+            visited.add(cand);
+            parent.set(cand, w);
+            q.push(cand);
+            neighbours.push(cand);
+            newThisLevel.add(cand);
+          }
+        }
+        arr[k] = orig;
+      }
+      // Snapshot: show the current word being expanded and its newly discovered neighbours
+      const after = levelWords.concat(neighbours);
+      steps.push(VIZ.step('Expand <code>' + w + '</code>',
+        wordCard(after, w, newThisLevel, null),
+        neighbours.length
+          ? 'One-letter mutations: pushed <code>' + neighbours.join('</code>, <code>') + '</code>.'
+          : 'No new in-dictionary neighbour (or all already visited).',
+        true));
+      if (steps.length >= CAP) break;
+    }
+    if (!found) level++;
+  }
+
+  // Check queue head on final level if we broke out at the top (endWord as the pop)
+  if (!found && q.includes(end)) { found = true; ans = level; }
+
+  if (found) {
+    // Reconstruct path
+    const path = [end];
+    let cur = end;
+    while (parent.has(cur)) { cur = parent.get(cur); path.push(cur); }
+    path.reverse();
+    document.getElementById('answer').innerHTML =
+      '<b>Answer: ' + ans + '.</b> Shortest sequence: <code>' + path.join(' &rarr; ') + '</code>.';
+  } else {
+    document.getElementById('answer').innerHTML = '<b>Answer: 0.</b> No sequence connects <code>' + begin + '</code> to <code>' + end + '</code>.';
+  }
+  if (steps.length >= CAP) steps.push('<div class="box trap">... BFS continues beyond ' + CAP + ' recorded steps; stopping the trace here.</div>');
+  return steps.join('');
+}, 'Edit the inputs. Each level shows the frontier and the new words pushed by every expansion.');
+</script>
+
+</body>
+</html>

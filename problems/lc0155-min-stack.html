@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 155 - Min Stack</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#stacks-monotonic">Pattern lesson</a><span>Pattern 6: Stacks &amp; Monotonic Stacks</span></div>
+
+<h1>Min Stack</h1>
+<p class="sub">LeetCode 155 &middot; Medium &middot; Pattern: pair each value with the min at its level &middot; O(1) per op, O(n) space</p>
+
+<div class="box">
+  <b>Problem.</b> Design a stack with the usual <code>push</code>, <code>pop</code>, <code>top</code>, plus
+  <code>getMin</code> which returns the minimum value currently in the stack. Every operation must run in O(1).
+  <br>Example: <code>push(-2) push(0) push(-3) getMin() &rarr; -3, pop(), top() &rarr; 0, getMin() &rarr; -2</code>
+  <br>Link: <a href="https://leetcode.com/problems/min-stack/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>The minimum changes only on <code>push</code> (it can go down) and <code>pop</code> (an old min can come back). A
+plain stack of values forgets the old min as soon as a smaller one arrives, which is why a naive <code>getMin</code>
+is O(n).</p>
+
+<p>Fix: store two numbers per level instead of one &mdash; the value you pushed, and the <b>minimum of everything in the
+stack up to and including this level</b>. When you push <code>x</code>, the new level's min is
+<code>min(old-top-min, x)</code>. Each level now remembers the min for the stack snapshot it belongs to, so a pop
+automatically restores whatever min was true before.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Each cell on the stack is a pair <code>(val, minSoFar)</code>. <code>push(x)</code> &rarr; push
+  <code>(x, min(prev.minSoFar, x))</code>. <code>pop</code> drops the top pair, restoring the previous min for free.
+  <code>getMin()</code> reads <code>top.minSoFar</code>. All O(1).
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Enter an operation sequence. Each step shows the stack after the op, with each cell as <code>(val, minSoFar)</code>.
+The <code>minSoFar</code> on top is exactly what <code>getMin</code> returns.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>cell written this op</span>
+  <span><i style="background:var(--gone)"></i>cell removed this op</span>
+  <span><i style="background:var(--keep)"></i>cell read by top/getMin</span>
+  <span><i style="background:#fff;border:1px solid #cbd5e1"></i>unchanged</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> MinStack {
+    <span class="t">stack</span>&lt;<span class="t">pair</span>&lt;<span class="t">int</span>, <span class="t">int</span>&gt;&gt; st;        <span class="c">// (val, min at this level)</span>
+<span class="k">public</span>:
+    MinStack() {}
+    <span class="t">void</span> push(<span class="t">int</span> val) {
+        <span class="t">int</span> m = st.empty() ? val : min(st.top().second, val);
+        st.push({val, m});
+    }
+    <span class="t">void</span> pop()      { st.pop(); }
+    <span class="t">int</span>  top()      { <span class="k">return</span> st.top().first; }
+    <span class="t">int</span>  getMin()   { <span class="k">return</span> st.top().second; }
+};</pre>
+
+<p><b>Complexity:</b> each operation does a constant number of stack ops. O(1) per op, O(n) space for the pairs. The
+problem guarantees <code>pop</code>, <code>top</code>, <code>getMin</code> are only called on a non-empty stack, so no
+emptiness guards are needed inside those three.</p>
+
+<h3>Alternative: two stacks (values + running minima)</h3>
+
+<pre><span class="t">stack</span>&lt;<span class="t">int</span>&gt; vals, mins;
+<span class="t">void</span> push(<span class="t">int</span> x) {
+    vals.push(x);
+    mins.push(mins.empty() ? x : min(mins.top(), x));
+}
+<span class="t">void</span> pop()    { vals.pop(); mins.pop(); }
+<span class="t">int</span>  top()    { <span class="k">return</span> vals.top(); }
+<span class="t">int</span>  getMin() { <span class="k">return</span> mins.top(); }</pre>
+
+<p>Exactly the same amount of memory (two stacks of n ints = n pairs). Pick whichever reads cleaner for you; the pair
+version is one container to maintain.</p>
+
+<h3>Space-optimised variant (push the min only when it changes)</h3>
+
+<p>You can push onto the <code>mins</code> stack only when a new, equal-or-smaller min arrives, and pop from it only
+when you pop a value that equals the current min. Saves memory on long runs where the min does not change often, but
+adds a <code>&lt;=</code> compare on every op. In an interview, mention it as "constant factor win, not asymptotic".</p>
+
+<h2>5. The part interviewers ask about: why <code>&le;</code> matters in the space-optimised version</h2>
+
+<div class="box insight">
+  In the space-optimised variant you must push onto the <code>mins</code> stack on <b>equal</b> too, not just strictly
+  less. Example: <code>push(1), push(1), pop()</code>. If you only pushed <code>1</code> once, then after
+  <code>pop()</code> you would pop the <code>1</code> off <code>mins</code> and <code>getMin</code> would return a
+  stale value (or crash on an empty <code>mins</code>). Pushing on <code>&le;</code> keeps one entry per level that
+  can see <code>1</code> as the min, so pop pairs up correctly. The paired-cell version avoids this question because
+  every level has its own <code>minSoFar</code> by construction.
+</div>
+
+<p>The real invariant: at every level <code>i</code>, <code>minSoFar[i] = min(val[0..i])</code>. It is maintained by
+induction on push, and pop deletes the last level so the invariant on the remaining levels was already true. That is
+the whole proof.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Tracking a single running minimum variable.</b> On <code>pop</code> you cannot recover the previous min
+    without walking the whole stack. The minimum must be remembered per level.</li>
+    <li><b>Computing the new min as <code>min(oldVal, x)</code> instead of <code>min(oldMinSoFar, x)</code>.</b> You
+    compare against the previous top value, not the min of everything underneath it. On
+    <code>push(5), push(2), push(7)</code> you would set the min at level 3 to <code>min(2, 7) = 2</code> only by
+    luck; try <code>push(5), push(10), push(7)</code> and you would get <code>min(10, 7) = 7</code> instead of
+    <code>5</code>.</li>
+    <li><b>INT_MIN as a sentinel for "empty".</b> Breaks the moment the input legitimately pushes <code>INT_MIN</code>.
+    Use <code>st.empty()</code> instead.</li>
+    <li><b>Duplicates equal to the current min.</b> Pushing the same min twice is fine with pairs; it is the trap in
+    the space-optimised variant. See section 5.</li>
+    <li><b>Calling pop / top / getMin on an empty stack.</b> The problem forbids it. In production code you would
+    throw or return a sentinel; here just trust the contract.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I store each stack level as a pair: the value, and the minimum of the stack up to and including that level. On
+  <code>push(x)</code> the new level's min is <code>min(prevTopMin, x)</code>. <code>pop</code> drops the pair, which
+  restores the previous min automatically. <code>getMin</code> is just <code>top.minSoFar</code>. All four operations
+  are O(1), using O(n) space. The alternative is two parallel stacks for values and mins, same complexity."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 716 Max Stack</td><td>Same pair trick, but with max; harder follow-up adds <code>popMax</code> which needs
+  a sorted structure next to the stack.</td></tr>
+  <tr><td>LC 232 Implement Queue using Stacks</td><td>Design on top of stacks with amortised O(1) ops; shows how an
+  auxiliary stack can carry extra info across ops.</td></tr>
+  <tr><td>LC 225 Implement Stack using Queues</td><td>Flip side of 232; good for practising "think about the invariant
+  each op must restore".</td></tr>
+  <tr><td>LC 20 Valid Parentheses</td><td>Different problem, same vocabulary: push on open, pop on close, invariant is
+  "top is what we need next".</td></tr>
+</table>
+
+<script>
+/* Idea diagram: show the stack as pairs after push(5), push(2), push(7), push(1). */
+document.getElementById('idea').innerHTML = (function () {
+  const seq = [5, 2, 7, 1];
+  const levels = [];
+  seq.forEach(x => {
+    const m = levels.length ? Math.min(levels[levels.length - 1].m, x) : x;
+    levels.push({ v: x, m });
+  });
+  const vals = levels.map(l => `(${l.v}, ${l.m})`);
+  const cls = {}; cls[vals.length - 1] = 'new';
+  const stk = VIZ.stack(vals, { title: 'min stack (top up)', cls });
+  const strip = VIZ.strip(seq.map(x => `push(${x})`), { index: false, small: true });
+  return `<div class="figure" style="display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap">${strip}${stk}</div>
+    <div class="caption">Each cell is <code>(val, minSoFar)</code>. The <code>minSoFar</code> on the top cell is
+    <code>${levels[levels.length - 1].m}</code>, which is what <code>getMin()</code> returns.</div>`;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. push(x)', lines: ['m = min(top.min, x)', 'or x if empty', 'push (x, m)'], color: 'yellow' },
+  { title: '2. pop()', lines: ['drop top pair', 'old min restored'], color: 'red' },
+  { title: '3. top() / getMin()', lines: ['read top.val', 'or top.min'], color: 'green' },
+], { loop: 'next op' });
+
+/* Interactive trace. */
+VIZ.controls('trace', [
+  { id: 'ops', label: 'ops =', value: 'push(-2) push(0) push(-3) getMin() pop() top() getMin()', size: 70 },
+], v => {
+  // Parse ops like push(x), pop(), top(), getMin()
+  const re = /(push|pop|top|getmin)\s*\(\s*(-?\d+)?\s*\)/gi;
+  const ops = [];
+  let m;
+  while ((m = re.exec(v.ops))) {
+    const name = m[1].toLowerCase();         // one of: push, pop, top, getmin
+    if (name === 'push') {
+      if (m[2] === undefined) throw new Error('push needs a value: push(x)');
+      ops.push({ name: 'push', x: +m[2] });
+    } else {
+      if (m[2] !== undefined) throw new Error(`${m[1]} takes no argument`);
+      ops.push({ name });
+    }
+  }
+  if (!ops.length) throw new Error('no ops recognised. Try: push(1) push(2) getMin()');
+  if (ops.length > 18) throw new Error('keep ops <= 18');
+
+  // Model: array of (val, minSoFar); array index = level, top = last.
+  const st = [];
+  const steps = [];
+  const results = [];
+
+  for (let k = 0; k < ops.length; k++) {
+    const o = ops[k];
+    const before = [...st];
+    let note = '', touchedIdx = -1, removed = null, readIdx = -1, returned = null;
+    let ok = true;
+
+    if (o.name === 'push') {
+      const mn = st.length ? Math.min(st[st.length - 1].m, o.x) : o.x;
+      st.push({ v: o.x, m: mn });
+      touchedIdx = st.length - 1;
+      note = `<code>push(${o.x})</code>: new level's min = ${st.length === 1 ? `(stack was empty) ${o.x}` : `min(prevMin ${before[before.length - 1].m}, ${o.x}) = ${mn}`}. Push <code>(${o.x}, ${mn})</code>.`;
+    } else if (o.name === 'pop') {
+      if (!st.length) { note = `<code>pop()</code> on empty stack. <b class="bad">Undefined.</b>`; ok = false; }
+      else { removed = st.pop(); note = `<code>pop()</code>: remove top <code>(${removed.v}, ${removed.m})</code>. Previous level's min is restored.`; }
+    } else if (o.name === 'top') {
+      if (!st.length) { note = `<code>top()</code> on empty stack. <b class="bad">Undefined.</b>`; ok = false; }
+      else {
+        readIdx = st.length - 1;
+        returned = st[readIdx].v;
+        results.push(returned);
+        note = `<code>top()</code> &rarr; <b>${returned}</b> (top cell's val).`;
+      }
+    } else if (o.name === 'getmin') {
+      if (!st.length) { note = `<code>getMin()</code> on empty stack. <b class="bad">Undefined.</b>`; ok = false; }
+      else {
+        readIdx = st.length - 1;
+        returned = st[readIdx].m;
+        results.push(returned);
+        note = `<code>getMin()</code> &rarr; <b>${returned}</b> (top cell's minSoFar).`;
+      }
+    }
+
+    steps.push({ idx: k, o, snapshot: [...st], touchedIdx, removed, readIdx, returned, note, ok });
+    if (!ok) break;
+  }
+
+  const MAX = 25;
+  const shown = steps.slice(0, MAX);
+  let html = '';
+  shown.forEach((s, k) => {
+    const vals = s.snapshot.map(p => `(${p.v}, ${p.m})`);
+    // append the removed cell at the end with strike-through so the user sees what left
+    let removedCell = '';
+    if (s.removed) {
+      vals.push(`(${s.removed.v}, ${s.removed.m})`);
+      removedCell = vals.length - 1;
+    }
+    const cls = {};
+    if (s.touchedIdx >= 0) cls[s.touchedIdx] = 'new';
+    if (s.readIdx >= 0) cls[s.readIdx] = 'keep';
+    if (removedCell !== '') cls[removedCell] = 'gone';
+    const stk = VIZ.stack(vals, { title: 'stack (top up)', cls });
+
+    const opLabel = s.o.name === 'push' ? `push(${s.o.x})` : `${s.o.name}()`;
+    html += VIZ.step(`Step ${k + 1}: ${opLabel}`, stk, s.note, true);
+  });
+  if (steps.length > MAX) html += `<p class="caption">... ${steps.length - MAX} more steps, same pattern.</p>`;
+
+  document.getElementById('answer').innerHTML =
+    results.length
+      ? `<b>Return values from <code>top</code> / <code>getMin</code>, in order:</b> [${results.join(', ')}]`
+      : '<b>No read operations in this sequence.</b>';
+  return html;
+}, 'Supported ops: push(x), pop(), top(), getMin(). Example: push(2) push(0) push(3) push(0) getMin() pop() getMin().');
+</script>
+
+</body>
+</html>

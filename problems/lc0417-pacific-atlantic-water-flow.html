@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 417 - Pacific Atlantic Water Flow</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#graphs-bfs-dfs">Pattern lesson</a><span>Pattern 10: Graphs - BFS/DFS</span></div>
+
+<h1>Pacific Atlantic Water Flow</h1>
+<p class="sub">LeetCode 417 &middot; Medium &middot; Pattern: reverse multi-source BFS from each border, intersect the two reach sets &middot; O(R &middot; C) time, O(R &middot; C) space</p>
+
+<div class="box">
+  <b>Problem.</b> You are given an <code>R &times; C</code> grid of heights. The Pacific borders the <b>top</b> and
+  <b>left</b> edges; the Atlantic borders the <b>bottom</b> and <b>right</b> edges. Water on a cell flows to a
+  4-neighbour whose height is <b>less than or equal to</b> this cell's height. Return every cell from which water can
+  reach <b>both</b> oceans.
+  <br><code>heights = [[1,2,2,3,5],[3,2,3,4,4],[2,4,5,3,1],[6,7,1,4,5],[5,1,1,2,4]]</code>
+  <br><code>&rarr; [[0,4],[1,3],[1,4],[2,2],[3,0],[3,1],[4,0]]</code>
+  <br>Link: <a href="https://leetcode.com/problems/pacific-atlantic-water-flow/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Running a BFS from every cell to see whether it reaches each ocean is <code>O((RC)<sup>2</sup>)</code> and
+unnecessary. The trick is to <b>flip the direction</b>: instead of flowing down from a cell to an ocean, imagine
+water climbing <b>up</b> from the ocean border inward. If climbing from the Pacific border can reach a cell, then
+water from that cell can reach the Pacific. Same for the Atlantic.</p>
+
+<p>Two reverse BFSs then: one seeded with every cell on the top row and left column (the Pacific border), one
+seeded with every cell on the bottom row and right column (the Atlantic border). From a border cell, step to a
+neighbour whose height is <code>&ge;</code> the current cell. Mark everything reached. The answer is the
+<b>intersection</b> of the two reached sets.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Reach-from-cell problems with many sources become cheap when you reverse the move: start at the sinks
+  (the oceans) and climb back. Two reverse multi-source BFSs, overlap of the reached sets is the answer.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>Each BFS is a classic multi-source grid BFS: push all border cells into the queue at once with their
+<code>reach</code> flag set, then expand. The two BFSs are independent, so you can run them in any order (or in
+parallel). The intersection pass is one more sweep over the grid.</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Below each step shows the current heights on the left and the two reach sets on the right (one bordered in blue
+for the Pacific, one in red for the Atlantic). Cells reached by both are highlighted in purple at the end &mdash;
+those are the answer. The <span style="color:#d97706;font-weight:700">yellow</span> cell is the one popped this step
+and we draw the reached-this-step neighbours in <span style="color:#2563eb;font-weight:700">blue</span>
+(Pacific) or <span style="color:#b91c1c;font-weight:700">red</span> (Atlantic).</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>cell popped this step</span>
+  <span><i style="background:var(--win)"></i>reached by Pacific</span>
+  <span><i style="background:var(--gone)"></i>reached by Atlantic</span>
+  <span><i style="background:#e9d5ff"></i>reached by both (answer)</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt; pacificAtlantic(<span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt;&amp; heights) {
+        <span class="t">int</span> R = heights.size(), C = R ? heights[<span class="n">0</span>].size() : <span class="n">0</span>;
+        <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt; ans;
+        <span class="k">if</span> (!R || !C) <span class="k">return</span> ans;
+        <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">char</span>&gt;&gt; pac(R, <span class="t">vector</span>&lt;<span class="t">char</span>&gt;(C, <span class="n">0</span>));
+        <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">char</span>&gt;&gt; atl(R, <span class="t">vector</span>&lt;<span class="t">char</span>&gt;(C, <span class="n">0</span>));
+
+        <span class="k">auto</span> bfs = [&amp;](<span class="t">queue</span>&lt;<span class="t">pair</span>&lt;<span class="t">int</span>,<span class="t">int</span>&gt;&gt;&amp; q, <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">char</span>&gt;&gt;&amp; reach) {
+            <span class="t">int</span> dr[] = {<span class="n">1</span>,-<span class="n">1</span>,<span class="n">0</span>,<span class="n">0</span>}, dc[] = {<span class="n">0</span>,<span class="n">0</span>,<span class="n">1</span>,-<span class="n">1</span>};
+            <span class="k">while</span> (!q.empty()) {
+                <span class="k">auto</span> [r, c] = q.front(); q.pop();
+                <span class="k">for</span> (<span class="t">int</span> d = <span class="n">0</span>; d &lt; <span class="n">4</span>; d++) {
+                    <span class="t">int</span> nr = r + dr[d], nc = c + dc[d];
+                    <span class="k">if</span> (nr &lt; <span class="n">0</span> || nr &gt;= R || nc &lt; <span class="n">0</span> || nc &gt;= C) <span class="k">continue</span>;
+                    <span class="k">if</span> (reach[nr][nc]) <span class="k">continue</span>;
+                    <span class="k">if</span> (heights[nr][nc] &lt; heights[r][c]) <span class="k">continue</span>;   <span class="c">// climb: need >=</span>
+                    reach[nr][nc] = <span class="n">1</span>;
+                    q.push({nr, nc});
+                }
+            }
+        };
+
+        <span class="t">queue</span>&lt;<span class="t">pair</span>&lt;<span class="t">int</span>,<span class="t">int</span>&gt;&gt; qp, qa;
+        <span class="k">for</span> (<span class="t">int</span> c = <span class="n">0</span>; c &lt; C; c++) { pac[<span class="n">0</span>][c] = <span class="n">1</span>; qp.push({<span class="n">0</span>, c}); }
+        <span class="k">for</span> (<span class="t">int</span> r = <span class="n">0</span>; r &lt; R; r++) { pac[r][<span class="n">0</span>] = <span class="n">1</span>; qp.push({r, <span class="n">0</span>}); }
+        <span class="k">for</span> (<span class="t">int</span> c = <span class="n">0</span>; c &lt; C; c++) { atl[R-<span class="n">1</span>][c] = <span class="n">1</span>; qa.push({R-<span class="n">1</span>, c}); }
+        <span class="k">for</span> (<span class="t">int</span> r = <span class="n">0</span>; r &lt; R; r++) { atl[r][C-<span class="n">1</span>] = <span class="n">1</span>; qa.push({r, C-<span class="n">1</span>}); }
+        bfs(qp, pac);
+        bfs(qa, atl);
+        <span class="k">for</span> (<span class="t">int</span> r = <span class="n">0</span>; r &lt; R; r++)
+            <span class="k">for</span> (<span class="t">int</span> c = <span class="n">0</span>; c &lt; C; c++)
+                <span class="k">if</span> (pac[r][c] &amp;&amp; atl[r][c]) ans.push_back({r, c});
+        <span class="k">return</span> ans;
+    }
+};</pre>
+
+<p><b>Complexity.</b> Each cell is pushed and popped at most once per BFS, so each BFS is <code>O(R &middot; C)</code>.
+Two BFSs plus the overlap sweep add up to <code>O(R &middot; C)</code> time, with <code>O(R &middot; C)</code> for
+the two reach matrices and the queue.</p>
+
+<h3>Alternative: reverse DFS from the borders</h3>
+
+<pre><span class="t">function</span>&lt;<span class="t">void</span>(<span class="t">int</span>, <span class="t">int</span>)&gt; dfs = [&amp;](<span class="t">int</span> r, <span class="t">int</span> c) {
+    reach[r][c] = <span class="n">1</span>;
+    <span class="k">for</span> (<span class="k">auto</span>&amp; [dr, dc] : {<span class="t">pair</span>{<span class="n">1</span>,<span class="n">0</span>},{-<span class="n">1</span>,<span class="n">0</span>},{<span class="n">0</span>,<span class="n">1</span>},{<span class="n">0</span>,-<span class="n">1</span>}}) {
+        <span class="t">int</span> nr = r + dr, nc = c + dc;
+        <span class="k">if</span> (nr &gt;= <span class="n">0</span> &amp;&amp; nr &lt; R &amp;&amp; nc &gt;= <span class="n">0</span> &amp;&amp; nc &lt; C
+            &amp;&amp; !reach[nr][nc] &amp;&amp; heights[nr][nc] &gt;= heights[r][c]) dfs(nr, nc);
+    }
+};
+</pre>
+
+<p>Same complexity. DFS is a few lines shorter; BFS is safer on larger inputs because the recursion stack of DFS can
+blow up on a long monotone grid. Both reverse the direction of flow in the same way.</p>
+
+<h2>5. The part interviewers ask about: why reversing the direction is correct</h2>
+
+<div class="box insight">
+  Water flows from cell <code>A</code> to a neighbour <code>B</code> when <code>height[B] &le; height[A]</code>.
+  Reversed, we climb from <code>B</code> to <code>A</code> when <code>height[A] &ge; height[B]</code>. The predicate
+  is symmetric by renaming, so "cell <code>X</code> drains to the ocean" is equivalent to "the ocean, following the
+  reverse rule, climbs up to <code>X</code>". The equivalence is exact; nothing is lost in the flip.
+</div>
+
+<p>Second question: why <code>&ge;</code> and not <code>&gt;</code>? Because the <b>flat terrain</b> case must be
+reachable both ways. On an all-equal grid water should reach every cell from every border; using strict inequality
+would stop the climb at the first same-height neighbour, which contradicts the problem's "lower or equal" rule.</p>
+
+<p>Third: multi-source BFS. Both oceans have many starting cells, which is a classic multi-source BFS pattern &mdash;
+<b>seed every source with distance 0 and run one BFS, not one BFS per source</b>. If you push the sources one at a
+time inside a loop, the complexity blows up and the correctness is the same.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Running BFS from every interior cell forward.</b> That is <code>O((RC)<sup>2</sup>)</code>. Reverse from the
+    borders instead.</li>
+    <li><b>Strict inequality in the climb.</b> Using <code>&gt;</code> loses equal-height cells. The rule says water
+    moves to "lower <b>or equal</b>", so the climb condition is <code>&ge;</code>.</li>
+    <li><b>Forgetting the corner cells.</b> <code>(0, C-1)</code> touches both the Pacific border and the Atlantic
+    border; it must be in both reach sets by seeding. Simplest: push the whole top row and the whole left column into
+    Pacific, and the whole bottom row and the whole right column into Atlantic. Overlaps on the corners are harmless
+    (the <code>reach[r][c] = 1</code> guard dedups them).</li>
+    <li><b>Mutating <code>heights</code>.</b> Use separate reach matrices; do not overwrite the heights to track visited,
+    because future BFSs would mis-compare.</li>
+    <li><b>Empty grid.</b> <code>R = 0</code> or <code>C = 0</code>: return <code>[]</code>, do not read
+    <code>heights[0].size()</code> without the guard.</li>
+    <li><b>Pushing a border cell into the queue twice.</b> Keep a per-ocean reach matrix that is set when a cell is
+    enqueued, not when it is popped, so each cell enters each queue once.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "The naive flow forward is quadratic. I reverse the move: start at the ocean borders and climb inward to a
+  neighbour whose height is greater than or equal. Two multi-source BFSs, one from the top row and left column for
+  the Pacific, one from the bottom row and right column for the Atlantic. The intersection of the two reach sets is
+  the answer. O(R &middot; C) time and space, each cell is enqueued at most twice."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 130 Surrounded Regions</td><td>Reverse flood from the border: anything the border can reach is "safe" (not captured).</td></tr>
+  <tr><td>LC 1020 Number of Enclaves</td><td>Reverse flood from the border; land not reached is the answer.</td></tr>
+  <tr><td>LC 994 Rotting Oranges</td><td>Multi-source BFS from all rotten cells at once; same seeding trick.</td></tr>
+  <tr><td>LC 542 01 Matrix</td><td>Multi-source BFS from every <code>0</code> to compute distance to the nearest <code>0</code>.</td></tr>
+  <tr><td>LC 773 Sliding Puzzle</td><td>BFS where sources are the start state; the same &ldquo;one BFS per layer&rdquo; discipline.</td></tr>
+</table>
+
+<script>
+/* 1. Idea diagram: tiny 3x3 grid with the two reach sets drawn as two tinted grids. */
+(function () {
+  const h = [[1,2,3],[2,3,4],[3,4,5]];
+  // Pacific reaches whole grid (from (0,0)=1 we can climb to >=1 everywhere).
+  // Atlantic reaches cells whose height >= some atlantic start; the top-right diagonal + last row/col.
+  const pac = new Set(['0,0','0,1','0,2','1,0','1,1','1,2','2,0','2,1','2,2']);
+  const atl = new Set(['0,2','1,2','2,0','2,1','2,2']);
+  const both = (r,c) => pac.has(r+','+c) && atl.has(r+','+c);
+  const pacGrid = VIZ.grid(h, { cls: (r,c) => both(r,c) ? 'hit' : (pac.has(r+','+c) ? 'in' : '') });
+  const atlGrid = VIZ.grid(h, { cls: (r,c) => both(r,c) ? 'hit' : (atl.has(r+','+c) ? 'gone' : '') });
+  const bothGrid = VIZ.grid(h, { cls: (r,c) => both(r,c) ? 'hit' : '' });
+  document.getElementById('idea').innerHTML =
+    '<div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">' +
+    '<div><h4 style="margin:0 0 4px">Pacific reach (top+left)</h4>' + pacGrid + '</div>' +
+    '<div><h4 style="margin:0 0 4px">Atlantic reach (bottom+right)</h4>' + atlGrid + '</div>' +
+    '<div><h4 style="margin:0 0 4px">Overlap = answer</h4>' + bothGrid + '</div>' +
+    '</div>' +
+    '<div class="caption">Blue cells climb up to the Pacific border, red cells climb up to the Atlantic. ' +
+    'Purple cells reach both oceans.</div>';
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Seed Pacific', lines: ['push every (0, c)', 'and every (r, 0)', 'mark pac[r][c] = 1'], color: 'blue' },
+  { title: '2. BFS Pacific', lines: ['pop (r, c)', 'for each neighbour', 'if height >= current', 'and not reached: push'], color: 'yellow' },
+  { title: '3. Repeat Atlantic', lines: ['push every (R-1, c)', 'and every (r, C-1)', 'same climb rule'], color: 'red' },
+  { title: '4. Intersect', lines: ['for each (r, c):', 'if pac AND atl:', '  answer.push({r, c})'], color: 'purple' },
+]);
+
+/* Interactive trace: show both BFSs step by step, with the reach matrices beside the heights.
+   Input: a matrix in LeetCode JSON form, e.g. [[1,2,2,3,5],[3,2,3,4,4],[2,4,5,3,1],[6,7,1,4,5],[5,1,1,2,4]]
+*/
+VIZ.controls('trace', [
+  { id: 'h', label: 'heights =', value: '[[1,2,2,3,5],[3,2,3,4,4],[2,4,5,3,1],[6,7,1,4,5],[5,1,1,2,4]]', size: 56 },
+], v => {
+  let heights;
+  try { heights = JSON.parse(v.h.trim()); }
+  catch (e) { return '<div class="box trap">Could not parse heights as JSON matrix.</div>'; }
+  if (!Array.isArray(heights) || !heights.length || !Array.isArray(heights[0]))
+    return '<div class="box trap">heights must be a non-empty JSON matrix of integers.</div>';
+  const R = heights.length, C = heights[0].length;
+  if (R * C > 36) return '<div class="box trap">Keep the grid at most 36 cells to keep the trace readable.</div>';
+  for (const row of heights) if (row.length !== C) return '<div class="box trap">rows must be the same length.</div>';
+
+  // Run the two reverse BFSs and record steps.
+  const pac = Array.from({length:R},()=>Array(C).fill(0));
+  const atl = Array.from({length:R},()=>Array(C).fill(0));
+  const steps = [];
+  const CAP = 25;
+  let stopped = false;
+
+  function snapshot(title, which, cur, text) {
+    if (stopped) return;
+    if (steps.length >= CAP) { stopped = true; return; }
+    const hGrid = VIZ.grid(heights, {
+      cls: (r, c) => (cur && cur[0] === r && cur[1] === c) ? 'new'
+                   : (pac[r][c] && atl[r][c]) ? 'hit'
+                   : pac[r][c] ? 'in'
+                   : atl[r][c] ? 'gone'
+                   : '',
+      small: true
+    });
+    const pacGrid = VIZ.grid(pac.map(row => row.map(v => v ? '✓' : '·')), {
+      cls: (r, c) => (which === 'pac' && cur && cur[0] === r && cur[1] === c) ? 'new'
+                   : pac[r][c] ? 'in' : '',
+      small: true, index: false
+    });
+    const atlGrid = VIZ.grid(atl.map(row => row.map(v => v ? '✓' : '·')), {
+      cls: (r, c) => (which === 'atl' && cur && cur[0] === r && cur[1] === c) ? 'new'
+                   : atl[r][c] ? 'gone' : '',
+      small: true, index: false
+    });
+    const visual =
+      '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start">' +
+      '<div><div style="font-size:11px;color:#616e7c">heights</div>' + hGrid + '</div>' +
+      '<div><div style="font-size:11px;color:#616e7c">pac</div>' + pacGrid + '</div>' +
+      '<div><div style="font-size:11px;color:#616e7c">atl</div>' + atlGrid + '</div>' +
+      '</div>';
+    steps.push(VIZ.step(title, visual, text, true));
+  }
+
+  // Seed Pacific
+  const qp = [];
+  for (let c = 0; c < C; c++) { if (!pac[0][c]) { pac[0][c] = 1; qp.push([0, c]); } }
+  for (let r = 0; r < R; r++) { if (!pac[r][0]) { pac[r][0] = 1; qp.push([r, 0]); } }
+  snapshot('Seed Pacific border', 'pac', null,
+    'All cells on the top row and the left column are enqueued; <code>pac</code> is 1 there.');
+
+  while (qp.length && !stopped) {
+    const [r, cc] = qp.shift();
+    const added = [];
+    for (const [dr, dc] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+      const nr = r + dr, nc = cc + dc;
+      if (nr < 0 || nr >= R || nc < 0 || nc >= C) continue;
+      if (pac[nr][nc]) continue;
+      if (heights[nr][nc] < heights[r][cc]) continue;
+      pac[nr][nc] = 1; qp.push([nr, nc]); added.push([nr, nc]);
+    }
+    if (added.length) snapshot('Pacific pop (' + r + ', ' + cc + ')', 'pac', [r, cc],
+      'Climb from height ' + heights[r][cc] + '. New reachable: ' + added.map(([a,b])=>'('+a+','+b+')=' + heights[a][b]).join(', ') + '.');
+  }
+
+  // Seed Atlantic
+  const qa = [];
+  for (let c = 0; c < C; c++) { if (!atl[R-1][c]) { atl[R-1][c] = 1; qa.push([R-1, c]); } }
+  for (let r = 0; r < R; r++) { if (!atl[r][C-1]) { atl[r][C-1] = 1; qa.push([r, C-1]); } }
+  snapshot('Seed Atlantic border', 'atl', null,
+    'Enqueue all cells on the bottom row and right column; <code>atl</code> is 1 there.');
+
+  while (qa.length && !stopped) {
+    const [r, cc] = qa.shift();
+    const added = [];
+    for (const [dr, dc] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+      const nr = r + dr, nc = cc + dc;
+      if (nr < 0 || nr >= R || nc < 0 || nc >= C) continue;
+      if (atl[nr][nc]) continue;
+      if (heights[nr][nc] < heights[r][cc]) continue;
+      atl[nr][nc] = 1; qa.push([nr, nc]); added.push([nr, nc]);
+    }
+    if (added.length) snapshot('Atlantic pop (' + r + ', ' + cc + ')', 'atl', [r, cc],
+      'Climb from height ' + heights[r][cc] + '. New reachable: ' + added.map(([a,b])=>'('+a+','+b+')=' + heights[a][b]).join(', ') + '.');
+  }
+
+  // Overlap pass
+  const ans = [];
+  for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) if (pac[r][c] && atl[r][c]) ans.push([r, c]);
+  if (!stopped) snapshot('Intersect', 'both', null,
+    'Scan the grid; collect every cell with <code>pac && atl</code>.');
+  if (stopped) steps.push('<div class="box trap">... BFS continues beyond ' + CAP + ' recorded pops; stopping the trace here.</div>');
+
+  document.getElementById('answer').innerHTML =
+    '<b>Answer:</b> ' + ans.length + ' cell' + (ans.length === 1 ? '' : 's') + ' reach both oceans &rarr; ' +
+    '<code>[' + ans.map(([a,b]) => '[' + a + ',' + b + ']').join(', ') + ']</code>.';
+  return steps.join('');
+}, 'Change the heights matrix. The trace runs the Pacific BFS first, then the Atlantic, then intersects.');
+</script>
+
+</body>
+</html>

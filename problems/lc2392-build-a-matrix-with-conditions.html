@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 2392 - Build a Matrix With Conditions</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#advanced">Pattern lesson</a><span>Pattern 20: Advanced</span></div>
+
+<h1>Build a Matrix With Conditions</h1>
+<p class="sub">LeetCode 2392 &middot; Hard &middot; Pattern: two independent topological sorts (Kahn), one for rows and one for columns &middot; O(k + |rowC| + |colC|) time, O(k) space</p>
+
+<div class="box">
+  <b>Problem.</b> Build a <code>k &times; k</code> matrix containing numbers <code>1..k</code> once each (the rest
+  are 0) such that:
+  <ul>
+    <li>Every <code>[u, v]</code> in <code>rowConditions</code> means number <code>u</code> is in a <b>strictly
+    earlier row</b> than <code>v</code>.</li>
+    <li>Every <code>[u, v]</code> in <code>colConditions</code> means number <code>u</code> is in a <b>strictly
+    earlier column</b> than <code>v</code>.</li>
+  </ul>
+  If no such matrix exists, return <code>[]</code>.
+  <br><code>k=3, row=[[1,2],[3,2]], col=[[2,1],[3,2]] &rarr; e.g. [[3,0,0],[0,0,1],[0,2,0]]</code>
+  <br><code>k=3, row=[[1,2],[2,3],[3,1],[2,3]], col=[[2,1]] &rarr; []</code> (cycle in rows)
+  <br>Link: <a href="https://leetcode.com/problems/build-a-matrix-with-conditions/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Rows and columns are <b>independent</b>. The condition <code>u</code> is in an earlier row than <code>v</code>
+says nothing about their columns, and vice versa. So the "where in the grid" question for number <code>v</code>
+splits into two 1-D placement problems: give it a row index and a column index, drawn from two independent
+constraints.</p>
+
+<p>Each constraint set is just a topological sort. <code>rowConditions</code> is a DAG on numbers <code>1..k</code>:
+an edge <code>u &rarr; v</code> means <code>u</code> must come before <code>v</code>. Any topological order of this
+DAG is a valid <b>row ordering</b> of all <code>k</code> numbers: position in the order = row index. Same thing for
+columns.</p>
+
+<div id="idea"></div>
+
+<p>If either DAG has a cycle, no row/column ordering exists &rarr; return <code>[]</code>. Otherwise build two
+mappings <code>rowPos[v]</code> and <code>colPos[v]</code>, then write <code>M[rowPos[v]][colPos[v]] = v</code> for
+each <code>v</code>. Everything else stays <code>0</code>.</p>
+
+<div class="box insight">
+  <b>Idea.</b> Treat row and column constraints as two separate directed graphs on <code>{1..k}</code>. Run Kahn's
+  topological sort on each. The <code>i</code>-th number in the row order goes to row <code>i</code>; same for
+  columns. A cycle in either DAG means no matrix exists.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>Why "independent" is the whole observation: once you know the row order and the column order, each number
+<code>v</code> has exactly one legal grid position. You never have to backtrack. The problem seems 2-D but the
+constraints never couple the axes, so it decomposes into two 1-D problems that can be solved in any order.</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Enter <code>k</code>, <code>rowConditions</code>, and <code>colConditions</code>. The run first does Kahn on the
+row DAG, then on the column DAG, then shows the final matrix. Yellow nodes/cells are "just placed"; green are
+already placed; blue are in the Kahn queue; dim are waiting for in-degree 0.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>just emitted / just placed</span>
+  <span><i style="background:var(--keep)"></i>already in output</span>
+  <span><i style="background:var(--win)"></i>in Kahn queue</span>
+  <span><i style="background:#f8fafc;border:1px solid #cbd5e1"></i>in-degree &gt; 0 (waiting)</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+    <span class="t">vector</span>&lt;<span class="t">int</span>&gt; topo(<span class="t">int</span> k, <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt;&amp; cond) {
+        <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt; adj(k + <span class="n">1</span>);
+        <span class="t">vector</span>&lt;<span class="t">int</span>&gt; indeg(k + <span class="n">1</span>, <span class="n">0</span>);
+        <span class="k">for</span> (<span class="k">auto</span>&amp; c : cond) {
+            adj[c[<span class="n">0</span>]].push_back(c[<span class="n">1</span>]);
+            indeg[c[<span class="n">1</span>]]++;
+        }
+        <span class="t">queue</span>&lt;<span class="t">int</span>&gt; q;
+        <span class="k">for</span> (<span class="t">int</span> i = <span class="n">1</span>; i &lt;= k; i++) <span class="k">if</span> (indeg[i] == <span class="n">0</span>) q.push(i);
+        <span class="t">vector</span>&lt;<span class="t">int</span>&gt; order;
+        <span class="k">while</span> (!q.empty()) {
+            <span class="t">int</span> u = q.front(); q.pop();
+            order.push_back(u);
+            <span class="k">for</span> (<span class="t">int</span> v : adj[u]) <span class="k">if</span> (--indeg[v] == <span class="n">0</span>) q.push(v);
+        }
+        <span class="k">return</span> (<span class="t">int</span>)order.size() == k ? order : <span class="t">vector</span>&lt;<span class="t">int</span>&gt;{};
+    }
+<span class="k">public</span>:
+    <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt; buildMatrix(<span class="t">int</span> k,
+            <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt;&amp; rowConditions,
+            <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt;&amp; colConditions) {
+        <span class="k">auto</span> rowOrder = topo(k, rowConditions);
+        <span class="k">auto</span> colOrder = topo(k, colConditions);
+        <span class="k">if</span> (rowOrder.empty() || colOrder.empty()) <span class="k">return</span> {};
+
+        <span class="t">vector</span>&lt;<span class="t">int</span>&gt; rowPos(k + <span class="n">1</span>), colPos(k + <span class="n">1</span>);
+        <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt; k; i++) {
+            rowPos[rowOrder[i]] = i;
+            colPos[colOrder[i]] = i;
+        }
+        <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt; M(k, <span class="t">vector</span>&lt;<span class="t">int</span>&gt;(k, <span class="n">0</span>));
+        <span class="k">for</span> (<span class="t">int</span> v = <span class="n">1</span>; v &lt;= k; v++) M[rowPos[v]][colPos[v]] = v;
+        <span class="k">return</span> M;
+    }
+};</pre>
+
+<p><b>Complexity.</b> Each Kahn run is <code>O(k + |cond|)</code>. Writing the matrix is <code>O(k)</code> plus
+<code>O(k<sup>2</sup>)</code> for the zero initialisation. Total time
+<code>O(k<sup>2</sup> + |rowC| + |colC|)</code>, dominated by the matrix allocation. Space
+<code>O(k<sup>2</sup>)</code> for the output and <code>O(k + |cond|)</code> for each adjacency structure.</p>
+
+<h3>Alternative: DFS with 3-colouring for cycle detection</h3>
+
+<pre><span class="t">bool</span> dfs(<span class="t">int</span> u, <span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; color, ...) {
+    color[u] = <span class="n">1</span>;
+    <span class="k">for</span> (<span class="t">int</span> v : adj[u]) {
+        <span class="k">if</span> (color[v] == <span class="n">1</span>) <span class="k">return</span> <span class="k">false</span>;    <span class="c">// cycle</span>
+        <span class="k">if</span> (color[v] == <span class="n">0</span> &amp;&amp; !dfs(v, ...)) <span class="k">return</span> <span class="k">false</span>;
+    }
+    color[u] = <span class="n">2</span>; order.push_back(u); <span class="k">return</span> <span class="k">true</span>;
+}</pre>
+
+<p>Reverse <code>order</code> at the end. Same complexity. Kahn's is easier to defend in an interview because the
+"zero in-degree pop" has a straight physical reading. DFS wins when you also need the finish-time order (not needed
+here).</p>
+
+<h2>5. The part interviewers ask about: why can we treat rows and columns independently?</h2>
+
+<div class="box insight">
+  Each constraint is one-dimensional. A row constraint only talks about row indices. A column constraint only talks
+  about column indices. The two sets never share a vertex of information: no clause says "if <code>u</code> is to the
+  left of <code>v</code> then <code>u</code> is also above <code>v</code>". Independent constraints decompose into
+  independent sub-problems; nothing couples them except that the <i>same</i> number <code>v</code> is placed in both
+  axes.
+</div>
+
+<p>Second question: <b>any valid row order works</b>. The problem allows any matrix consistent with the constraints,
+so once we have one topological order on each axis, we don't need to search for a specific layout. Any Kahn tie-break
+is fine; Kahn's queue is unordered among same-in-degree vertices and that freedom is OK.</p>
+
+<p>Third: <b>what about shared numbers?</b> All numbers <code>1..k</code> appear in the matrix exactly once. Topological
+sort on <code>1..k</code> places each number in a unique row and a unique column. The two <code>k &times; k</code>
+positions, <code>(rowPos[v], colPos[v])</code>, are therefore all distinct across <code>v</code>, so no two numbers
+collide on a cell.</p>
+
+<p>Fourth: the problem is often framed with <code>n &times; n</code>; here it's always <code>k &times; k</code>.
+Setting the matrix size to <code>k</code> gives us <i>exactly</i> enough room: <code>k</code> numbers, <code>k</code>
+rows, <code>k</code> columns, and <code>k</code> occupied cells on the diagonal pattern we assign.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Running one Kahn and reusing the order for both axes.</b> Rows and columns have different constraints
+    &mdash; this breaks column requirements. Two independent sorts.</li>
+    <li><b>Dropping the empty-order check.</b> A cycle in either axis means no valid matrix. Return <code>[]</code>
+    immediately; don't try to patch around it.</li>
+    <li><b>Off-by-one in <code>indeg[c[1]]</code>.</b> Numbers are 1-indexed. Allocate <code>k + 1</code> slots.</li>
+    <li><b>Trying to minimise the "zeros" or make the matrix compact.</b> The problem doesn't ask for that. Any valid
+    layout is accepted.</li>
+    <li><b>Duplicate conditions.</b> <code>[[1,2],[1,2]]</code> inflates <code>indeg[2]</code> by 2. Kahn still works
+    &mdash; after processing 1 twice via two edges, 2's in-degree reaches 0. If you dedupe edges, the queue reads
+    cleaner.</li>
+    <li><b>Self-loop.</b> <code>[[v, v]]</code> is a cycle of length 1 and must return <code>[]</code> on that axis.
+    Kahn handles it: <code>v</code> never has in-degree 0 and is never popped.</li>
+    <li><b>Isolated numbers.</b> A number that appears in no condition has in-degree 0 and is enqueued immediately,
+    placed in some row position by Kahn's tie-break. That's correct: unconstrained numbers can go anywhere.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "Rows and columns are independent. I treat each condition list as a DAG over the numbers <code>1..k</code> and run
+  Kahn's topological sort on each. The <code>i</code>-th number in the row order goes to row <code>i</code>; same
+  thing for the column order. Then I write <code>M[rowPos[v]][colPos[v]] = v</code> for every <code>v</code>; all
+  other cells are zero. If either DAG has a cycle (Kahn can't drain the queue), I return <code>[]</code>. Linear in
+  <code>k</code> plus the number of conditions."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 269 Alien Dictionary</td><td>Same topological-sort engine over inferred letter edges; this one has edges supplied directly.</td></tr>
+  <tr><td>LC 210 Course Schedule II</td><td>Single Kahn over course prerequisites; return the order.</td></tr>
+  <tr><td>LC 2050 Parallel Courses III</td><td>Topological sort + longest path for scheduling with durations.</td></tr>
+  <tr><td>LC 444 Sequence Reconstruction</td><td>Topological sort uniqueness check via Kahn (queue must stay size 1).</td></tr>
+</table>
+
+<script>
+/* 1. Idea diagram: two separate DAGs for rows and columns, each giving an order; the matrix laid out from positions. */
+(function () {
+  const W = 820, H = 320;
+  // Rows: 1->2, 3->2 : order could be 1,3,2
+  // Cols: 2->1, 3->2 : order 3,2,1
+  const rowNodes = [
+    { id: 1, x: 100, y: 70 }, { id: 2, x: 200, y: 180 }, { id: 3, x: 100, y: 290 }
+  ];
+  const rowEdges = [[1,2],[3,2]];
+  const colNodes = [
+    { id: 1, x: 440, y: 290 }, { id: 2, x: 440, y: 180 }, { id: 3, x: 440, y: 70 }
+  ];
+  const colEdges = [[2,1],[3,2]];
+  const g1 = VIZ.graph(rowNodes, rowEdges, { directed: true, w: 300, h: 340 });
+  const g2 = VIZ.graph(colNodes, colEdges, { directed: true, w: 300, h: 340 });
+  // Build the final matrix. rowOrder=[1,3,2]: rowPos[1]=0, rowPos[3]=1, rowPos[2]=2.
+  // colOrder=[3,2,1]: colPos[3]=0, colPos[2]=1, colPos[1]=2.
+  //   1 -> (0,2);  2 -> (2,1);  3 -> (1,0)
+  const M = [[0,0,1],[3,0,0],[0,2,0]];
+  const gridH = VIZ.grid(M, { cls: (r, c, v) => v !== 0 ? 'keep' : 'dim', small: true });
+  const html = `
+    <div style="display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start">
+      <div><div style="font-size:12px;color:#616e7c;font-weight:700">rowConditions = [[1,2],[3,2]]</div>
+           <div class="caption">row order 1,3,2 (positions 0,1,2)</div>${g1}</div>
+      <div><div style="font-size:12px;color:#616e7c;font-weight:700">colConditions = [[2,1],[3,2]]</div>
+           <div class="caption">col order 3,2,1 (positions 0,1,2)</div>${g2}</div>
+      <div><div style="font-size:12px;color:#616e7c;font-weight:700">resulting 3&times;3 matrix</div>
+           <div class="caption">1 at (0,2); 2 at (2,1); 3 at (1,0)</div>${gridH}</div>
+    </div>`;
+  document.getElementById('idea').innerHTML = html;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Build DAGs', lines: ['rowCond -> row DAG', 'colCond -> col DAG'], color: 'green' },
+  { title: '2. Topo sort each', lines: ['Kahn on row DAG', 'Kahn on col DAG'], color: 'yellow' },
+  { title: '3. Cycle?', lines: ['either order length < k', '-> return []'], color: 'red' },
+  { title: '4. Place values', lines: ['rowPos[v], colPos[v]', 'M[rowPos][colPos] = v'], color: 'blue' },
+]);
+
+/* Interactive trace. */
+VIZ.controls('trace', [
+  { id: 'k', label: 'k =', value: '3', size: 3 },
+  { id: 'row', label: 'rowConditions =', value: '[[1,2],[3,2]]', size: 18 },
+  { id: 'col', label: 'colConditions =', value: '[[2,1],[3,2]]', size: 18 },
+], v => {
+  let k, row, col;
+  try { k = parseInt(v.k, 10); row = JSON.parse(v.row.trim()); col = JSON.parse(v.col.trim()); }
+  catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  if (!(k >= 1 && k <= 6)) return '<div class="box trap">Pick k in 1..6 to keep the trace readable.</div>';
+  if (!Array.isArray(row) || !Array.isArray(col)) return '<div class="box trap">Conditions must be arrays of [u,v] pairs.</div>';
+
+  function runKahn(label, conds) {
+    const adj = {}; const indeg = {};
+    for (let i = 1; i <= k; i++) { adj[i] = []; indeg[i] = 0; }
+    for (const c of conds) { adj[c[0]].push(c[1]); indeg[c[1]]++; }
+    const nodes = VIZ.circleLayout(Array.from({length:k}, (_,i)=>i+1), 180, 150, 100);
+    const edges = conds.map(c => [c[0], c[1]]);
+    const q = [];
+    for (let i = 1; i <= k; i++) if (indeg[i] === 0) q.push(i);
+    const order = [];
+    const snaps = [];
+    function snap(current, touched) {
+      const nodeCls = {}, notes = {};
+      for (let i = 1; i <= k; i++) {
+        if (order.includes(i)) nodeCls[i] = 'keep';
+        else if (i === current) nodeCls[i] = 'new';
+        else if (q.includes(i)) nodeCls[i] = 'in';
+        else nodeCls[i] = 'dim';
+        notes[i] = `in=${indeg[i]}`;
+      }
+      const edgeCls = {};
+      if (touched) touched.forEach(([u,v]) => edgeCls[u+'-'+v] = 'new');
+      snaps.push({ graph: VIZ.graph(nodes, edges, { directed:true, nodeCls, edgeCls, notes, w: 380, h: 320 }),
+                   queue:[...q], order:[...order], current, touched: touched || [] });
+    }
+    snap(null, null);
+    while (q.length) {
+      const u = q.shift();
+      order.push(u);
+      const touched = [];
+      for (const v2 of adj[u]) {
+        indeg[v2]--;
+        touched.push([u, v2]);
+        if (indeg[v2] === 0) q.push(v2);
+      }
+      snap(u, touched);
+    }
+    const ok = order.length === k;
+    return { label, order, ok, snaps };
+  }
+
+  const rowRun = runKahn('row', row);
+  const colRun = runKahn('col', col);
+
+  let html = '';
+  html += VIZ.step('Row topological sort', rowRun.snaps[0].graph,
+    `<b>rowConditions = ${JSON.stringify(row)}</b>. Letters/numbers with in-degree 0 enter the queue.`);
+  for (let i = 1; i < rowRun.snaps.length; i++) {
+    const s = rowRun.snaps[i];
+    html += VIZ.step(`Row Kahn: pop ${s.current}`, s.graph,
+      `queue: [${s.queue.join(', ')}] &middot; order: <code>${s.order.join(',')}</code>` +
+      (s.touched.length ? `<br>decremented in-degree of ${s.touched.map(([,v])=>`<code>${v}</code>`).join(', ')}` : ''));
+  }
+  if (!rowRun.ok) {
+    document.getElementById('answer').innerHTML = `<b>Answer: []</b> &mdash; cycle in rowConditions.`;
+    return html;
+  }
+  html += VIZ.step('Column topological sort', colRun.snaps[0].graph,
+    `<b>colConditions = ${JSON.stringify(col)}</b>. In-degree 0 enters the queue.`);
+  for (let i = 1; i < colRun.snaps.length; i++) {
+    const s = colRun.snaps[i];
+    html += VIZ.step(`Col Kahn: pop ${s.current}`, s.graph,
+      `queue: [${s.queue.join(', ')}] &middot; order: <code>${s.order.join(',')}</code>` +
+      (s.touched.length ? `<br>decremented in-degree of ${s.touched.map(([,v])=>`<code>${v}</code>`).join(', ')}` : ''));
+  }
+  if (!colRun.ok) {
+    document.getElementById('answer').innerHTML = `<b>Answer: []</b> &mdash; cycle in colConditions.`;
+    return html;
+  }
+  // Build final matrix
+  const rp = {}, cp = {};
+  rowRun.order.forEach((v, i) => rp[v] = i);
+  colRun.order.forEach((v, i) => cp[v] = i);
+  const M = Array.from({length: k}, () => new Array(k).fill(0));
+  for (let v = 1; v <= k; v++) M[rp[v]][cp[v]] = v;
+  const gridH = VIZ.grid(M, { cls: (r, c, val) => val !== 0 ? 'keep' : 'dim', small: true });
+  html += VIZ.step('Place numbers',
+    gridH,
+    `For each v in 1..${k}, write M[rowPos[v]][colPos[v]] = v. Row order ${JSON.stringify(rowRun.order)}, col order ${JSON.stringify(colRun.order)}.`, true);
+
+  document.getElementById('answer').innerHTML =
+    `<b>Answer:</b> <code>${JSON.stringify(M)}</code>`;
+  return html;
+}, 'Edit k, rowConditions, colConditions.');
+</script>
+
+</body>
+</html>

@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 208 - Implement Trie (Prefix Tree)</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#tries">Pattern lesson</a><span>Pattern 9: Tries</span></div>
+
+<h1>Implement Trie (Prefix Tree)</h1>
+<p class="sub">LeetCode 208 &middot; Medium &middot; Pattern: Trie (prefix tree) &middot; O(L) per operation, O(total chars) space</p>
+
+<div class="box">
+  <b>Problem.</b> Build a data structure that supports three operations on lowercase strings:
+  <br><code>insert(word)</code> &middot; <code>search(word)</code> (exact match) &middot; <code>startsWith(prefix)</code>
+  (any inserted word has this prefix).
+  <br>Link: <a href="https://leetcode.com/problems/implement-trie-prefix-tree/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>A <b>trie</b> is a tree in which every edge is labelled with one character. The path from the root down to a node
+spells a prefix. If you also mark the nodes where an inserted word <i>ends</i>, then:</p>
+
+<ul>
+  <li><code>search(word)</code> walks the path for <code>word</code> and returns true iff the final node is marked
+  "end of word".</li>
+  <li><code>startsWith(prefix)</code> walks the path and returns true iff you did not fall off the tree &mdash; the
+  final-node mark doesn't matter.</li>
+  <li><code>insert(word)</code> walks the path, creating any missing edges, and marks the final node as "end of word".</li>
+</ul>
+
+<div id="idea"></div>
+
+<p>Each node holds a 26-slot child array (one slot per lowercase letter) and a boolean <code>end</code>. The whole
+tree stores one node per <i>distinct prefix</i> of all inserted words, which is bounded by the total length.</p>
+
+<div class="box insight">
+  <b>Idea.</b> Share common prefixes across words by walking character by character and splitting only when they differ.
+  Each operation is O(L) in the length of the input, independent of how many words are already in the trie.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p><code>insert</code> and <code>search</code> have the same walking skeleton; they differ only in what happens when
+a child is missing (insert creates it, search returns false) and in what happens at the end (insert marks <code>end</code>,
+search reads it, startsWith ignores it).</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Enter an operation sequence like <code>insert("apple") search("apple") search("app") startsWith("app") insert("app") search("app")</code>. The picture after each op is the trie; a solid green ring marks nodes that are "end of word", and the current walking path is highlighted.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>node created or marked this step</span>
+  <span><i style="background:var(--win)"></i>path walked this step</span>
+  <span><i style="background:var(--keep)"></i>end-of-word</span>
+  <span><i style="background:#fff;border:1px solid #cbd5e1"></i>internal (prefix only)</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Trie {
+    <span class="k">struct</span> Node {
+        Node* ch[<span class="n">26</span>] = {};        <span class="c">// nullptr by default</span>
+        <span class="t">bool</span> end = <span class="k">false</span>;
+    };
+    Node* root;
+    Node* walk(<span class="k">const</span> <span class="t">string</span>&amp; s) <span class="k">const</span> {
+        Node* cur = root;
+        <span class="k">for</span> (<span class="t">char</span> c : s) {
+            <span class="t">int</span> i = c - <span class="n">'a'</span>;
+            <span class="k">if</span> (!cur-&gt;ch[i]) <span class="k">return</span> <span class="k">nullptr</span>;
+            cur = cur-&gt;ch[i];
+        }
+        <span class="k">return</span> cur;
+    }
+<span class="k">public</span>:
+    Trie() { root = <span class="k">new</span> Node(); }
+    <span class="t">void</span> insert(<span class="t">string</span> word) {
+        Node* cur = root;
+        <span class="k">for</span> (<span class="t">char</span> c : word) {
+            <span class="t">int</span> i = c - <span class="n">'a'</span>;
+            <span class="k">if</span> (!cur-&gt;ch[i]) cur-&gt;ch[i] = <span class="k">new</span> Node();
+            cur = cur-&gt;ch[i];
+        }
+        cur-&gt;end = <span class="k">true</span>;
+    }
+    <span class="t">bool</span> search(<span class="t">string</span> word) {
+        Node* n = walk(word);
+        <span class="k">return</span> n &amp;&amp; n-&gt;end;
+    }
+    <span class="t">bool</span> startsWith(<span class="t">string</span> prefix) {
+        <span class="k">return</span> walk(prefix) != <span class="k">nullptr</span>;
+    }
+};</pre>
+
+<p><b>Complexity:</b> O(L) per op where L is the string length. Each step is one array index. Space is O(total number
+of distinct prefixes) &le; sum of inserted word lengths. The 26-slot array per node is the simplest form; swap for a
+<code>unordered_map&lt;char, Node*&gt;</code> if the alphabet is large or sparse.</p>
+
+<h3>Alternative: hash-map children</h3>
+
+<pre><span class="k">struct</span> Node { unordered_map&lt;<span class="t">char</span>, Node*&gt; ch; <span class="t">bool</span> end = <span class="k">false</span>; };</pre>
+
+<p>Prefer when the alphabet is big (Unicode, mixed case, digits) or when most nodes have few children, so the dense
+26-array wastes memory. Pure speed on lowercase English, the array version wins.</p>
+
+<h2>5. The part interviewers ask about: three subtle points</h2>
+
+<div class="box insight">
+  <ul>
+    <li><b><code>end</code> is per node, not per edge.</b> Two words sharing a prefix (like <code>app</code> and
+    <code>apple</code>) are both marked by setting <code>end = true</code> at the respective nodes; the shorter word's
+    end sits on an internal node of the longer word.</li>
+    <li><b><code>startsWith</code> ignores <code>end</code>.</b> It only asks whether the path exists in the tree. That
+    is also why inserting <code>apple</code> alone makes <code>startsWith("app")</code> return true, but
+    <code>search("app")</code> false.</li>
+    <li><b>Empty string.</b> The root always exists, so <code>startsWith("")</code> is true and <code>search("")</code>
+    is false unless the empty string was inserted (which marks the root's <code>end</code>).</li>
+  </ul>
+</div>
+
+<h3>Why a trie beats a hash set of words</h3>
+
+<p><code>unordered_set&lt;string&gt;</code> supports <code>insert</code> and <code>search</code> in O(L) too (hash and
+compare), but <code>startsWith</code> would need to scan every stored word. A trie answers <code>startsWith</code> in
+O(L), independent of how many words were inserted. That is the whole reason the data structure exists.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Forgetting to mark <code>end</code>.</b> Then <code>search</code> always returns false. The <code>startsWith</code>
+    check still works, which can mask the bug.</li>
+    <li><b>Confusing <code>search</code> and <code>startsWith</code>.</b> <code>startsWith</code> does <i>not</i> check
+    <code>end</code>; <code>search</code> must.</li>
+    <li><b>Leaking memory.</b> On LeetCode this doesn't fail the judge, but a destructor that frees nodes (recursive
+    DFS) is good hygiene &mdash; and in interview follow-ups ("add <code>remove</code>") you need the structure for it.</li>
+    <li><b>Non-ASCII input.</b> <code>c - 'a'</code> blows up on uppercase or digits. If the problem allows them, use
+    a hash map for children.</li>
+    <li><b>Reinsertion.</b> Inserting the same word twice is a no-op (<code>end</code> stays true). Make sure your
+    code does not double-count or crash.</li>
+    <li><b>Deleting.</b> Not asked here, but naive deletion of a word <code>w</code> is "clear <code>end</code> at the
+    end of <code>w</code>; walk up and prune nodes whose <code>end</code> is false and whose children are all
+    nullptr." Pruning early (before clearing) is a common bug.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I use a trie: each node has a 26-slot child array and an <code>end</code> flag. <code>insert</code> walks the word
+  one letter at a time, creating missing children, and marks the final node <code>end = true</code>. <code>search</code>
+  walks the word and returns <code>end</code> at the final node (false if we fell off). <code>startsWith</code> walks the
+  prefix and returns true iff we didn't fall off, ignoring <code>end</code>. All three are O(L). The whole structure
+  stores one node per distinct prefix, so space is O(total inserted characters)."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 212 Word Search II</td><td>Builds a trie from the dictionary and walks it alongside a grid DFS so one grid traversal checks all words.</td></tr>
+  <tr><td>LC 211 Add and Search Word</td><td>Same trie plus a <code>.</code> wildcard: when the input character is <code>.</code>, recurse into every child.</td></tr>
+  <tr><td>LC 648 Replace Words</td><td>Insert roots into a trie, then walk each word and replace it with the first root encountered.</td></tr>
+  <tr><td>LC 677 Map Sum Pairs</td><td>Store an integer per node and keep a running sum of a subtree for prefix queries.</td></tr>
+  <tr><td>LC 421 Max XOR of Two Numbers</td><td>Binary trie on bits of each number; greedy walk from MSB picks the opposite bit at every step.</td></tr>
+</table>
+
+<script>
+/* 1. Static idea diagram: trie after inserting ["app","apple","ape"]. Draw it as an SVG tree. */
+(function () {
+  // Positions picked by hand.
+  const nodes = [
+    { id: 'r', x: 400, y: 40, label: ' ', end: false, title: 'root' },
+    { id: 'a', x: 400, y: 100, label: 'a', end: false },
+    { id: 'ap', x: 300, y: 160, label: 'p', end: false },
+    { id: 'app', x: 240, y: 220, label: 'p', end: true },  // 'app'
+    { id: 'appl', x: 240, y: 280, label: 'l', end: false },
+    { id: 'apple', x: 240, y: 340, label: 'e', end: true }, // 'apple'
+    { id: 'ape', x: 400, y: 220, label: 'e', end: true },   // 'ape'
+  ];
+  const edges = [['r', 'a'], ['a', 'ap'], ['ap', 'app'], ['app', 'appl'], ['appl', 'apple'], ['a', 'ape']];
+  // Wait: 'ape' means a-p-e; so edge from 'a' goes to 'p' (ap), then from 'ap' goes to 'e'. Fix the tree: ap has two children, 'p' (app) and 'e' (ape).
+  // Replace ape's structure: a -> p -> {p (app) -> l -> e (apple), e (ape)}.
+  // Redo nodes/edges accordingly.
+  const nodes2 = [
+    { id: 'r', x: 400, y: 40, label: ' ', end: false, title: 'root' },
+    { id: 'a', x: 400, y: 100, label: 'a', end: false },
+    { id: 'p1', x: 400, y: 160, label: 'p', end: false },   // after 'ap'
+    { id: 'p2', x: 320, y: 220, label: 'p', end: true },    // after 'app'
+    { id: 'l', x: 320, y: 280, label: 'l', end: false },
+    { id: 'e1', x: 320, y: 340, label: 'e', end: true },    // 'apple'
+    { id: 'e2', x: 480, y: 220, label: 'e', end: true },    // 'ape'
+  ];
+  const edges2 = [['r', 'a'], ['a', 'p1'], ['p1', 'p2'], ['p2', 'l'], ['l', 'e1'], ['p1', 'e2']];
+  const posById = new Map(nodes2.map(n => [n.id, n]));
+  let s = '';
+  edges2.forEach(([a, b]) => {
+    const A = posById.get(a), B = posById.get(b);
+    s += `<line x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}" stroke="#94a3b8" stroke-width="2"/>`;
+    // edge label is the child's letter — put mid-edge, slightly to the side.
+    const mx = (A.x + B.x) / 2 + 10, my = (A.y + B.y) / 2 + 4;
+    s += `<text x="${mx}" y="${my}" font-size="12" font-weight="700" fill="#d97706">${B.label}</text>`;
+  });
+  nodes2.forEach(n => {
+    const r = 18;
+    const fill = n.end ? '#bbf7d0' : (n.id === 'r' ? '#f1f5f9' : '#ffffff');
+    const stroke = n.end ? '#15803d' : '#475569';
+    s += `<circle cx="${n.x}" cy="${n.y}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${n.end ? 3 : 2}"/>`;
+    s += `<text x="${n.x}" y="${n.y + 5}" text-anchor="middle" font-size="14" font-weight="700">${n.label}</text>`;
+    if (n.title) s += `<text x="${n.x + 24}" y="${n.y + 4}" font-size="11" fill="#616e7c">${n.title}</text>`;
+  });
+  // Legend to the right
+  s += `<text x="30" y="40" font-size="13" font-weight="700" fill="#334155">inserted: "app", "apple", "ape"</text>`;
+  s += `<circle cx="40" cy="70" r="10" fill="#bbf7d0" stroke="#15803d" stroke-width="3"/>`;
+  s += `<text x="56" y="74" font-size="12" fill="#334155">end-of-word</text>`;
+  s += `<circle cx="40" cy="100" r="10" fill="#fff" stroke="#475569" stroke-width="2"/>`;
+  s += `<text x="56" y="104" font-size="12" fill="#334155">prefix only</text>`;
+  document.getElementById('idea').innerHTML =
+    `<svg class="figure" width="100%" style="max-width:600px" viewBox="0 0 600 380">${s}</svg>`;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Start at root', lines: ['cur = root'], color: 'green' },
+  { title: '2. For each char c', lines: ['i = c - "a"', 'insert: create ch[i] if missing', 'search: return false if missing', 'cur = ch[i]'], color: 'yellow' },
+  { title: '3. End of walk', lines: ['insert: cur->end = true', 'search: return cur->end', 'startsWith: return true'], color: 'blue' },
+]);
+
+/* Interactive trace: parse ops, re-run them step by step and render the trie after each. */
+(function () {
+  // Trie SVG renderer. Tree is laid out with a simple in-order sweep by letter so columns don't collide.
+  // Each node: { ch: {letter: node}, end: bool, created: int (step), lastTouched: int, path: bool }.
+  function renderTrie(root, highlightSet, newSet) {
+    // Collect nodes and lay out.
+    const nodes = [];
+    (function dfs(n, path, depth) { nodes.push({ node: n, label: path.length ? path.charAt(path.length - 1) : ' ', depth, path }); for (const [c, ch] of Object.entries(n.ch).sort()) dfs(ch, path + c, depth + 1); })(root, '', 0);
+    // Assign x by in-order index.
+    let idx = 0;
+    (function assignX(n, path) {
+      const kids = Object.entries(n.ch).sort();
+      if (!kids.length) { n._x = idx++; return; }
+      const xs = [];
+      for (const [c, ch] of kids) { assignX(ch, path + c); xs.push(ch._x); }
+      n._x = (xs[0] + xs[xs.length - 1]) / 2;
+    })(root, '');
+    const DX = 50, DY = 60, PAD = 30, R = 18;
+    const maxDepth = Math.max(...nodes.map(n => n.depth));
+    const maxX = Math.max(...nodes.map(n => n.node._x));
+    const W = PAD * 2 + (maxX + 1) * DX, H = PAD * 2 + maxDepth * DY + 20;
+    let s = '';
+    // edges first
+    (function drawEdges(n, path) {
+      const px = PAD + n._x * DX, py = PAD + (path.length) * DY;
+      for (const [c, ch] of Object.entries(n.ch).sort()) {
+        const cx = PAD + ch._x * DX, cy = PAD + (path.length + 1) * DY;
+        const edgePath = path + c;
+        const inPath = highlightSet.has(edgePath);
+        const stroke = inPath ? '#3b82f6' : '#94a3b8';
+        s += `<line x1="${px}" y1="${py}" x2="${cx}" y2="${cy}" stroke="${stroke}" stroke-width="${inPath ? 3 : 2}"/>`;
+        const mx = (px + cx) / 2 + (cx > px ? 10 : -10), my = (py + cy) / 2 + 4;
+        s += `<text x="${mx}" y="${my}" font-size="12" font-weight="700" fill="#d97706">${c}</text>`;
+        drawEdges(ch, path + c);
+      }
+    })(root, '');
+    // nodes
+    nodes.forEach(({ node, label, depth, path }) => {
+      const x = PAD + node._x * DX, y = PAD + depth * DY;
+      let fill = '#fff', stroke = '#475569', sw = 2;
+      if (node.end) { fill = '#bbf7d0'; stroke = '#15803d'; sw = 3; }
+      if (newSet.has(path)) { fill = '#fde68a'; stroke = '#d97706'; sw = 3; }
+      else if (highlightSet.has(path)) { fill = '#dbeafe'; stroke = '#3b82f6'; sw = 3; }
+      if (path === '' && !node.end) fill = '#f1f5f9';
+      s += `<circle cx="${x}" cy="${y}" r="${R}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+      s += `<text x="${x}" y="${y + 5}" text-anchor="middle" font-size="14" font-weight="700">${label === ' ' ? '' : label}</text>`;
+      if (path === '') s += `<text x="${x + 22}" y="${y + 4}" font-size="11" fill="#616e7c">root</text>`;
+    });
+    return `<svg class="figure" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${s}</svg>`;
+  }
+
+  function newNode() { return { ch: {}, end: false }; }
+  function parseOps(s) {
+    const re = /(insert|search|startsWith)\s*\(\s*"?([a-z]*)"?\s*\)/gi;
+    const out = []; let m;
+    while ((m = re.exec(s))) {
+      out.push({ op: m[1].toLowerCase(), arg: m[2] });
+    }
+    return out;
+  }
+
+  VIZ.controls('trace', [
+    { id: 'ops', label: 'ops =', value: 'insert("apple") search("apple") search("app") startsWith("app") insert("app") search("app")', size: 70 },
+  ], v => {
+    const ops = parseOps(v.ops);
+    if (!ops.length) return '<div class="box trap">No valid ops recognised. Use <code>insert("apple")</code>, <code>search("app")</code>, <code>startsWith("app")</code>.</div>';
+    if (ops.length > 15) return '<div class="box trap">Keep ops &le; 15 so the trace stays readable.</div>';
+
+    const root = newNode();
+    let html = '';
+    html += VIZ.step('Init', renderTrie(root, new Set(), new Set()), 'Fresh trie: a single root node, no words.');
+
+    const results = [];
+    ops.forEach((o, k) => {
+      let note = '', path = new Set(), freshened = new Set(), result;
+      // Build the sequence of prefixes we walk through.
+      const prefixes = [];
+      for (let i = 0; i <= o.arg.length; i++) prefixes.push(o.arg.slice(0, i));
+      prefixes.forEach(p => path.add(p));
+
+      if (o.op === 'insert') {
+        let cur = root;
+        for (let i = 0; i < o.arg.length; i++) {
+          const c = o.arg[i];
+          if (!cur.ch[c]) { cur.ch[c] = newNode(); freshened.add(o.arg.slice(0, i + 1)); }
+          cur = cur.ch[c];
+        }
+        if (!cur.end) { cur.end = true; freshened.add(o.arg); }
+        note = `<code>insert("${o.arg}")</code>: walk <code>${o.arg || '(empty)'}</code>, create missing nodes${freshened.size ? ' (' + [...freshened].filter(p => p !== o.arg).length + ' new)' : ''}, mark end-of-word at <code>"${o.arg}"</code>.`;
+        result = null;
+      } else {
+        // search / startsWith: walk; if we fall off, false.
+        let cur = root, ok = true;
+        for (const c of o.arg) {
+          if (!cur.ch[c]) { ok = false; break; }
+          cur = cur.ch[c];
+        }
+        if (o.op === 'search') {
+          result = ok && cur.end;
+          note = `<code>search("${o.arg}")</code>: ${ok ? `walked the full path; end-of-word at <code>"${o.arg}"</code> is <code>${cur.end}</code>` : `fell off the tree`} &rarr; <b>${result}</b>.`;
+        } else {
+          result = ok;
+          note = `<code>startsWith("${o.arg}")</code>: ${ok ? `path exists` : `fell off the tree`} (ignore end-of-word flag) &rarr; <b>${result}</b>.`;
+        }
+      }
+      results.push({ ...o, result });
+      html += VIZ.step(`Step ${k + 1}: ${o.op}("${o.arg}")`, renderTrie(root, path, freshened), note);
+    });
+
+    document.getElementById('answer').innerHTML =
+      '<b>Op results:</b> ' + results.filter(r => r.result !== null)
+        .map(r => `<code>${r.op}("${r.arg}") = ${r.result}</code>`).join(', ') +
+      (results.every(r => r.result === null) ? ' (no search/startsWith returned a value)' : '');
+    return html;
+  }, 'Change the ops. The trie is drawn after each operation.');
+})();
+</script>
+
+</body>
+</html>

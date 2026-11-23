@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 20 - Valid Parentheses</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#stacks-monotonic">Pattern lesson</a><span>Pattern 6: Stacks &amp; Monotonic Stacks</span></div>
+
+<h1>Valid Parentheses</h1>
+<p class="sub">LeetCode 20 &middot; Easy &middot; Pattern: stack of expected closers &middot; O(n) time, O(n) space</p>
+
+<div class="box">
+  <b>Problem.</b> Given a string of brackets <code>()[]{}</code>, decide if every opener has a matching closer of the
+  same type, in the correct nested order.
+  <br><code>"()[]{}" &rarr; true</code> &nbsp; <code>"([)]" &rarr; false</code> &nbsp; <code>"{[]}" &rarr; true</code>
+  <br>Link: <a href="https://leetcode.com/problems/valid-parentheses/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Brackets have to close in the <b>reverse order</b> they open. That is literally what a stack does: last in, first out.
+So walk the string left to right. On every opener push what you expect to see next; on every closer, that expected char
+must be sitting on top of the stack.</p>
+
+<p>A tidy trick: instead of pushing the <i>opener</i> and matching it later, push the <b>closer that must come next</b>.
+Then on a closing bracket you just check equality with the top. No lookup table on the hot path.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Walk the string. Opener &rarr; push its matching closer. Closer &rarr; it must equal the top of the stack;
+  pop. At the end the stack must be empty. "Expected to close next" is always on top.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>The strip is the input; the yellow cell is the character being read this step. The vertical column on the right is the
+stack, bottom first, so the <b>top is at the top</b>.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>char being read</span>
+  <span><i style="background:var(--win)"></i>stack contents</span>
+  <span><i style="background:var(--keep)"></i>match: pop</span>
+  <span><i style="background:var(--gone)"></i>mismatch or empty: reject</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">bool</span> isValid(<span class="t">string</span> s) {
+        <span class="t">stack</span>&lt;<span class="t">char</span>&gt; st;
+        <span class="k">for</span> (<span class="t">char</span> c : s) {
+            <span class="k">if</span> (c == <span class="n">'('</span> || c == <span class="n">'['</span> || c == <span class="n">'{'</span>) {
+                st.push(c == <span class="n">'('</span> ? <span class="n">')'</span> : c == <span class="n">'['</span> ? <span class="n">']'</span> : <span class="n">'}'</span>);
+            } <span class="k">else</span> {
+                <span class="k">if</span> (st.empty() || st.top() != c) <span class="k">return</span> <span class="k">false</span>;
+                st.pop();
+            }
+        }
+        <span class="k">return</span> st.empty();
+    }
+};</pre>
+
+<p><b>Complexity:</b> each character pushed and popped at most once. O(n) time. Worst case the input is all openers, so
+the stack can hold n entries. O(n) space.</p>
+
+<h2>5. The part interviewers ask about: why pushing the closer is clean</h2>
+
+<div class="box insight">
+  The alternative is to push the opener and, on a closer, check that the top is the <i>matching</i> opener via a tiny
+  map (<code>')' &rarr; '('</code>, etc). It works, but there is an extra lookup on every closer. Pushing the closer
+  directly makes the inner check a single <code>c != st.top()</code>. In an interview, call out that both are O(n) and
+  pick whichever is clearer to you. The underlying invariant is the same: <b>the top of the stack is always the next
+  closing bracket we expect to see</b>.
+</div>
+
+<p>A second subtle point: three distinct final states collapse to <b>reject</b>: closer with an empty stack (nothing to
+match), closer whose required char does not match the top (wrong type), and a non-empty stack at the end (opener never
+closed). The code handles the first two in the loop and the third with <code>st.empty()</code> at the end.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Forgetting the empty-stack guard before <code>st.top()</code>.</b> On input <code>")"</code> this is undefined
+    behaviour. Check <code>st.empty() || st.top() != c</code> in that order.</li>
+    <li><b>Forgetting the final emptiness check.</b> On input <code>"("</code> the loop never rejects. Return
+    <code>st.empty()</code>, not <code>true</code>.</li>
+    <li><b>Checking <code>st.top() == c</code> as the acceptance condition without popping on success.</b> You keep the
+    expected closer on the stack and reject the next character for no reason. Always pop after a match.</li>
+    <li><b>Treating <code>"["</code> and <code>"]"</code> as interchangeable with <code>"("</code> and <code>")"</code>.</b>
+    Each type must match its own kind. <code>"([)]"</code> is <code>false</code> because the <code>)</code> arrives while
+    the top is <code>]</code>.</li>
+    <li><b>Edges.</b> <code>""</code> &rarr; <code>true</code> (no obligations). Single opener <code>"("</code> &rarr;
+    <code>false</code>. Single closer <code>")"</code> &rarr; <code>false</code>. Odd-length input is always
+    <code>false</code> (optional micro-optimisation: return early).</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "Brackets close in reverse order of opening, so I use a stack. When I see an opener I push the matching closer onto
+  the stack. When I see a closer I check it equals the top of the stack and pop. If the stack is empty on a closer or
+  the top does not match, it is invalid. At the end the stack must be empty, otherwise some opener was never closed.
+  O(n) time, O(n) space."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 155 Min Stack</td><td>Design a stack; same push / pop vocabulary, with an extra "track the min" wrinkle.</td></tr>
+  <tr><td>LC 32 Longest Valid Parentheses</td><td>Same bracket-matching idea; stack holds indices so you can measure the
+  length of each valid run.</td></tr>
+  <tr><td>LC 1249 Minimum Remove to Make Parentheses Valid</td><td>Walk once with a stack of indices; unmatched openers
+  and closers are the characters to drop.</td></tr>
+  <tr><td>LC 921 Minimum Add to Make Parentheses Valid</td><td>Can skip the real stack and just keep two counters; mental
+  model is still "pending openers on a stack".</td></tr>
+</table>
+
+<script>
+/* Idea diagram: show "{[()]}" being matched, with the stack after each step. */
+document.getElementById('idea').innerHTML = (function () {
+  const s = '{[()]}';
+  const map = { '(': ')', '[': ']', '{': '}' };
+  const steps = [];
+  let stack = [];
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (c in map) stack = stack.concat(map[c]);
+    else stack = stack.slice(0, -1);
+    steps.push({ i, c, stack: [...stack] });
+  }
+  let out = '<div class="figure" style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap">';
+  steps.forEach(st => {
+    const cls = {}; cls[st.i] = 'new';
+    const strip = VIZ.strip([...s], { cls, index: false });
+    const stk = VIZ.stack(st.stack, { title: 'stack' });
+    out += `<div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div style="font-size:11px;color:#616e7c">step ${st.i + 1}</div>
+      ${strip}${stk}
+    </div>`;
+  });
+  out += '</div><div class="caption">After the last step the stack is empty, so the string is valid.</div>';
+  return out;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Opener?', lines: ['push matching closer'], color: 'yellow' },
+  { title: '2. Closer?', lines: ['stack empty &rarr; reject', 'top != c &rarr; reject', 'else pop'], color: 'blue' },
+  { title: '3. End', lines: ['stack must be empty'], color: 'green' },
+], { loop: 'next char' });
+
+/* Interactive trace. */
+VIZ.controls('trace', [
+  { id: 's', label: 's =', value: '{[()]}', size: 24 },
+], v => {
+  const s = v.s || '';
+  if (s.length > 24) throw new Error('keep s to at most 24 characters for a readable trace');
+  for (const c of s) if ('()[]{}'.indexOf(c) < 0) throw new Error('only ()[]{} allowed, got ' + JSON.stringify(c));
+
+  const map = { '(': ')', '[': ']', '{': '}' };
+  const openers = new Set(['(', '[', '{']);
+
+  const stack = [];                     // chars we expect to close next
+  const steps = [];
+  let verdict = null;                   // null while running, true/false at end
+  let rejectIdx = -1;
+
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (openers.has(c)) {
+      const pushed = map[c];
+      stack.push(pushed);
+      steps.push({ i, c, kind: 'push', pushed, stack: [...stack] });
+    } else {
+      if (stack.length === 0) {
+        steps.push({ i, c, kind: 'reject-empty', stack: [...stack] });
+        verdict = false; rejectIdx = i;
+        break;
+      }
+      const top = stack[stack.length - 1];
+      if (top !== c) {
+        steps.push({ i, c, kind: 'reject-mismatch', top, stack: [...stack] });
+        verdict = false; rejectIdx = i;
+        break;
+      }
+      stack.pop();
+      steps.push({ i, c, kind: 'pop', top, stack: [...stack] });
+    }
+  }
+  if (verdict === null) verdict = (stack.length === 0);
+
+  const MAX = 25;
+  const chars = [...s];
+  let html = '';
+  const shown = steps.slice(0, MAX);
+  shown.forEach((st, k) => {
+    // strip highlight: current char yellow, prior consumed chars dim, rejected char red
+    const cls = {};
+    for (let j = 0; j < chars.length; j++) {
+      if (j < st.i) cls[j] = 'dim';
+      else if (j === st.i) cls[j] = (st.kind === 'reject-empty' || st.kind === 'reject-mismatch') ? 'gone' : 'new';
+    }
+    const strip = VIZ.strip(chars, { cls });
+
+    // stack colouring
+    const stkCls = {};
+    if (st.kind === 'pop') {
+      // show the (just-popped) top as green, pushed on top as a hint? just show matched + newly reduced stack
+    }
+    const stk = VIZ.stack(st.stack, { title: 'stack (top up)' });
+
+    let note = '';
+    if (st.kind === 'push') {
+      note = `Read <code>${VIZ.esc(st.c)}</code>: opener. Push its closer <code>${VIZ.esc(st.pushed)}</code>. Stack: ${st.stack.length ? '[' + st.stack.join('') + ']' : 'empty'}.`;
+    } else if (st.kind === 'pop') {
+      note = `Read <code>${VIZ.esc(st.c)}</code>: closer. Top was <code>${VIZ.esc(st.top)}</code>, matches. Pop. Stack: ${st.stack.length ? '[' + st.stack.join('') + ']' : 'empty'}.`;
+    } else if (st.kind === 'reject-empty') {
+      note = `Read <code>${VIZ.esc(st.c)}</code>: closer but stack is empty. <b class="bad">Reject.</b>`;
+    } else if (st.kind === 'reject-mismatch') {
+      note = `Read <code>${VIZ.esc(st.c)}</code>: closer. Top is <code>${VIZ.esc(st.top)}</code>, mismatch. <b class="bad">Reject.</b>`;
+    }
+
+    html += VIZ.step(`Step ${k + 1}: i = ${st.i}`,
+      '<div style="display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap">' + strip + stk + '</div>',
+      note, true);
+  });
+  if (steps.length > MAX) html += `<p class="caption">... ${steps.length - MAX} more steps, same pattern.</p>`;
+
+  // Final verdict step: show empty-check at end if not rejected mid-loop.
+  if (rejectIdx < 0) {
+    const cls = {};
+    chars.forEach((_, j) => cls[j] = 'dim');
+    const strip = VIZ.strip(chars, { cls });
+    const stk = VIZ.stack(stack, { title: 'stack (final)' });
+    const ok = stack.length === 0;
+    html += VIZ.step('End of string',
+      '<div style="display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap">' + strip + stk + '</div>',
+      ok
+        ? 'Stack is empty &rarr; every opener was closed. <b class="ok">Accept.</b>'
+        : `Stack still holds [${stack.join('')}] &rarr; some opener was never closed. <b class="bad">Reject.</b>`,
+      true);
+  }
+
+  document.getElementById('answer').innerHTML =
+    `<b>Answer for s = ${JSON.stringify(s)}: ${verdict ? '<span class="ok">true</span>' : '<span class="bad">false</span>'}</b>`;
+  return html;
+}, 'Only characters ()[]{} are allowed. Try "([)]" or "{[]}".');
+</script>
+
+</body>
+</html>

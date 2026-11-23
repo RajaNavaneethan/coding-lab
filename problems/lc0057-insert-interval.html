@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 57 - Insert Interval</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#intervals">Pattern lesson</a><span>Pattern 17: Intervals</span></div>
+
+<h1>Insert Interval</h1>
+<p class="sub">LeetCode 57 &middot; Medium &middot; Pattern: three-phase sweep &middot; O(n) time, O(n) space</p>
+
+<div class="box">
+  <b>Problem.</b> You are given a list of non-overlapping intervals, already sorted by start, and a single
+  <code>newInterval = [s, e]</code>. Insert the new interval, merging with any that overlap, and return the resulting
+  list (still sorted, still non-overlapping).
+  <br><code>[[1,3],[6,9]], [2,5] &rarr; [[1,5],[6,9]]</code>
+  <br><code>[[1,2],[3,5],[6,7],[8,10],[12,16]], [4,8] &rarr; [[1,2],[3,10],[12,16]]</code> (merges three existing intervals)
+  <br>Link: <a href="https://leetcode.com/problems/insert-interval/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>The existing list is already sorted and non-overlapping. On the number line this means the intervals the new one
+touches form <b>one contiguous block</b> &mdash; nothing can skip over a gap. So one left-to-right pass splits into
+three phases:</p>
+
+<ol>
+  <li><b>Before.</b> Intervals that end strictly before the new one starts. Copy them straight through.</li>
+  <li><b>Merge.</b> Intervals whose start is <code>&le; newInterval.end</code>. These overlap the new one. Fold them
+    all into one stretched interval by taking <code>min</code> of starts and <code>max</code> of ends. Push once.</li>
+  <li><b>After.</b> Remaining intervals. Copy them straight through.</li>
+</ol>
+
+<div id="idea"></div>
+
+<p>No sort is needed. The input is already in the right order, and the three phases happen in that order because the
+intervals do not overlap each other.</p>
+
+<div class="box insight">
+  <b>Idea.</b> Because the list is sorted and non-overlapping, the intervals that touch the new one are a single
+  contiguous block. Walk left to right in three phases: copy the ones before, merge the block that overlaps, copy the
+  ones after.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Each step draws existing intervals and the new interval on a number line. Grey bars are not yet reached. Blue bars
+are copied through unchanged. Yellow is the <i>new interval</i>, which grows as it absorbs overlapping intervals (red
+strike-through).</p>
+
+<div class="legend">
+  <span><i style="background:#dbeafe"></i>copied unchanged</span>
+  <span><i style="background:#fde68a"></i>new interval (growing)</span>
+  <span><i style="background:#fecaca"></i>absorbed into new interval</span>
+  <span><i style="background:#f1f5f9;border-style:dashed"></i>not yet reached</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt; insert(<span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt;&amp; intervals, <span class="t">vector</span>&lt;<span class="t">int</span>&gt; newInterval) {
+        <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt; out;
+        <span class="t">int</span> n = intervals.size(), i = <span class="n">0</span>;
+        <span class="c">// 1. copy intervals strictly before the new one</span>
+        <span class="k">while</span> (i &lt; n &amp;&amp; intervals[i][<span class="n">1</span>] &lt; newInterval[<span class="n">0</span>]) out.push_back(intervals[i++]);
+        <span class="c">// 2. merge every interval that overlaps the new one</span>
+        <span class="k">while</span> (i &lt; n &amp;&amp; intervals[i][<span class="n">0</span>] &lt;= newInterval[<span class="n">1</span>]) {
+            newInterval[<span class="n">0</span>] = min(newInterval[<span class="n">0</span>], intervals[i][<span class="n">0</span>]);
+            newInterval[<span class="n">1</span>] = max(newInterval[<span class="n">1</span>], intervals[i][<span class="n">1</span>]);
+            i++;
+        }
+        out.push_back(newInterval);
+        <span class="c">// 3. copy the rest</span>
+        <span class="k">while</span> (i &lt; n) out.push_back(intervals[i++]);
+        <span class="k">return</span> out;
+    }
+};</pre>
+
+<p><b>Complexity:</b> each interval is looked at once &mdash; O(n) time, O(n) output space. No sort because the input
+is already sorted.</p>
+
+<h2>5. The part interviewers ask about</h2>
+
+<div class="box insight">
+  <b>Why is the overlapping block contiguous?</b> Suppose interval <code>A</code> at index <code>i</code> does not
+  overlap the new one (ends before it) and interval <code>C</code> at index <code>k &gt; i</code> does. The existing
+  list is non-overlapping and sorted, so every interval <code>B</code> between them has
+  <code>B.start &gt; A.end</code>. Nothing says <code>B</code> must overlap the new one too &mdash; but once a
+  <code>C</code> that does overlap appears, every interval from the first overlapper to the last overlapper is in a
+  single run, because the list is sorted by start and each start is &ge; its predecessor. The merge phase closes exactly
+  one run.
+</div>
+
+<p><b>Could we use binary search?</b> Yes &mdash; find the first index with <code>end &ge; newInterval.start</code>
+using <code>lower_bound</code>, then linear-merge from there. It saves nothing in the worst case (the merge block can
+cover everything) but it is a nice touch when the input is big and the overlap is small.</p>
+
+<p><b>Streaming inserts.</b> If many new intervals arrive one at a time, keep them in a <code>std::set</code> keyed by
+start. Each insert is O(log n) to find predecessor/successor, then O(k) to erase and merge k touching intervals, which
+amortises well because once erased they never come back.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Using <code>&le;</code> instead of <code>&lt;</code> in phase 1.</b> Touching endpoints count as overlap on
+      LC 57 (<code>[1,3]</code> and <code>[3,5]</code> merge), so an interval ending exactly at <code>newInterval.start</code>
+      belongs to the merge block, not the copy-through block.</li>
+    <li><b>Forgetting <code>min</code> on the new start.</b> If the new interval starts inside an existing one
+      (e.g. <code>[[1,10]]</code>, insert <code>[2,3]</code>), the merged start must stay <code>1</code>.</li>
+    <li><b>Pushing <code>newInterval</code> twice</b> &mdash; or forgetting to push it when it goes at the end of the list
+      (<code>[[1,2]]</code>, insert <code>[3,4]</code>). The push-after-the-merge-loop handles both cases naturally.</li>
+    <li><b>Empty input list.</b> Result is just <code>[newInterval]</code>.</li>
+    <li><b>New interval covers everything.</b> Phase 2 eats every interval; phase 1 and phase 3 do nothing. Result is a
+      single interval.</li>
+    <li><b>New interval disjoint on either side.</b> Phase 2 runs zero times; <code>newInterval</code> is pushed as-is
+      between the two copy phases.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "The list is already sorted and non-overlapping, so overlapping intervals form one contiguous block. I do three
+  phases: copy intervals that end before the new start, fold every interval that still overlaps into the new one by
+  taking min of starts and max of ends, push the merged interval once, then copy the rest. One pass, O(n), no sort."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 56 Merge Intervals</td><td>Same merge logic but applied to the whole list after a sort by start.</td></tr>
+  <tr><td>LC 435 Non-overlapping Intervals</td><td>Sort by end; count what you must drop to keep the rest disjoint.</td></tr>
+  <tr><td>LC 253 Meeting Rooms II</td><td>Count overlaps; use a min-heap of end times or a sweep line.</td></tr>
+  <tr><td>LC 715 Range Module</td><td>Streaming insert / remove / query on a sorted interval set; same merge rules.</td></tr>
+</table>
+
+<script>
+/* Draw horizontal interval bars on a shared number line. */
+function drawIntervals(items, title) {
+  const n = items.length;
+  if (!n) return '';
+  const allX = items.flatMap(it => [it.iv[0], it.iv[1]]);
+  const minX = Math.min(...allX), maxX = Math.max(...allX);
+  const span = Math.max(1, maxX - minX);
+  const PAD_L = 60, PAD_R = 50, W = 760, H_PER = 28, HTOP = 36, HBOT = 32;
+  const H = HTOP + n * H_PER + HBOT;
+  const scale = x => PAD_L + (x - minX) / span * (W - PAD_L - PAD_R);
+  const tickStep = Math.max(1, Math.ceil(span / 8));
+  let ticks = '';
+  for (let x = minX; x <= maxX; x += tickStep) {
+    const px = scale(x);
+    ticks += `<line x1="${px}" y1="${HTOP - 6}" x2="${px}" y2="${HTOP}" stroke="#94a3b8" stroke-width="1"/>`;
+    ticks += `<text x="${px}" y="${HTOP - 10}" text-anchor="middle" font-size="11" fill="#616e7c">${x}</text>`;
+  }
+  const axis = `<line x1="${PAD_L - 5}" y1="${HTOP}" x2="${W - PAD_R + 5}" y2="${HTOP}" stroke="#334155" stroke-width="2"/>`;
+  const palette = {
+    copied:   { fill: '#dbeafe', stroke: '#3b82f6' },
+    growing:  { fill: '#fde68a', stroke: '#d97706' },
+    absorbed: { fill: '#fecaca', stroke: '#b91c1c' },
+    future:   { fill: '#f1f5f9', stroke: '#cbd5e1' },
+    final:    { fill: '#bbf7d0', stroke: '#15803d' },
+  };
+  let bars = '';
+  items.forEach((it, i) => {
+    const [a, b] = it.iv;
+    const x1 = scale(a), x2 = scale(b);
+    const y = HTOP + 8 + i * H_PER;
+    const h = H_PER - 10;
+    const col = palette[it.kind] || palette.future;
+    const dash = it.kind === 'future' ? ' stroke-dasharray="4,3"' : '';
+    bars += `<rect x="${x1}" y="${y}" width="${Math.max(2, x2 - x1)}" height="${h}" rx="4" fill="${col.fill}" stroke="${col.stroke}" stroke-width="2"${dash}/>`;
+    const strike = it.kind === 'absorbed' ? ' text-decoration="line-through"' : '';
+    bars += `<text x="${(x1 + x2) / 2}" y="${y + h / 2 + 5}" text-anchor="middle" font-size="12" font-weight="700" fill="${col.stroke}"${strike}>[${a},${b}]</text>`;
+    bars += `<text x="${PAD_L - 10}" y="${y + h / 2 + 5}" text-anchor="end" font-size="11" fill="#616e7c">${it.label || ''}</text>`;
+  });
+  const t = title ? `<text x="${W / 2}" y="18" text-anchor="middle" font-size="13" font-weight="700" fill="#1f2933">${title}</text>` : '';
+  return `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${H}">${t}${ticks}${axis}${bars}</svg>`;
+}
+
+/* Idea diagram. */
+(function () {
+  const existing = [[1,2],[3,5],[6,7],[8,10],[12,16]];
+  const newIv = [4,8];
+  const before = existing.map((iv, i) => ({
+    iv, label: `#${i}`,
+    kind: iv[1] < newIv[0] ? 'copied' : (iv[0] <= newIv[1] ? 'absorbed' : 'copied'),
+  }));
+  before.push({ iv: newIv, label: 'new', kind: 'growing' });
+  const after = [[1,2],[3,10],[12,16]];
+  const afterItems = after.map((iv, i) => ({ iv, label: `#${i}`, kind: 'final' }));
+  document.getElementById('idea').innerHTML =
+    drawIntervals(before, 'before: new = [4,8]; blue copied, red absorbed') +
+    drawIntervals(afterItems, 'after: three absorbed intervals folded into [3,10]') +
+    '<div class="caption">[3,5], [6,7] and [8,10] are a contiguous block that overlaps [4,8]. Fold them into one: ' +
+    'start = min(3,4) = 3, end = max(10,8) = 10. [1,2] and [12,16] are copied through unchanged.</div>';
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Copy before', lines: ['while end < new.start', 'push intervals[i]'], color: 'blue' },
+  { title: '2. Merge block', lines: ['while start <= new.end', 'new.start = min(...)', 'new.end = max(...)'], color: 'yellow' },
+  { title: '3. Push new', lines: ['out.push_back(', '  newInterval)'], color: 'green' },
+  { title: '4. Copy after', lines: ['while i < n', 'push intervals[i]'], color: 'purple' },
+]);
+
+/* Trace. */
+VIZ.controls('trace', [
+  { id: 'ivs', label: 'intervals =', value: '[[1,2],[3,5],[6,7],[8,10],[12,16]]', size: 32 },
+  { id: 'niv', label: 'newInterval =', value: '[4,8]', size: 10 },
+], v => {
+  let intervals, newIv;
+  try { intervals = VIZ.parse.mat(v.ivs); newIv = VIZ.parse.arr(v.niv); }
+  catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  if (!Array.isArray(intervals) || !intervals.every(iv => Array.isArray(iv) && iv.length === 2))
+    return '<div class="box trap">intervals must be an array of [s,e] pairs.</div>';
+  if (!Array.isArray(newIv) || newIv.length !== 2) return '<div class="box trap">newInterval must be [s,e].</div>';
+  if (intervals.length > 10) return '<div class="box trap">Keep intervals &le; 10 for a readable picture.</div>';
+  // Validate sorted & non-overlapping
+  for (let i = 1; i < intervals.length; i++) if (intervals[i][0] < intervals[i-1][1])
+    return '<div class="box trap">intervals must be sorted by start and non-overlapping.</div>';
+
+  const out = [];
+  const steps = [];
+  let i = 0, cur = newIv.slice();
+  const n = intervals.length;
+
+  // helper to render current state as rows: all existing + newInterval
+  function snapshot(label, phase, highlight) {
+    const items = intervals.map((iv, idx) => {
+      let kind;
+      if (idx < i && idx < phaseBoundaries.phase1End) kind = 'copied';         // copied-through before merge
+      else if (idx < i && idx < phaseBoundaries.phase2End) kind = 'absorbed';  // part of merge block
+      else if (idx < i) kind = 'copied';                                       // copied-through after merge
+      else kind = 'future';
+      // override at the step currently being considered
+      if (idx === highlight && phase === 'skip') kind = 'copied';
+      if (idx === highlight && phase === 'merge') kind = 'absorbed';
+      if (idx === highlight && phase === 'tail') kind = 'copied';
+      return { iv, label: `#${idx}`, kind };
+    });
+    items.push({ iv: cur.slice(), label: 'new', kind: 'growing' });
+    return drawIntervals(items, label);
+  }
+  const phaseBoundaries = { phase1End: 0, phase2End: 0 };
+
+  // Phase 1: skip
+  while (i < n && intervals[i][1] < cur[0]) {
+    out.push(intervals[i]);
+    steps.push({
+      phase: 'skip', i,
+      note: `<code>intervals[${i}].end = ${intervals[i][1]} &lt; new.start = ${cur[0]}</code>. ` +
+            `Copy <code>[${intervals[i][0]}, ${intervals[i][1]}]</code> to the output as-is.`,
+      cur: cur.slice(),
+    });
+    i++;
+    phaseBoundaries.phase1End = i;
+  }
+  phaseBoundaries.phase1End = i;
+  phaseBoundaries.phase2End = i;
+
+  // Phase 2: merge
+  while (i < n && intervals[i][0] <= cur[1]) {
+    const before = cur.slice();
+    cur[0] = Math.min(cur[0], intervals[i][0]);
+    cur[1] = Math.max(cur[1], intervals[i][1]);
+    steps.push({
+      phase: 'merge', i,
+      note: `<code>intervals[${i}].start = ${intervals[i][0]} &le; new.end = ${before[1]}</code>: overlap. ` +
+            `Grow new to <code>[min(${before[0]},${intervals[i][0]}), max(${before[1]},${intervals[i][1]})] ` +
+            `= [${cur[0]}, ${cur[1]}]</code>.`,
+      cur: cur.slice(),
+    });
+    i++;
+    phaseBoundaries.phase2End = i;
+  }
+  // push newInterval
+  const pushIdx = out.length;
+  out.push(cur.slice());
+  steps.push({
+    phase: 'push', i,
+    note: `Merge block closed. Push the grown new interval <code>[${cur[0]}, ${cur[1]}]</code> at position ${pushIdx}.`,
+    cur: cur.slice(),
+  });
+
+  // Phase 3: tail
+  while (i < n) {
+    out.push(intervals[i]);
+    steps.push({
+      phase: 'tail', i,
+      note: `Past the merge block. Copy <code>[${intervals[i][0]}, ${intervals[i][1]}]</code> to the output.`,
+      cur: cur.slice(),
+    });
+    i++;
+  }
+
+  const MAX = 25;
+  const show = steps.slice(0, MAX);
+  let html = '';
+
+  // Opening: input picture
+  const initItems = intervals.map((iv, idx) => ({ iv, label: `#${idx}`, kind: 'future' }));
+  initItems.push({ iv: newIv.slice(), label: 'new', kind: 'growing' });
+  html += VIZ.step('Input', drawIntervals(initItems, 'existing (dashed) + new'),
+    `${intervals.length} existing intervals (sorted, non-overlapping). New interval = <code>[${newIv[0]}, ${newIv[1]}]</code>.`, true);
+
+  // Walk the steps, rebuilding the current cursor i and cur at each.
+  let simI = 0, simCur = newIv.slice();
+  let phase1Reached = 0, phase2Reached = 0;
+  show.forEach((st, k) => {
+    simCur = st.cur;
+    const items = intervals.map((iv, idx) => {
+      let kind;
+      if (st.phase === 'skip') {
+        if (idx < st.i) kind = 'copied';
+        else if (idx === st.i) kind = 'copied';
+        else kind = 'future';
+      } else if (st.phase === 'merge') {
+        if (idx < phase1Reached) kind = 'copied';
+        else if (idx < st.i) kind = 'absorbed';
+        else if (idx === st.i) kind = 'absorbed';
+        else kind = 'future';
+      } else if (st.phase === 'push') {
+        if (idx < phase1Reached) kind = 'copied';
+        else if (idx < phase2Reached) kind = 'absorbed';
+        else kind = 'future';
+      } else {  // tail
+        if (idx < phase1Reached) kind = 'copied';
+        else if (idx < phase2Reached) kind = 'absorbed';
+        else if (idx < st.i) kind = 'copied';
+        else if (idx === st.i) kind = 'copied';
+        else kind = 'future';
+      }
+      return { iv, label: `#${idx}`, kind };
+    });
+    items.push({ iv: simCur.slice(), label: 'new', kind: 'growing' });
+
+    const title = {
+      skip:  `Phase 1 (copy): look at #${st.i}`,
+      merge: `Phase 2 (merge): absorb #${st.i}`,
+      push:  `Push merged new interval`,
+      tail:  `Phase 3 (copy): look at #${st.i}`,
+    }[st.phase];
+
+    html += VIZ.step(`Step ${k + 1}: ${title}`, drawIntervals(items), st.note, true);
+
+    // update rolling phase boundaries after this step
+    if (st.phase === 'skip') phase1Reached = Math.max(phase1Reached, st.i + 1);
+    if (st.phase === 'merge') phase2Reached = Math.max(phase2Reached, st.i + 1);
+  });
+
+  if (steps.length > MAX) html += `<p class="caption">... ${steps.length - MAX} more steps, same three phases.</p>`;
+
+  // Final result
+  const finalItems = out.map((iv, idx) => ({ iv, label: `#${idx}`, kind: 'final' }));
+  html += VIZ.step('Result', drawIntervals(finalItems, 'final merged list'),
+    `Final list: ${out.map(iv => '<code>[' + iv[0] + ',' + iv[1] + ']</code>').join(', ')}.`, true);
+
+  document.getElementById('answer').innerHTML =
+    `<b>Answer: [${out.map(iv => '[' + iv[0] + ',' + iv[1] + ']').join(', ')}]</b>`;
+  return html;
+}, 'intervals must be sorted and non-overlapping. newInterval is a single [s,e].');
+</script>
+
+</body>
+</html>

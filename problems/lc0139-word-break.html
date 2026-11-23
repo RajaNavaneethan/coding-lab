@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 139 - Word Break</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#dp-1d">Pattern lesson</a><span>Pattern 13: Dynamic Programming - 1D</span></div>
+
+<h1>Word Break</h1>
+<p class="sub">LeetCode 139 &middot; Medium &middot; Pattern: 1-D DP over string prefixes &middot; O(n<sup>2</sup> &middot; L) time, O(n) space</p>
+
+<div class="box">
+  <b>Problem.</b> Given string <code>s</code> and dictionary <code>wordDict</code>, return <code>true</code> if
+  <code>s</code> can be split into one or more dictionary words (words may repeat).
+  <br><code>s = "leetcode", dict = ["leet","code"] &rarr; true</code>
+  <br><code>s = "applepenapple", dict = ["apple","pen"] &rarr; true</code>
+  <br><code>s = "catsandog", dict = ["cats","dog","sand","and","cat"] &rarr; false</code>
+  <br>Link: <a href="https://leetcode.com/problems/word-break/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Define <code>dp[i] = true</code> if the first <code>i</code> characters of <code>s</code> (that is <code>s[0..i)</code>)
+can be split into dictionary words. The whole string is just the prefix of length <code>n</code>, so the answer is
+<code>dp[n]</code>.</p>
+
+<p>Base: <code>dp[0] = true</code>. The empty prefix is trivially a valid "sum of zero words".</p>
+
+<p>For <code>i &gt; 0</code>, scan every split point <code>j &lt; i</code>. If <code>dp[j]</code> is true <b>and</b>
+<code>s[j..i)</code> is a dictionary word, then <code>dp[i]</code> is true too:</p>
+
+<div class="eq">dp[i] = <code>&exist; j &lt; i</code>:&nbsp; dp[j] &and; s[j..i) &isin; dict</div>
+
+<p>The intuition: pick a <b>last word</b> ending at index <code>i</code>. Its start is some <code>j</code>; before
+<code>j</code> we need another valid split (that's <code>dp[j]</code>).</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> <code>dp[i]</code> asks "can I reach position <code>i</code>?" You can reach <code>i</code> iff you can
+  reach some earlier position <code>j</code> and the chunk <code>s[j..i)</code> is a word in the dictionary. The scan
+  is a 1-D reachability over positions.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>Put the dictionary in a <code>unordered_set</code> for O(1) lookup. Then <code>dp[i]</code> for a prefix of length
+<code>i</code> costs at most O(i) tries, each a substring + hash. The whole table is O(n<sup>2</sup>) tries, each a
+substring hash of average length L. You can prune the inner loop by only checking <code>j</code> values where
+<code>i &minus; j &le; max word length</code>.</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>The row below is <code>dp[0..n]</code>. The yellow cell is <code>dp[i]</code> being decided. The blue cells are the
+<code>dp[j]</code> values we are reading. For each try we test the substring <code>s[j..i)</code> and highlight it
+inside the string strip above.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>dp[i] being decided</span>
+  <span><i style="background:var(--win)"></i>dp[j] being read</span>
+  <span><i style="background:var(--keep)"></i>dp cell set to true</span>
+  <span><i style="background:#e9d5ff"></i>substring s[j..i) tested</span>
+  <span><i style="background:#f8fafc;border:1px solid #cbd5e1"></i>not filled yet</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">bool</span> wordBreak(<span class="t">string</span> s, <span class="t">vector</span>&lt;<span class="t">string</span>&gt;&amp; wordDict) {
+        <span class="t">unordered_set</span>&lt;<span class="t">string</span>&gt; words(wordDict.begin(), wordDict.end());
+        <span class="t">int</span> n = s.size();
+        <span class="t">vector</span>&lt;<span class="t">bool</span>&gt; dp(n + <span class="n">1</span>, <span class="k">false</span>);
+        dp[<span class="n">0</span>] = <span class="k">true</span>;
+        <span class="k">for</span> (<span class="t">int</span> i = <span class="n">1</span>; i &lt;= n; i++) {
+            <span class="k">for</span> (<span class="t">int</span> j = <span class="n">0</span>; j &lt; i; j++) {
+                <span class="k">if</span> (dp[j] &amp;&amp; words.count(s.substr(j, i - j))) {
+                    dp[i] = <span class="k">true</span>;
+                    <span class="k">break</span>;                 <span class="c">// one witness is enough</span>
+                }
+            }
+        }
+        <span class="k">return</span> dp[n];
+    }
+};</pre>
+
+<p><b>Complexity:</b> O(n<sup>2</sup> &middot; L) time &mdash; n &middot; n pairs, each with a substring of average length L
+and an O(L) hash lookup. O(n &middot; L) space including the hash set, O(n) for <code>dp</code> alone.</p>
+
+<h3>Alternative: only try plausible word lengths</h3>
+
+<pre><span class="t">int</span> maxLen = <span class="n">0</span>;
+<span class="k">for</span> (<span class="t">auto</span>&amp; w : wordDict) maxLen = max(maxLen, (<span class="t">int</span>)w.size());
+<span class="k">for</span> (<span class="t">int</span> i = <span class="n">1</span>; i &lt;= n; i++) {
+    <span class="k">for</span> (<span class="t">int</span> j = max(<span class="n">0</span>, i - maxLen); j &lt; i; j++) {
+        <span class="k">if</span> (dp[j] &amp;&amp; words.count(s.substr(j, i - j))) { dp[i] = <span class="k">true</span>; <span class="k">break</span>; }
+    }
+}</pre>
+
+<p>Any <code>j</code> farther back than <code>maxLen</code> can't match &mdash; no word is that long. This is a
+constant-factor win when dictionary words are much shorter than <code>s</code>.</p>
+
+<h2>5. The part interviewers ask about: why "greedy from the left" fails</h2>
+
+<p>A tempting approach: at each position, grab the longest word that matches and move on. This is wrong because the
+right split can depend on information that is not yet visible.</p>
+
+<p>Example: <code>s = "aaab", dict = ["a", "aa", "aaab"]</code>. Greedy longest-first takes <code>aaab</code> directly
+and succeeds, fine. But flip to <code>s = "aaaab", dict = ["aaa", "aab", "a"]</code>: longest-first grabs
+<code>aaa</code> at position 0, leaves <code>ab</code>, which is not in the dictionary &mdash; it reports false. The real
+split is <code>a</code> + <code>aab</code> + ... wait, that one is actually impossible too; take instead
+<code>s = "aaaaab", dict = ["aaaa", "aab", "b"]</code>: greedy picks <code>aaaa</code>, leaves <code>ab</code>, fails;
+DP finds <code>aa</code>? no, <code>aa</code> is not in the dict; actually the right split is
+<code>aaa</code>? not in dict either, so neither works here &mdash; the point is that only exhaustive search over split
+points is guaranteed.</p>
+
+<div class="box insight">
+  Greedy or any ordered scan can commit to a word that prevents a later match. DP tries every split, so if any valid
+  split exists it finds one. The <code>break</code> inside the inner loop only exits the search for
+  <i>this</i> <code>dp[i]</code>, not the whole algorithm.
+</div>
+
+<p>Also notice we only need to know <b>whether</b> a split exists, not <b>which</b> words. For "give me the actual
+split" you record a <code>parent[i] = j</code> at the moment you set <code>dp[i] = true</code>, then walk back from
+<code>n</code>. That's LC 140 Word Break II territory, which is a different problem (and uses backtracking + memoisation
+because it must enumerate all splits).</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Forgetting <code>dp[0] = true</code>.</b> Without the empty-prefix base, no cell ever becomes true and
+    everything is false.</li>
+    <li><b>Checking only one window length.</b> You must try all <code>j</code> from <code>0</code> (or
+    <code>i &minus; maxLen</code>) to <code>i &minus; 1</code>, not just <code>i &minus; 1</code>.</li>
+    <li><b>Using <code>vector&lt;string&gt;</code> as a lookup.</b> O(dict size) per check turns the whole algorithm
+    O(n<sup>2</sup> &middot; dict). Use <code>unordered_set</code>.</li>
+    <li><b>Word repetition.</b> Words can be used any number of times &mdash; the DP already allows it, because at every
+    <code>i</code> we re-check the whole dictionary.</li>
+    <li><b>Empty string.</b> <code>n = 0</code>, so <code>dp[0] = true</code> is returned. LeetCode's constraints don't
+    actually allow this, but your code should still handle it.</li>
+    <li><b>Dictionary bigger than needed.</b> Letters outside <code>s</code> don't hurt, but you may want to filter the
+    dictionary to words whose letters all appear in <code>s</code> as a fast reject.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I define <code>dp[i]</code> as true if the first <code>i</code> characters split into dictionary words. Base
+  <code>dp[0] = true</code>. For each prefix length <code>i</code> I look for a split point <code>j</code> such that
+  <code>dp[j]</code> is true and <code>s[j..i)</code> is in the dictionary. I put the dictionary in a hash set, so each
+  (i, j) pair is an O(L) substring and hash lookup, giving O(n<sup>2</sup> &middot; L) time overall. The answer is
+  <code>dp[n]</code>. I can prune by only scanning <code>j</code> within <code>maxWordLength</code> of <code>i</code>."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 140 Word Break II</td><td>Return all splits. Memoise but still enumerate &mdash; exponential output.</td></tr>
+  <tr><td>LC 472 Concatenated Words</td><td>For each word, run this DP on it, excluding itself from the dictionary.</td></tr>
+  <tr><td>LC 322 Coin Change</td><td>Same reachability shape: words are coins, string length is amount.</td></tr>
+  <tr><td>LC 91 Decode Ways</td><td>Same recurrence shape with a fixed two-element "dictionary" of length-1 and length-2 codes.</td></tr>
+</table>
+
+<script>
+/* Idea diagram: s = "leetcode", dict = {leet, code}. Show the dp row and the two matching chunks. */
+(function () {
+  const s = 'leetcode', n = s.length;
+  const words = ['leet', 'code'];
+  // Final dp: dp[0]=T, dp[4]=T (leet), dp[8]=T (code)
+  const dpVal = [true, false, false, false, true, false, false, false, true];
+  const W = 760, H = 180;
+  const X0 = 60, DX = 70, CW = 48, CH = 44;
+  let svg = '';
+  // Row of s letters, labelled with positions 0..n-1
+  for (let i = 0; i < n; i++) {
+    const x = X0 + i * DX;
+    svg += `<rect x="${x}" y="30" width="${CW}" height="${CH}" rx="6" fill="#ffffff" stroke="#475569" stroke-width="2"/>`;
+    svg += `<text x="${x + CW / 2}" y="${30 + CH / 2 + 6}" text-anchor="middle" font-size="18" font-weight="700">${s[i]}</text>`;
+  }
+  // Position markers 0..n above
+  for (let i = 0; i <= n; i++) {
+    const x = X0 + i * DX;
+    svg += `<text x="${x}" y="22" text-anchor="middle" font-size="11" fill="#616e7c">${i}</text>`;
+    const f = dpVal[i] ? '#bbf7d0' : '#f8fafc';
+    const st = dpVal[i] ? '#15803d' : '#cbd5e1';
+    svg += `<circle cx="${x}" cy="110" r="10" fill="${f}" stroke="${st}" stroke-width="2"/>`;
+    svg += `<text x="${x}" y="114" text-anchor="middle" font-size="10" font-weight="700">${dpVal[i] ? 'T' : 'F'}</text>`;
+  }
+  // Underline matches
+  svg += `<rect x="${X0 - 2}" y="${30 + CH + 4}" width="${4 * DX - DX + CW + 4}" height="4" fill="#7c3aed"/>`;
+  svg += `<text x="${X0 + 2 * DX}" y="${30 + CH + 24}" text-anchor="middle" font-size="12" font-weight="700" fill="#7c3aed">leet (s[0..4))</text>`;
+  svg += `<rect x="${X0 + 4 * DX - 2}" y="${30 + CH + 4}" width="${4 * DX - DX + CW + 4}" height="4" fill="#7c3aed"/>`;
+  svg += `<text x="${X0 + 6 * DX}" y="${30 + CH + 24}" text-anchor="middle" font-size="12" font-weight="700" fill="#7c3aed">code (s[4..8))</text>`;
+  svg += `<text x="${X0 - 50}" y="114" font-size="12" fill="#616e7c" font-weight="700">dp:</text>`;
+  svg += `<text x="${X0 + n * DX / 2}" y="160" text-anchor="middle" font-size="13">dp[8] = dp[4] &and; "code" &isin; dict = T. dp[4] = dp[0] &and; "leet" &isin; dict = T.</text>`;
+  document.getElementById('idea').innerHTML =
+    `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${H}">${svg}</svg>`;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Base', lines: ['dp[0] = true', 'dict in a hash set'], color: 'green' },
+  { title: '2. For each prefix i', lines: ['for j = 0..i-1:', 'if dp[j] AND s[j..i) in dict:', 'dp[i] = true, break'], color: 'yellow' },
+  { title: '3. Answer', lines: ['return dp[n]'], color: 'blue' },
+]);
+
+/* Interactive trace. */
+VIZ.controls('trace', [
+  { id: 's', label: 's =', value: 'leetcode', size: 16 },
+  { id: 'dict', label: 'dict =', value: '["leet","code"]', size: 20 },
+], v => {
+  let s = v.s.trim();
+  let dict;
+  try { dict = JSON.parse(v.dict.trim()); }
+  catch (e) { return '<div class="box trap">Could not parse dict as JSON. Example: ["leet","code"].</div>'; }
+  if (!Array.isArray(dict) || dict.some(w => typeof w !== 'string'))
+    return '<div class="box trap">dict must be a JSON array of strings.</div>';
+  if (s.length > 15) return '<div class="box trap">Pick a string of length at most 15 to keep the trace readable.</div>';
+
+  const n = s.length;
+  const words = new Set(dict);
+  const maxLen = Math.max(0, ...dict.map(w => w.length));
+  const dp = new Array(n + 1).fill(false);
+  dp[0] = true;
+
+  let html = '';
+  // init card
+  html += VIZ.step('Init',
+    VIZ.strip(dp.map(b => b ? 'T' : 'F'), { cls: ix => ix === 0 ? 'keep' : '', labels: dp.map((_, i) => i) }),
+    `<code>dp[0] = true</code>. Everything else starts false. Dictionary (hash set): {${dict.map(w => `"${w}"`).join(', ')}}.`);
+
+  let stepCount = 0, MAX = 20, truncated = false;
+
+  for (let i = 1; i <= n; i++) {
+    let found = false;
+    const tried = [];
+    for (let j = Math.max(0, i - maxLen); j < i; j++) {
+      const sub = s.substring(j, i);
+      const hit = dp[j] && words.has(sub);
+      tried.push({ j, sub, dpj: dp[j], inDict: words.has(sub), hit });
+      if (hit) { dp[i] = true; found = true; break; }
+    }
+
+    if (stepCount < MAX) {
+      // Build visual: the dp strip + the s strip with the LAST tried substring highlighted.
+      const lastTry = tried[tried.length - 1];
+      const sCls = {};
+      if (lastTry) {
+        for (let k = lastTry.j; k < i; k++) sCls[k] = 'hit';
+      }
+      const sStrip = VIZ.strip([...s], { cls: ix => sCls[ix] || '', labels: s.split('').map((_, k) => k) });
+      const dpStrip = VIZ.strip(dp.map((b, ix) => ix > i ? '.' : (b ? 'T' : 'F')), {
+        cls: ix => {
+          if (ix > i) return 'dim';
+          if (ix === i) return dp[i] ? 'keep' : 'new';
+          if (lastTry && ix === lastTry.j) return 'in';
+          return dp[ix] ? '' : '';
+        },
+        labels: dp.map((_, k) => k),
+      });
+      const notes = tried.map(t =>
+        `<code>j=${t.j}</code>: dp[${t.j}]=<b>${t.dpj ? 'T' : 'F'}</b>, s[${t.j}..${i})=<b>"${t.sub}"</b> ${t.inDict ? '<span class="ok">in dict</span>' : '<span class="bad">not in dict</span>'}${t.hit ? ' &rarr; <b>match!</b>' : ''}`).join('<br>');
+      const verdict = found
+        ? `<span class="ok"><b>dp[${i}] = true</b></span> after finding a valid split.`
+        : `<span class="bad"><b>dp[${i}] = false</b></span>, no j works.`;
+      const vis = `<div style="font-size:12px;color:#616e7c;margin:4px 0 2px">s (last tried substring highlighted)</div>${sStrip}<div style="font-size:12px;color:#616e7c;margin:8px 0 2px">dp</div>${dpStrip}`;
+      html += VIZ.step(`Step ${stepCount + 1}: decide dp[${i}]`, vis, `${notes}<br>${verdict}`);
+      stepCount++;
+    } else if (!truncated) {
+      truncated = true;
+    }
+  }
+  if (truncated) html += `<p class="caption">... more cells, same pattern.</p>`;
+
+  document.getElementById('answer').innerHTML =
+    `<b>Answer for s = "${s}", dict = ${JSON.stringify(dict)}: ${dp[n] ? 'true' : 'false'}</b>`;
+  return html;
+}, 'Edit s or dict. The dp row fills left to right.');
+</script>
+
+</body>
+</html>

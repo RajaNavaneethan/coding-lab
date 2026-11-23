@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 875 - Koko Eating Bananas</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#binary-search">Pattern lesson</a><span>Pattern 4: Binary Search</span></div>
+
+<h1>Koko Eating Bananas</h1>
+<p class="sub">LeetCode 875 &middot; Medium &middot; Pattern: binary search on the answer &middot; O(n log M) time, O(1) space</p>
+
+<div class="box">
+  <b>Problem.</b> Piles of bananas. Each hour Koko picks one pile and eats up to <code>k</code> bananas from it
+  (if the pile has less, she still rests the rest of the hour). Find the smallest integer eating speed <code>k</code>
+  that finishes all <code>piles</code> in <code>h</code> hours.
+  <br><code>piles=[3,6,7,11], h=8 &rarr; 4</code> &nbsp;&nbsp; <code>piles=[30,11,23,4,20], h=5 &rarr; 30</code>
+  <br>Link: <a href="https://leetcode.com/problems/koko-eating-bananas/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Call <code>f(k)</code> the number of hours needed at speed <code>k</code>:</p>
+
+<div class="eq">f(k) = &sum;<sub>p &in; piles</sub> &lceil;p / k&rceil;</div>
+
+<p>As <code>k</code> grows, each ceiling can only drop or stay the same, so <code>f</code> is a <b>non-increasing</b>
+function of <code>k</code>. The question "is this speed fast enough?" (<code>f(k) &le; h</code>) is therefore
+<b>monotonic</b>: false for small <code>k</code>, true from some point onward. Binary search for that boundary.</p>
+
+<p>Range: <code>k</code> must be at least <code>1</code> (she has to eat something) and never needs to exceed
+<code>max(piles)</code> (finishing the biggest pile in one hour per pile is already <code>n &le; h</code> hours by
+the constraints). So search <code>k</code> in <code>[1, max(piles)]</code>.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Binary search on <code>k</code>, not on an index. The predicate <code>hours(k) &le; h</code> flips
+  from false to true at the answer. Use the standard lower-bound template to find the first <code>k</code> where it
+  is true.
+</div>
+
+<h3>Why ceiling, not floor</h3>
+
+<p>At speed <code>k = 4</code> on a pile of <code>7</code>, Koko eats 4 the first hour (3 left), then 3 the second
+hour (she does not keep going into a third pile that hour). That is 2 hours = <code>&lceil;7 / 4&rceil;</code>. Floor
+would give 1 and undercount. Compute ceiling with integer math: <code>(p + k - 1) / k</code>.</p>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Each step shows the current <code>[lo, hi]</code> speed range on a strip. The yellow cell is <code>mid</code>.
+Red struck-through cells on the strip are the half of the speed range we discard on this step. Beside the strip,
+the <code>hours(mid)</code> table shows <code>&lceil;p / mid&rceil;</code> per pile and the total.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>mid speed</span>
+  <span><i style="background:var(--win)"></i>still in range</span>
+  <span><i style="background:var(--gone)"></i>dropped on this step</span>
+  <span><i style="background:#f8fafc;border-color:#cbd5e1"></i>dropped earlier</span>
+  <span><i style="background:var(--keep)"></i>answer</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">int</span> minEatingSpeed(<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; piles, <span class="t">int</span> h) {
+        <span class="t">int</span> lo = <span class="n">1</span>, hi = *max_element(piles.begin(), piles.end());
+        <span class="k">while</span> (lo &lt; hi) {
+            <span class="t">int</span> mid = lo + (hi - lo) / <span class="n">2</span>;
+            <span class="t">long</span> <span class="t">long</span> hours = <span class="n">0</span>;
+            <span class="k">for</span> (<span class="t">int</span> p : piles) hours += (p + mid - <span class="n">1</span>) / mid;   <span class="c">// ceil(p / mid)</span>
+            <span class="k">if</span> (hours &lt;= h) hi = mid;                              <span class="c">// fast enough, try slower</span>
+            <span class="k">else</span>            lo = mid + <span class="n">1</span>;                          <span class="c">// too slow</span>
+        }
+        <span class="k">return</span> lo;
+    }
+};</pre>
+
+<p><b>Complexity:</b> <code>O(n log M)</code> where <code>M = max(piles)</code>. One <code>n</code>-length sum per
+binary-search step, and the step count is <code>log M</code>. <code>O(1)</code> extra space.</p>
+
+<h2>5. The part interviewers ask about: why hours fits in <code>long long</code></h2>
+
+<div class="box insight">
+  LeetCode bounds: <code>1 &le; piles[i] &le; 10<sup>9</sup></code> and <code>n &le; 10<sup>4</sup></code>. At
+  <code>mid = 1</code>, each ceiling is up to <code>10<sup>9</sup></code> and we sum <code>n</code> of them, so the
+  total can reach <code>10<sup>13</sup></code>. That overflows a 32-bit <code>int</code>. Use <code>long long</code>
+  for the running sum (or break early once <code>hours &gt; h</code>, which also stops the overflow).
+</div>
+
+<p><b>Early exit.</b> Once <code>hours</code> exceeds <code>h</code> you already know this <code>mid</code> is too
+slow. Breaking out saves work and avoids the overflow concern:</p>
+
+<pre><span class="k">for</span> (<span class="t">int</span> p : piles) {
+    hours += (p + mid - <span class="n">1</span>) / mid;
+    <span class="k">if</span> (hours &gt; h) <span class="k">break</span>;
+}</pre>
+
+<p><b>Why the final <code>return lo</code>, not <code>return hi</code>, is right.</b> The loop is the half-open
+template: on exit <code>lo == hi</code> and that index is the first speed where the predicate holds. The predicate is
+"<code>hours(k) &le; h</code>", which is exactly the condition in the problem statement, so <code>lo</code> is the
+answer.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Floor instead of ceiling.</b> Using <code>p / mid</code> undercounts hours and returns a speed that is
+    actually too slow.</li>
+    <li><b><code>mid = 0</code>.</b> With <code>lo = 0</code> you can get <code>mid = 0</code> and divide by zero.
+    Start <code>lo = 1</code>.</li>
+    <li><b>Integer overflow in the sum.</b> See the box above. Use <code>long long</code>.</li>
+    <li><b><code>hi = max(piles) + 1</code> instead of <code>max(piles)</code>.</b> Harmless but wasteful. At speed
+    <code>max(piles)</code>, every pile takes exactly one hour, total <code>n</code> hours, and the constraints say
+    <code>n &le; h</code>, so <code>max(piles)</code> always satisfies the predicate.</li>
+    <li><b>Mixing closed and half-open templates.</b> If the loop is <code>lo &lt; hi</code> you must write
+    <code>hi = mid</code>, not <code>hi = mid - 1</code>. The latter can skip the answer when the window is two
+    cells.</li>
+    <li><b>Single pile.</b> <code>piles = [1000000000], h = 2</code>: binary search converges to
+    <code>&lceil;10<sup>9</sup> / 2&rceil; = 500000000</code>.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "The hours needed at speed <code>k</code> is <code>&sum;&lceil;p / k&rceil;</code>, which is non-increasing in
+  <code>k</code>. So <code>hours(k) &le; h</code> flips from false to true once as <code>k</code> grows: that is a
+  binary-search condition. I search <code>k</code> in <code>[1, max(piles)]</code> with the lower-bound template:
+  <code>hi = mid</code> when fast enough, <code>lo = mid + 1</code> when too slow, return <code>lo</code>. Use ceiling
+  for the per-pile hours, and <code>long long</code> for the sum to avoid overflow at <code>k = 1</code>."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 1011 Capacity to Ship Packages Within D Days</td><td>Binary search on capacity; check whether a greedy pass fits in D days.</td></tr>
+  <tr><td>LC 410 Split Array Largest Sum</td><td>Binary search on the max subarray sum; same monotone predicate.</td></tr>
+  <tr><td>LC 1482 Minimum Days to Make m Bouquets</td><td>Binary search on days; count how many bouquets you can make.</td></tr>
+  <tr><td>LC 2187 Minimum Time to Complete Trips</td><td>Binary search on total time; count trips.</td></tr>
+  <tr><td>LC 1760 Min Max of Bag of Balls</td><td>Binary search on max size; count splits needed.</td></tr>
+</table>
+
+<script>
+/* Idea diagram: show the predicate table on [3,6,7,11], h=8. */
+(function () {
+  const piles = [3,6,7,11];
+  const h = 8;
+  const row = k => piles.map(p => Math.ceil(p / k));
+  const sum = r => r.reduce((a, b) => a + b, 0);
+  const rows = [3,4,5,6].map(k => {
+    const r = row(k);
+    const t = sum(r);
+    const verdict = t <= h ? '<span class="ok">&le; 8 (ok)</span>' : '<span class="bad">&gt; 8 (too slow)</span>';
+    return [k, ...r.map(String), t + ' hours ' + verdict];
+  });
+  document.getElementById('idea').innerHTML =
+    '<p>Predicate <code>hours(k) &le; h</code> for a few candidate speeds, piles <code>[3,6,7,11]</code>, <code>h = 8</code>:</p>' +
+    VIZ.table(['k', '⌈3/k⌉', '⌈6/k⌉', '⌈7/k⌉', '⌈11/k⌉', 'total'], rows) +
+    '<p>False, False, True, True &rarr; the flip is at <code>k = 4</code>. Binary search finds the first true.</p>';
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Mid speed', lines: ['mid = lo + (hi-lo)/2'], color: 'yellow' },
+  { title: '2. hours(mid)', lines: ['sum of ⌈p/mid⌉'], color: 'blue' },
+  { title: '3. Fast enough?', lines: ['hours <= h: hi = mid', 'else: lo = mid + 1'], color: 'green' },
+], { loop: 'while lo < hi' });
+
+/* Interactive trace */
+VIZ.controls('trace', [
+  { id: 'piles', label: 'piles =', value: '[3,6,7,11]', size: 24 },
+  { id: 'h', label: 'h =', value: '8', size: 4 },
+], v => {
+  let piles, h;
+  try { piles = VIZ.parse.arr(v.piles); h = VIZ.parse.int(v.h); }
+  catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  if (!Array.isArray(piles) || piles.length === 0) return '<div class="box trap">piles must be a non-empty array.</div>';
+  if (piles.some(p => typeof p !== 'number' || p < 1 || !Number.isInteger(p))) return '<div class="box trap">piles must be positive integers.</div>';
+  if (!Number.isInteger(h) || h < piles.length) return '<div class="box trap">h must be an integer &ge; piles.length.</div>';
+
+  const M = Math.max(...piles);
+  if (M > 200) return '<div class="box trap">Max pile too large for a readable strip (keep &le; 200).</div>';
+
+  const hoursFn = k => piles.reduce((s, p) => s + Math.ceil(p / k), 0);
+  const steps = [];
+  let lo = 1, hi = M;
+  const droppedBefore = new Set();
+  while (lo < hi) {
+    const mid = lo + ((hi - lo) >> 1);
+    const perPile = piles.map(p => Math.ceil(p / mid));
+    const total = perPile.reduce((a, b) => a + b, 0);
+    const ok = total <= h;
+    let nextLo = lo, nextHi = hi, dropL = -1, dropR = -1;
+    if (ok) { dropL = mid + 1; dropR = hi; nextHi = mid; }
+    else    { dropL = lo; dropR = mid; nextLo = mid + 1; }
+    steps.push({ lo, hi, mid, perPile, total, ok, dropL, dropR, droppedBefore: new Set(droppedBefore) });
+    if (dropL <= dropR) for (let i = dropL; i <= dropR; i++) droppedBefore.add(i);
+    lo = nextLo; hi = nextHi;
+  }
+
+  // Strip is 1-indexed by speed: index i represents speed (i+1). Use labels to show speeds 1..M.
+  const stripVals = Array.from({ length: M }, (_, i) => i + 1);
+
+  const MAX = 25;
+  const show = steps.slice(0, MAX);
+  let html = '';
+  show.forEach((st, k) => {
+    const midIdx = st.mid - 1;
+    const loIdx = st.lo - 1, hiIdx = st.hi - 1;
+    const cls = i => {
+      const speed = i + 1;
+      if (st.droppedBefore.has(speed)) return 'dim';
+      if (i === midIdx) return 'new';
+      if (speed >= st.dropL && speed <= st.dropR && st.dropL !== -1) return 'gone';
+      if (speed >= st.lo && speed <= st.hi) return 'in';
+      return 'dim';
+    };
+    const ptrs = {};
+    ptrs[loIdx] = loIdx === midIdx ? ['lo','mid'] : 'lo';
+    ptrs[hiIdx] = hiIdx === midIdx ? ['mid','hi'] : 'hi';
+    if (midIdx !== loIdx && midIdx !== hiIdx) ptrs[midIdx] = 'mid';
+    const fig = VIZ.strip(stripVals, { cls, ptrs, index: false, labels: stripVals, small: M > 20 });
+    const hoursRow = ['hours = ' + st.total];
+    const tableRows = [
+      ['pile', ...piles.map(p => String(p))],
+      [`&lceil;p / ${st.mid}&rceil;`, ...st.perPile.map(x => String(x))],
+    ];
+    const miniTable = VIZ.table(['', ...piles.map((_, i) => 'p' + i)], tableRows);
+    const verdict = st.ok
+      ? `<code>${st.total} &le; ${h}</code>, speed <b>${st.mid}</b> is fast enough. Try slower: <code>hi = mid = ${st.mid}</code>.`
+      : `<code>${st.total} &gt; ${h}</code>, speed <b>${st.mid}</b> is too slow. Try faster: <code>lo = mid + 1 = ${st.mid + 1}</code>.`;
+    const text = `Try speed <code>mid = ${st.mid}</code>. ${miniTable}` +
+      `<p><code>hours(${st.mid}) = ${st.perPile.join(' + ')} = <b>${st.total}</b></code>. ${verdict}</p>`;
+    html += VIZ.step(`Step ${k + 1}: speed range [${st.lo}..${st.hi}]`, fig, text, true);
+  });
+  if (steps.length > MAX) html += `<p class="caption">... ${steps.length - MAX} more steps, same pattern.</p>`;
+
+  const ans = lo;
+  html += VIZ.step('Converged',
+    VIZ.strip(stripVals, { cls: i => (i + 1) === ans ? 'keep' : 'dim', ptrs: { [ans - 1]: ['lo','hi'] }, index: false, labels: stripVals, small: M > 20 }),
+    `<code>lo == hi</code> at speed <b>${ans}</b>. Verify: <code>hours(${ans}) = ${hoursFn(ans)} &le; ${h}</code>. Return <b>${ans}</b>.`, true);
+  document.getElementById('answer').innerHTML = `<b>Answer for piles = [${piles.join(',')}], h = ${h}: ${ans}</b>`;
+  return html;
+}, 'piles are positive integers; h must be at least piles.length.');
+</script>
+</body>
+</html>

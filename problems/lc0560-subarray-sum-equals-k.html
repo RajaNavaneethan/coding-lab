@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>LC 560 - Subarray Sum Equals K</title>
+<link rel="stylesheet" href="assets/style.css"><script src="assets/viz.js"></script></head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#prefix-sum-hashing">Pattern lesson</a><span>Pattern 3: Prefix Sum / Hashing</span></div>
+<h1>Subarray Sum Equals K</h1>
+<p class="sub">LeetCode 560 &middot; Medium &middot; Pattern: prefix sum + hash map &middot; O(n) time, O(n) space</p>
+<div class="box"><b>Problem.</b> Given an integer array <code>nums</code> (negatives allowed) and an integer <code>k</code>,
+return how many contiguous subarrays sum to exactly <code>k</code>.<br>
+<code>nums = [1,1,1], k = 2 &rarr; 2</code> &nbsp; <code>nums = [1,2,3], k = 3 &rarr; 2</code>
+&nbsp; Link: <a href="https://leetcode.com/problems/subarray-sum-equals-k/">LeetCode</a></div>
+
+<h2>1. The one idea that solves it</h2>
+<p>Let <code>P[j]</code> be the sum of the first <code>j</code> elements. A subarray from index <code>l</code> to <code>r</code>
+is just the difference of two prefix sums: <code>sum(l..r) = P[r+1] &minus; P[l]</code>.</p>
+<p>So a subarray ending at the current position sums to <code>k</code> exactly when some <b>earlier</b> prefix sum equals
+<code>running &minus; k</code>. Each such earlier prefix is a place where you can "cut", and the part after the cut sums to <code>k</code>.</p>
+<div class="eq">sum(l..r) = k &nbsp;&hArr;&nbsp; P[l] = P[r+1] &minus; k</div>
+<div id="idea"></div>
+<p>That turns the problem into Two Sum on the prefix sums: walk left to right, and at each step ask a hash map
+"how many earlier prefix sums equal <code>running &minus; k</code>?"</p>
+<div class="box insight"><b>Idea.</b> Keep a running sum and a map from prefix sum to how many times it has occurred.
+At each element, add <code>count[running &minus; k]</code> to the answer, then record <code>running</code>.
+Seed the map with <code>{0: 1}</code> so subarrays that start at index 0 are found.</div>
+
+<h2>2. Picture of the algorithm</h2>
+<div id="flow"></div>
+<p>The order inside the loop matters: read first, then write. Writing first would let the current prefix match itself when
+<code>k = 0</code>, which counts an empty subarray.</p>
+
+<h2>3. Step-by-step trace</h2>
+<div class="legend">
+  <span><i style="background:var(--new)"></i>current element (subarray ends here)</span>
+  <span><i style="background:var(--keep)"></i>a subarray found at this step</span>
+  <span><i style="background:#e9d5ff"></i>prefix sum that was matched</span>
+</div>
+<div id="trace"></div>
+
+<h2>4. Code (C++)</h2>
+<pre><span class="t">int</span> subarraySum(<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; nums, <span class="t">int</span> k) {
+    <span class="t">unordered_map</span>&lt;<span class="t">int</span>, <span class="t">int</span>&gt; count{{<span class="n">0</span>, <span class="n">1</span>}};   <span class="c">// empty prefix seen once</span>
+    <span class="t">int</span> running = <span class="n">0</span>, ans = <span class="n">0</span>;
+    <span class="k">for</span> (<span class="t">int</span> x : nums) {
+        running += x;
+        <span class="k">auto</span> it = count.find(running - k);
+        <span class="k">if</span> (it != count.end()) ans += it-&gt;second;   <span class="c">// every earlier cut point is one subarray</span>
+        count[running]++;
+    }
+    <span class="k">return</span> ans;
+}</pre>
+<p><b>Complexity:</b> one pass with O(1) average hash work per element, so O(n) time. The map can hold up to n+1 distinct
+prefix sums, so O(n) space.</p>
+
+<h2>5. The part interviewers ask about: why not a sliding window?</h2>
+<div class="box insight">A sliding window needs one rule: "if the sum is too big, move the left edge right". That only works
+when every element is positive, because then growing the window always increases the sum and shrinking it always decreases it.
+With negatives, a too-big window can become exactly right by <i>adding</i> a negative number, so there is no safe shrink rule.
+The prefix map does not depend on order or sign, so it works for any input.
+If the interviewer says all numbers are positive, offer the window version: same O(n) time, O(1) space.</div>
+<p><b>Why counts and not a set?</b> With zeros or negatives, the same prefix sum can appear several times. Each occurrence is
+a different cut point, so each one gives a different subarray. Try <code>[0,0,0], k = 0</code>: the answer is 6, and
+<code>ans++</code> instead of <code>ans += it-&gt;second</code> returns 3.</p>
+
+<h2>6. Traps and edge cases</h2>
+<div class="box trap"><ul>
+  <li><b>Missing the <code>{0: 1}</code> seed.</b> Every subarray that starts at index 0 is silently missed. <code>[1,2,3], k=3</code> returns 1 instead of 2.</li>
+  <li><b>Writing before reading.</b> With <code>k = 0</code> each prefix matches itself and the count is inflated by n.</li>
+  <li><b>Using a set, or <code>ans++</code>.</b> Wrong when prefix sums repeat. <code>[0,0,0], k=0 &rarr; 6</code>.</li>
+  <li><b><code>if (count[running - k])</code> as the lookup.</b> <code>operator[]</code> inserts a zero entry for every miss. The answer is still right, but the map grows with junk keys. Use <code>find</code>.</li>
+  <li><b>Overflow.</b> With n = 2&middot;10<sup>4</sup> and |nums[i]| &le; 1000 the sum fits in <code>int</code>. Mention <code>long long</code> if the constraints are bigger.</li>
+  <li><b>Edge inputs.</b> <code>[1], k=0 &rarr; 0</code>; <code>[1,-1,0], k=0 &rarr; 3</code>; <code>[3,4,7,2,-3,1,4,2], k=7 &rarr; 4</code>.</li>
+</ul></div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+<div class="box good">"A subarray sum is the difference of two prefix sums, so a subarray ending here sums to k when some earlier prefix
+equals the running sum minus k. I walk the array once with a hash map from prefix sum to how often it has appeared, seeded with zero
+seen once for the empty prefix. At each element I add the count of running minus k, then record the running sum.
+That's O(n) time and space. A sliding window doesn't work because negative numbers break the shrink rule."</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 1 Two Sum</td><td>The same "look up the complement in a map" step, on values instead of prefix sums</td></tr>
+  <tr><td>LC 525 Contiguous Array</td><td>Map 0 to &minus;1, then look for equal prefix sums (k = 0), storing the first index</td></tr>
+  <tr><td>LC 523 Continuous Subarray Sum</td><td>Hash <code>prefix % k</code> instead of the prefix itself</td></tr>
+  <tr><td>LC 325 Max Size Subarray Sum Equals k</td><td>Store the first index of each prefix instead of a count, maximise the length</td></tr>
+  <tr><td>LC 974 Subarray Sums Divisible by K</td><td>Count prefix remainders, watch out for negative remainders</td></tr>
+</table>
+
+<script>
+const V = VIZ;
+function prefixes(a) { const p = [0]; a.forEach(x => p.push(p[p.length - 1] + x)); return p; }
+
+/* static idea picture: nums = [1,2,3], k = 3, at r = 2 */
+(() => {
+  const nums = [1, 2, 3], P = prefixes(nums);
+  let h = '<p class="caption">nums = [1,2,3], k = 3. Standing at index 2, running = 6, need = 6 &minus; 3 = 3.</p>';
+  h += V.strip(nums, { cls: { 2: 'new' }, labels: ['nums[0]', 'nums[1]', 'nums[2]'] });
+  h += V.strip(P, { cls: { 2: 'hit', 3: 'new' }, labels: ['P[0]', 'P[1]', 'P[2]', 'P[3]'], notes: { 2: 'need = 3', 3: 'running' } });
+  h += '<p class="caption">P[2] = 3 matches, so the cut is after index 1. The subarray after the cut is <b>[3]</b>, which sums to 3.</p>';
+  document.getElementById('idea').innerHTML = h;
+  document.getElementById('flow').innerHTML = V.flow([
+    { title: '1. Extend', lines: ['running += x'], color: 'yellow' },
+    { title: '2. Read', lines: ['ans += count[running - k]', '(earlier cut points)'], color: 'purple' },
+    { title: '3. Write', lines: ['count[running]++', '(future cut point)'], color: 'green' }], { loop: 'next element' });
+})();
+
+V.controls('trace', [{ id: 'nums', label: 'nums =', value: '[1,2,3,-2,2,1]', size: 22 }, { id: 'k', label: 'k =', value: '3', size: 4 }], v => {
+  const nums = V.parse.arr(v.nums), k = V.parse.int(v.k);
+  if (!nums.length) return '<div class="box trap">Enter at least one number.</div>';
+  const count = new Map([[0, 1]]), idxOf = new Map([[0, [-1]]]);
+  let running = 0, ans = 0, out = '';
+  const mapTable = m => V.table(['prefix sum', 'count'], [...m.entries()].sort((a, b) => a[0] - b[0]).map(([s, c]) => [s, c]));
+  out += V.step('Start', V.strip([0], { labels: ['P[0]'], cls: { 0: 'hit' } }) + mapTable(count),
+    'Seed the map with prefix 0 seen once. It stands for "cut before index 0".');
+  for (let j = 0; j < nums.length; j++) {
+    running += nums[j];
+    const need = running - k, c = count.get(need) || 0;
+    const starts = c ? idxOf.get(need).map(i => i + 1) : [];
+    ans += c;
+    const cls = {}; cls[j] = 'new';
+    starts.forEach(s => { for (let t = s; t < j; t++) cls[t] = 'keep'; });
+    if (c) cls[j] = 'keep';
+    const P = prefixes(nums.slice(0, j + 1));
+    const pcls = {}; pcls[j + 1] = 'new';
+    if (c) idxOf.get(need).forEach(i => pcls[i + 1] = 'hit');
+    count.set(running, (count.get(running) || 0) + 1);
+    if (!idxOf.has(running)) idxOf.set(running, []);
+    idxOf.get(running).push(j);
+    let text = `running = ${running}, need = ${running} &minus; ${k} = <b>${need}</b>. `;
+    if (c) text += `<span class="ok">Found ${c}</span> earlier prefix${c > 1 ? 'es' : ''} equal to ${need}, so ${c} subarray${c > 1 ? 's end' : ' ends'} here: ` +
+      starts.map(s => `[${nums.slice(s, j + 1).join(',')}]`).join(', ') + `. ans = <b>${ans}</b>.`;
+    else text += `No earlier prefix equals ${need}. ans stays ${ans}.`;
+    text += ` Then record ${running}.`;
+    out += V.step(`j = ${j}, nums[j] = ${nums[j]}`,
+      V.strip(nums, { cls: i => i > j ? 'dim' : (cls[i] || '') }) +
+      V.strip(P, { labels: P.map((_, i) => 'P[' + i + ']'), cls: pcls, small: true }) + mapTable(count), text);
+  }
+  return out + `<div class="box good"><b>Answer for nums = [${nums.join(',')}], k = ${k}: ${ans}</b></div>`;
+});
+</script>
+</body></html>

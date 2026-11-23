@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 239 - Sliding Window Maximum</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#sliding-window">Pattern lesson</a><span>Pattern 2: Sliding Window</span></div>
+
+<h1>Sliding Window Maximum</h1>
+<p class="sub">LeetCode 239 &middot; Hard &middot; Pattern: fixed-size window with a monotonic deque &middot; O(n) time, O(k) space</p>
+
+<div class="box">
+  <b>Problem.</b> Given <code>nums</code> and a window size <code>k</code>, return an array where the <code>i</code>-th
+  entry is the maximum of <code>nums[i..i+k-1]</code>.
+  <br><code>nums = [1,3,-1,-3,5,3,6,7], k = 3 &rarr; [3,3,5,5,6,7]</code>
+  <br>Link: <a href="https://leetcode.com/problems/sliding-window-maximum/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Scan left to right and keep a <b>deque of indices</b> whose values are strictly decreasing from front to back. The
+front is the index of the current window's maximum.</p>
+
+<p>Two invariants, maintained at every step:</p>
+<ol>
+  <li><b>Front is in range:</b> if the front index is <code>&le; i &minus; k</code>, it has slid out of the window. Pop
+    from the front.</li>
+  <li><b>Values are decreasing:</b> before pushing index <code>i</code>, pop from the back while
+    <code>nums[back] &lt; nums[i]</code>. Those older indices cannot ever be the max again, because <code>nums[i]</code>
+    is both bigger <i>and</i> stays in the window at least as long as they do.</li>
+</ol>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>So the question becomes:</b> on each step, drop out-of-window elements from the front, drop smaller elements from
+  the back, then push the current index. Once <code>i &ge; k &minus; 1</code>, the front of the deque is the answer for
+  window <code>[i &minus; k + 1, i]</code>.
+</div>
+
+<p>Why strict "smaller" is right (not <code>&le;</code>): equal values must both survive, otherwise you lose the later
+one too early. Later-equal is kept because it leaves the window later; earlier-equal is kept because at this moment it
+is a valid max. Using <code>&lt;</code> on pop keeps both. Using <code>&le;</code> would still be correct for the max
+output, but you would lose some index information useful in follow-up problems.</p>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>At every step we show the array (window highlighted) and the deque as a horizontal row of indices with their values
+underneath. "Pop back" means a value just beaten by a bigger right neighbour.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>just added (i)</span>
+  <span><i style="background:var(--win)"></i>inside the window</span>
+  <span><i style="background:var(--gone)"></i>popped out (back or front)</span>
+  <span><i style="background:var(--keep)"></i>front of deque = window max</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="t">vector</span>&lt;<span class="t">int</span>&gt; maxSlidingWindow(<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; nums, <span class="t">int</span> k) {
+    deque&lt;<span class="t">int</span>&gt; dq;                                      <span class="c">// indices, values decreasing</span>
+    <span class="t">vector</span>&lt;<span class="t">int</span>&gt; out;
+    <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt; (<span class="t">int</span>)nums.size(); i++) {
+        <span class="k">while</span> (!dq.empty() &amp;&amp; dq.front() &lt;= i - k) dq.pop_front();         <span class="c">// out of window</span>
+        <span class="k">while</span> (!dq.empty() &amp;&amp; nums[dq.back()] &lt; nums[i]) dq.pop_back();     <span class="c">// no longer useful</span>
+        dq.push_back(i);
+        <span class="k">if</span> (i &gt;= k - <span class="n">1</span>) out.push_back(nums[dq.front()]);
+    }
+    <span class="k">return</span> out;
+}</pre>
+
+<p><b>Complexity:</b> every index is pushed once and popped at most once, so O(n) amortised across the whole scan. The
+deque holds at most <code>k</code> indices, so O(k) extra space.</p>
+
+<h3>Alternative: max-heap of <code>(value, index)</code></h3>
+
+<pre><span class="t">vector</span>&lt;<span class="t">int</span>&gt; maxSlidingWindow(<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; nums, <span class="t">int</span> k) {
+    priority_queue&lt;pair&lt;<span class="t">int</span>, <span class="t">int</span>&gt;&gt; pq;                 <span class="c">// (value, index)</span>
+    <span class="t">vector</span>&lt;<span class="t">int</span>&gt; out;
+    <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt; (<span class="t">int</span>)nums.size(); i++) {
+        pq.push({nums[i], i});
+        <span class="k">while</span> (pq.top().second &lt;= i - k) pq.pop();          <span class="c">// lazy delete</span>
+        <span class="k">if</span> (i &gt;= k - <span class="n">1</span>) out.push_back(pq.top().first);
+    }
+    <span class="k">return</span> out;
+}</pre>
+
+<p>Easier to code under pressure, O(n log n) time, O(n) space in the worst case because the heap keeps stale entries
+until they bubble up. Prefer the deque in C++; use the heap when the language's deque feels clunky (older Java APIs,
+Python <code>collections.deque</code> is fine but index arithmetic is finicky).</p>
+
+<h2>5. The part interviewers ask about: why O(n) amortised</h2>
+
+<p>Every index <code>i</code> enters the deque exactly once (one <code>push_back</code>). Once removed, it is never
+re-inserted. So across the whole loop the total number of pushes is <code>n</code> and the total number of pops
+(front plus back) is at most <code>n</code>. The inner <code>while</code> loops look suspicious, but their total work
+across all iterations is <b>bounded by the number of pops</b>, which is at most <code>n</code>. Hence O(n).</p>
+
+<div class="box insight">
+  <b>Why the back-pop is safe.</b> Suppose <code>nums[dq.back()] &lt; nums[i]</code>. Any future window containing
+  <code>dq.back()</code> also contains <code>i</code> (because <code>i</code> is to the right of <code>dq.back()</code>
+  and will leave the window later or at the same time). So in every future window the smaller value is dominated by the
+  larger one and cannot be the max. Safe to discard.
+</div>
+
+<p><b>Common follow-up: sliding window minimum.</b> Flip the direction. Keep an <i>increasing</i> deque; pop from the
+back while <code>nums[back] &gt; nums[i]</code>.</p>
+
+<p><b>Harder follow-up: range queries at arbitrary indices.</b> If the window stops being contiguous, a monotonic deque
+no longer suffices; use a sparse table (O(n log n) build, O(1) query) or a segment tree.</p>
+
+<p><b>Why does the front always give the answer?</b> After the two pops, every index remaining in the deque is
+<code>&gt; i &minus; k</code> (in-window) and its value is strictly greater than every value to its right in the deque.
+So the leftmost one is the biggest in-window value &mdash; that is the maximum.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Comparing values instead of indices for the front pop.</b> You must drop by <i>position</i>
+      (<code>front &le; i &minus; k</code>), not by value. A big value can slip out of the window and still be the
+      front.</li>
+    <li><b>Using <code>&le;</code> instead of <code>&lt;</code> on the back pop.</b> Still produces correct maxes, but
+      you can lose equal values prematurely; a few LC follow-up variants break.</li>
+    <li><b>Recording output before <code>i &ge; k - 1</code>.</b> The first full window ends at index <code>k - 1</code>;
+      earlier outputs would use partial windows.</li>
+    <li><b>Starting with an empty window (<code>k = 0</code>).</b> The problem guarantees <code>k &ge; 1</code>, but
+      defend against it: return empty.</li>
+    <li><b><code>k &gt; n</code>.</b> No full window exists; return empty.</li>
+    <li><b>Using <code>size_t</code> for <code>i - k</code>.</b> That can wrap around when <code>i &lt; k</code>. Keep
+      the comparison <code>front + k &le; i</code> instead, or use <code>int</code>.</li>
+    <li><b>Rebuilding the deque from scratch each step.</b> O(nk); the whole point is to reuse state.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I maintain a deque of indices whose values are strictly decreasing from front to back. The front is always the
+  max of the current window. Before pushing index <code>i</code>, I pop smaller values from the back (they can never be
+  the max again) and I pop the front if it has slid out of the window. Once the window is full, I append the value at
+  the deque's front to the answer. Each index is pushed and popped at most once, so O(n) time, O(k) space."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 862 Shortest Subarray with Sum &ge; K</td><td>Monotonic deque over prefix sums; variable window version.</td></tr>
+  <tr><td>LC 1438 Longest Subarray with Abs Diff &le; limit</td><td>Two deques (max + min) to track window extremes.</td></tr>
+  <tr><td>LC 918 Max Sum Circular Subarray</td><td>Monotonic deque on prefix sums for a wrap-around.</td></tr>
+  <tr><td>LC 1696 Jump Game VI</td><td>DP where the transition picks the max in a sliding window: same deque.</td></tr>
+  <tr><td>LC 1696 / 2398 Sliding Window Sum / Avg</td><td>Fixed-size window with running sum; no deque needed, just two indices.</td></tr>
+</table>
+
+<script>
+function esc(x) { return String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+/* Draw the input array with window shading. */
+function arrStrip(nums, l, r, newIdx, droppedIdx) {
+  const idx = '<div class="idx">' + nums.map((_, i) => `<span>${i}</span>`).join('') + '</div>';
+  const cells = '<div class="strip">' + nums.map((v, i) => {
+    let cls = '';
+    if (droppedIdx !== undefined && droppedIdx !== null && droppedIdx.includes(i)) cls = 'gone';
+    else if (i >= l && i <= r) cls = 'in';
+    if (i === newIdx) cls = 'new';
+    return `<div class="cell ${cls}">${esc(v)}</div>`;
+  }).join('') + '</div>';
+  const ptr = '<div class="ptr">' + nums.map((_, i) => {
+    if (i === l && i === r) return '<span>l r</span>';
+    if (i === l) return '<span>l</span>';
+    if (i === r) return '<span>r</span>';
+    return '<span></span>';
+  }).join('') + '</div>';
+  return `<div class="figure">${idx}${cells}${ptr}</div>`;
+}
+
+/* Draw the deque as a two-row strip: top = indices, bottom = values. Front is on the left. */
+function deque(dq, nums, popped) {
+  popped = Object.assign({ back: [], front: [] }, popped);
+  const items = [...popped.front.map(i => ({ i, kind: 'pf' })),
+                 ...dq.map(i => ({ i, kind: i === dq[0] ? 'front' : (i === dq[dq.length - 1] ? 'back' : 'mid') })),
+                 ...popped.back.map(i => ({ i, kind: 'pb' }))];
+  if (!items.length) {
+    return '<div class="figure" style="font-size:13px;color:var(--muted);padding:4px 0">deque: <code>[]</code></div>';
+  }
+  let header = '<div style="font-size:12px;color:var(--muted);margin-bottom:4px">deque (front &rarr; back): indices on top, values below</div>';
+  let idxRow = '<div class="strip">', valRow = '<div class="idx" style="margin-top:2px">';
+  for (const it of items) {
+    let cls = 'in';
+    if (it.kind === 'pb' || it.kind === 'pf') cls = 'gone';
+    else if (it.kind === 'front') cls = 'keep';
+    idxRow += `<div class="cell small ${cls}" style="min-width:38px">${it.i}</div>`;
+    valRow += `<span style="min-width:38px">${esc(nums[it.i])}</span>`;
+  }
+  idxRow += '</div>'; valRow += '</div>';
+  let legend = '';
+  if (dq.length) legend = `<div style="font-size:12px;color:var(--muted);margin-top:4px">front = index ${dq[0]} (value ${nums[dq[0]]}) &rarr; back = index ${dq[dq.length - 1]} (value ${nums[dq[dq.length - 1]]})</div>`;
+  return `<div class="figure">${header}${idxRow}${valRow}${legend}</div>`;
+}
+
+/* Static idea diagram. */
+(function () {
+  const nums = [1,3,-1,-3,5,3,6,7];
+  // Show the state at i = 4 (just added nums[4] = 5): back-pops happened, deque = [4] with front/back = 5.
+  // Actually a nicer picture: at i = 3 before and at i = 4 after.
+  const before = arrStrip(nums, 1, 3, 3, []) + deque([1,2,3], nums);
+  const after  = arrStrip(nums, 2, 4, 4, []) + deque([4], nums, { back: [3,2,1] });
+  const html = '<div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start">' +
+    `<div><div style="font-size:13px;color:var(--muted);margin-bottom:4px">i = 3: window [1..3], deque has 3, -1, -3 (indices 1,2,3)</div>${before}</div>` +
+    `<div><div style="font-size:13px;color:var(--muted);margin-bottom:4px">i = 4: push 5. Pop -3, -1, 3 from the back (all smaller). Front slides to index 2.</div>${after}</div>` +
+    '</div><div class="caption">Every back-popped index was dominated by nums[4] = 5 in both value and window-lifetime, so it is gone for good. ' +
+    'The deque collapses to <code>[4]</code>; the front is now the max of window [2..4] = 5.</div>';
+  document.getElementById('idea').innerHTML = html;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Expire front', lines: ['while front <= i - k:', 'pop_front'], color: 'red' },
+  { title: '2. Pop smaller tails', lines: ['while nums[back] < nums[i]:', 'pop_back'], color: 'yellow' },
+  { title: '3. Push i', lines: ['push_back(i)'], color: 'blue' },
+  { title: '4. Record if full', lines: ['if i >= k - 1:', 'out.push(nums[front])'], color: 'green' },
+], { loop: 'next i' });
+
+/* Interactive trace. */
+VIZ.controls('trace', [
+  { id: 'nums', label: 'nums =', value: '[1,3,-1,-3,5,3,6,7]', size: 24 },
+  { id: 'k', label: 'k =', value: '3', size: 3 },
+], v => {
+  let nums, k;
+  try { nums = VIZ.parse.arr(v.nums); k = VIZ.parse.int(v.k); }
+  catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  if (!Array.isArray(nums) || !nums.every(x => typeof x === 'number'))
+    return '<div class="box trap">Expected a numeric array.</div>';
+  if (k < 1) return '<div class="box trap">k must be at least 1.</div>';
+  if (nums.length > 14) return '<div class="box trap">Pick at most 14 numbers.</div>';
+  if (k > nums.length) {
+    document.getElementById('answer').innerHTML = '<b>Answer: []</b> (k &gt; n)';
+    return '<p class="caption">k is larger than the array; no full window exists.</p>';
+  }
+
+  const dq = [];
+  const out = [];
+  const MAX_STEPS = 24;
+  let html = '';
+  const total = nums.length;
+  const limit = Math.min(total, MAX_STEPS);
+
+  for (let i = 0; i < limit; i++) {
+    // (a) expire front
+    const frontPopped = [];
+    while (dq.length && dq[0] <= i - k) {
+      frontPopped.push(dq.shift());
+    }
+    // (b) back pop smaller
+    const backPopped = [];
+    while (dq.length && nums[dq[dq.length - 1]] < nums[i]) {
+      backPopped.push(dq.pop());
+    }
+    // (c) push
+    dq.push(i);
+    const l = Math.max(0, i - k + 1);
+    const r = i;
+
+    let note = `<b>i = ${i}</b>, nums[i] = <code>${nums[i]}</code>. `;
+    if (frontPopped.length) {
+      note += `Front out of window: pop index ${frontPopped.join(', ')} (<code>front &le; i - k = ${i - k}</code>). `;
+    }
+    if (backPopped.length) {
+      note += `Back smaller than ${nums[i]}: pop index ${backPopped.join(', ')} (values ${backPopped.map(x => nums[x]).join(', ')}). `;
+    }
+    note += `Push <b>${i}</b>. `;
+    if (i >= k - 1) {
+      const mx = nums[dq[0]];
+      out.push(mx);
+      note += `Window [${l}, ${r}] full &rarr; <code>max = nums[${dq[0]}] = ${mx}</code>. out = [${out.join(', ')}].`;
+    } else {
+      note += `Window not full yet (need ${k - 1 - i} more).`;
+    }
+
+    const img = arrStrip(nums, l, r, i, []) +
+      deque(dq, nums, { back: backPopped, front: frontPopped });
+    html += `<div class="step wide"><div><h4>i = ${i}</h4>${img}</div><div class="text">${note}</div></div>`;
+  }
+
+  // finish silently if truncated for the answer line
+  if (total > MAX_STEPS) {
+    html += `<p class="caption">... ${total - MAX_STEPS} more steps, same pattern.</p>`;
+    for (let i = MAX_STEPS; i < total; i++) {
+      while (dq.length && dq[0] <= i - k) dq.shift();
+      while (dq.length && nums[dq[dq.length - 1]] < nums[i]) dq.pop();
+      dq.push(i);
+      if (i >= k - 1) out.push(nums[dq[0]]);
+    }
+  }
+
+  document.getElementById('answer').innerHTML =
+    `<b>Answer for nums = [${nums.join(',')}], k = ${k}: [${out.join(', ')}]</b>`;
+  return html;
+}, 'Give a JSON array and a window size k.');
+</script>
+
+</body>
+</html>

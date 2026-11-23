@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 206 - Reverse Linked List</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#linked-lists">Pattern lesson</a><span>Pattern 5: Linked Lists</span></div>
+
+<h1>Reverse Linked List</h1>
+<p class="sub">LeetCode 206 &middot; Easy &middot; Pattern: in-place pointer rewiring &middot; O(n) time, O(1) space</p>
+
+<div class="box">
+  <b>Problem.</b> Given the head of a singly linked list, reverse it and return the new head.
+  <br><code>1 &rarr; 2 &rarr; 3 &rarr; 4 &rarr; 5</code> becomes <code>5 &rarr; 4 &rarr; 3 &rarr; 2 &rarr; 1</code>.
+  Link: <a href="https://leetcode.com/problems/reverse-linked-list/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Walk the list once and <b>flip each arrow as you pass it</b>. The only trick is that flipping
+<code>curr-&gt;next</code> loses the way forward, so save the next node first.</p>
+
+<p>Three pointers run together: <code>prev</code> is the already-reversed part behind you,
+<code>curr</code> is the node whose arrow you flip this step, and <code>next</code> is the saved
+successor so you can walk on.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Keep three pointers. Each step: remember <code>next = curr-&gt;next</code>, point
+  <code>curr-&gt;next</code> back at <code>prev</code>, then slide the window forward
+  (<code>prev = curr</code>, <code>curr = next</code>). After the walk, <code>prev</code> is the new head.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>Nothing shrinks or branches. Each node is visited exactly once and gets its arrow rewritten.
+When <code>curr</code> walks off the end (becomes null), <code>prev</code> sits on what used to be
+the tail, which is now the new head.</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<div class="legend">
+  <span><i style="background:var(--keep)"></i>prev (already reversed)</span>
+  <span><i style="background:var(--new)"></i>curr (flip this)</span>
+  <span><i style="background:var(--win)"></i>next (saved)</span>
+  <span><i style="background:#fff;border:1px solid #cbd5e1"></i>not yet touched</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre>ListNode* reverseList(ListNode* head) {
+    ListNode* prev = <span class="k">nullptr</span>;
+    ListNode* curr = head;
+    <span class="k">while</span> (curr) {
+        ListNode* next = curr-&gt;next;   <span class="c">// save: the flip overwrites it</span>
+        curr-&gt;next = prev;             <span class="c">// flip this arrow</span>
+        prev = curr;                   <span class="c">// slide the window</span>
+        curr = next;
+    }
+    <span class="k">return</span> prev;                     <span class="c">// prev is the old tail = new head</span>
+}</pre>
+
+<p><b>Complexity:</b> one pass over <code>n</code> nodes, constant work per node, no extra storage. O(n) time, O(1) space.</p>
+
+<h3>Alternative: recursive</h3>
+
+<pre>ListNode* reverseList(ListNode* head) {
+    <span class="k">if</span> (!head || !head-&gt;next) <span class="k">return</span> head;
+    ListNode* newHead = reverseList(head-&gt;next);
+    head-&gt;next-&gt;next = head;      <span class="c">// the next node now points back to me</span>
+    head-&gt;next = <span class="k">nullptr</span>;         <span class="c">// I become the new tail</span>
+    <span class="k">return</span> newHead;
+}</pre>
+
+<p>Prefer when the interviewer asks for a recursive solution. Same O(n) time but O(n) stack space, which is a real
+downside on a long list (stack overflow on 10<sup>5</sup> nodes). The iterative version is the default answer.</p>
+
+<h2>5. The part interviewers ask about: why the order of the three lines matters</h2>
+
+<div class="box insight">
+  Three statements inside the loop, and swapping any two breaks the algorithm. Reason it through on paper:
+  <ul>
+    <li>If you flip <code>curr-&gt;next = prev</code> before saving <code>next</code>, the way forward is gone and the
+    loop never terminates (or you walk a now-reversed arrow and loop back to <code>prev</code>).</li>
+    <li>If you slide <code>prev = curr</code> before the flip, you flip <code>curr-&gt;next</code> to <code>curr</code>
+    itself and build a one-node self-loop.</li>
+  </ul>
+  The order <b>save, flip, slide prev, slide curr</b> is the only one that works.
+</div>
+
+<p>A short invariant pins the correctness: at the top of each iteration, <code>prev</code> heads the already-reversed
+prefix and <code>curr</code> heads the still-original suffix. The body preserves that invariant for one more node. When
+<code>curr == nullptr</code>, the suffix is empty and <code>prev</code> is the full reversed list.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Empty list.</b> <code>head == nullptr</code> &rarr; the loop body never runs, <code>prev</code> stays
+    <code>nullptr</code>, which is the correct answer.</li>
+    <li><b>Single node.</b> First iteration saves <code>next = nullptr</code>, flips the (already null)
+    arrow to <code>nullptr</code>, and the loop exits. Head unchanged, which is correct.</li>
+    <li><b>Forgetting to null the tail.</b> In the recursive version, if you don't set
+    <code>head-&gt;next = nullptr</code>, the reversed list ends in a two-cycle between the first and second nodes.</li>
+    <li><b>Returning <code>head</code> instead of <code>prev</code>.</b> <code>head</code> is now the tail. Common
+    mistake under time pressure.</li>
+    <li><b>Using <code>curr-&gt;next</code> after the flip.</b> Trying to read <code>curr-&gt;next</code> on the next
+    line gives you <code>prev</code> instead of the real successor.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "Three pointers: <code>prev</code>, <code>curr</code>, <code>next</code>. For each node I save its successor into
+  <code>next</code>, flip its arrow to point at <code>prev</code>, then move the window forward
+  by setting <code>prev = curr</code> and <code>curr = next</code>. When <code>curr</code> is null I return <code>prev</code>,
+  which is the old tail. One pass, no extra memory. The recursive version is one line shorter but costs O(n) stack."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 92 Reverse Linked List II</td><td>Reverse only the sublist <code>[left, right]</code>. Same three-pointer flip, with a saved node to re-attach the prefix and suffix.</td></tr>
+  <tr><td>LC 25 Reverse Nodes in k-Group</td><td>Repeat this reversal on each run of <code>k</code> nodes; stitch the pieces together.</td></tr>
+  <tr><td>LC 234 Palindrome Linked List</td><td>Reverse the second half in place, then compare it to the first half.</td></tr>
+  <tr><td>LC 143 Reorder List</td><td>Find the middle, reverse the second half, weave the halves together.</td></tr>
+  <tr><td>LC 2 Add Two Numbers</td><td>No reversal here, but same pointer-walking skeleton: dummy head, build a new list node by node.</td></tr>
+</table>
+
+<script>
+/* 1. Static idea diagram: show one step of the three-pointer flip on [1,2,3,4,5]. */
+(function () {
+  const V = VIZ;
+  const before = V.list([1, 2, 3, 4, 5], {
+    cls: { 0: 'keep', 1: 'new' },
+    labels: { 0: 'prev', 1: 'curr', 2: 'next' },
+    title: 'before this step'
+  });
+  const after = V.list([1, 2, 3, 4, 5], {
+    cls: { 0: 'keep', 1: 'keep', 2: 'new' },
+    labels: { 1: 'prev', 2: 'curr', 3: 'next' },
+    title: 'after this step'
+  });
+  document.getElementById('idea').innerHTML =
+    before + after +
+    '<p class="caption">Before: node 2 still points forward. After: its arrow has been flipped back to node 1, ' +
+    'and the three labels have slid one step to the right. The arrows drawn here are forward arrows for display; ' +
+    'the "flipped" arrows live only in your head, since the figure can only show one direction at a time.</p>';
+})();
+
+/* 2. Flow diagram. */
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Save next', lines: ['next = curr->next'], color: 'blue' },
+  { title: '2. Flip arrow', lines: ['curr->next = prev'], color: 'yellow' },
+  { title: '3. Slide window', lines: ['prev = curr', 'curr = next'], color: 'green' },
+], { loop: 'while curr != null' });
+
+/* 3. Interactive trace: run the real algorithm, record each step. */
+VIZ.controls('trace', [
+  { id: 'nums', label: 'head =', value: '[1,2,3,4,5]', size: 20 }
+], v => {
+  let vals;
+  try { vals = VIZ.parse.arr(v.nums); } catch (e) { throw new Error('bad list: ' + e.message); }
+  if (!vals.length) {
+    document.getElementById('answer').innerHTML = '<b>Answer: </b>empty list (unchanged).';
+    return VIZ.step('Empty', VIZ.list([], {}), 'The loop body never runs. <code>prev</code> stays <code>nullptr</code>, which is the correct empty reversed list.');
+  }
+  if (vals.length > 10) vals = vals.slice(0, 10);
+
+  // Model nodes as a stable permutation of indices; we draw them in their ORIGINAL left-to-right order each step
+  // so the picture doesn't jump around. Highlight the three roles (prev/curr/next) by index.
+  let prev = -1;        // index of the prev node, -1 for null
+  let curr = 0;         // index of the curr node, vals.length for null
+  const n = vals.length;
+  let html = '';
+
+  // Initial frame
+  html += VIZ.step(
+    'Init',
+    VIZ.list(vals, {
+      cls: i => (i === curr ? 'new' : ''),
+      labels: Object.assign(
+        { [curr]: 'curr' },
+        curr + 1 < n ? { [curr + 1]: 'next' } : {}
+      ),
+      title: 'original list'
+    }),
+    'Start: <code>prev = null</code>, <code>curr</code> at index 0, <code>next</code> will be set inside the loop.'
+  );
+
+  let stepCount = 0;
+  while (curr < n && stepCount < 24) {
+    const next = curr + 1;   // index of the saved next node (may equal n = null)
+    // After step: the arrow from vals[curr] is flipped to point at vals[prev] (or null if prev < 0);
+    // prev becomes curr, curr becomes next.
+    const flippedFrom = curr, flippedTo = prev;
+    prev = curr;
+    curr = next;
+    stepCount++;
+
+    const cls = {};
+    for (let i = 0; i <= prev; i++) cls[i] = 'keep';     // reversed prefix
+    if (curr < n) cls[curr] = 'new';
+    if (curr + 1 < n) cls[curr + 1] = 'in';
+    const labels = {};
+    if (prev >= 0) labels[prev] = 'prev';
+    if (curr < n) labels[curr] = 'curr';
+    if (curr + 1 < n) labels[curr + 1] = 'next';
+
+    const flipText = flippedTo < 0
+      ? `Flipped <b>${vals[flippedFrom]}</b>'s arrow to <code>null</code> (it is now the new tail).`
+      : `Flipped <b>${vals[flippedFrom]}</b>'s arrow back to <b>${vals[flippedTo]}</b>.`;
+    const slideText = curr < n
+      ? ` Slid the window: <code>prev = ${vals[prev]}</code>, <code>curr = ${vals[curr]}</code>.`
+      : ` Slid the window: <code>curr = null</code>, so the loop exits.`;
+
+    html += VIZ.step(
+      `Step ${stepCount}`,
+      VIZ.list(vals, { cls, labels, title: 'same nodes, flipped arrows in your head' }),
+      flipText + slideText
+    );
+  }
+  if (curr < n) html += VIZ.step('...', '', `... ${n - curr} more step${n - curr === 1 ? '' : 's'} (cap at 24 for readability).`, true);
+
+  // Final list: show in reversed order so the picture matches the output.
+  const reversed = vals.slice().reverse();
+  html += VIZ.step(
+    'Done',
+    VIZ.list(reversed, { cls: i => 'keep', labels: { 0: 'new head' }, title: 'reversed list' }),
+    `Loop exited with <code>curr = null</code>. <code>prev</code> is <b>${vals[n - 1]}</b>, the new head.`
+  );
+
+  document.getElementById('answer').innerHTML = '<b>Answer:</b> ' + JSON.stringify(reversed);
+  return html;
+}, 'Change the list and press Trace it. The trace is produced by running the three-pointer loop.');
+</script>
+
+</body>
+</html>

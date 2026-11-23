@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 416 - Partition Equal Subset Sum</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#dp-knapsack">Pattern lesson</a><span>Pattern 15: DP - Knapsack / Partition</span></div>
+
+<h1>Partition Equal Subset Sum</h1>
+<p class="sub">LeetCode 416 &middot; Medium &middot; Pattern: 0/1 Knapsack (subset sum) &middot; O(n &middot; S) time, O(S) space (S = sum/2)</p>
+
+<div class="box">
+  <b>Problem.</b> Given a non-empty array of positive integers, can it be split into two subsets with equal sum?
+  <br><code>[1,5,11,5] &rarr; true</code> (<code>{1,5,5}</code> and <code>{11}</code>, both sum to 11)
+  &nbsp;&nbsp;<code>[1,2,3,5] &rarr; false</code>
+  <br>Link: <a href="https://leetcode.com/problems/partition-equal-subset-sum/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Call the total <code>S</code>. Two equal subsets means each has sum <code>S/2</code>, so the problem is:
+<b>is there a subset of the array that sums to exactly <code>S/2</code>?</b> If <code>S</code> is odd, impossible &mdash;
+return false up front.</p>
+
+<p>That reframe is 0/1 subset-sum, the classic knapsack. For each number we either take it or we don't. Track which
+target sums are reachable so far in a boolean array <code>dp</code> of size <code>S/2 + 1</code>:
+<code>dp[s] = true</code> once some subset of items seen so far sums to <code>s</code>. Start with <code>dp[0] = true</code>
+(the empty subset) and add numbers one by one.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> "Equal partition" is just "subset-sum to <code>S/2</code>". Keep a set of reachable sums; each new number
+  <code>x</code> extends every reachable sum <code>s</code> to <code>s + x</code>. Done the moment <code>S/2</code> is
+  reachable.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>The 2-D table has one row per item and one column per target sum. The 1-D update replaces the row vector in place.
+For <b>0/1</b> knapsack (each item used at most once) you MUST sweep the sums from <b>right to left</b>. Here is why,
+drawn on the same cell.</p>
+
+<div id="direction"></div>
+
+<p>Right to left reads <code>dp[s &minus; x]</code> while that cell is still the <i>previous row</i> &mdash; the state
+before taking <code>x</code>. Left to right would already have updated <code>dp[s &minus; x]</code> using <code>x</code>,
+so taking <code>x</code> a second time would look legal. That is the <b>unbounded</b> knapsack (Coin Change). For
+"at most once" the direction has to be right to left.</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>The strip below is <code>dp[0..target]</code>. Each outer round adds one number <code>x</code>. During the round
+the sum pointer sweeps right to left; every cell that becomes newly true was reached as <code>s = s' + x</code> from
+some earlier <code>s'</code>.</p>
+
+<div class="legend">
+  <span><i style="background:var(--keep)"></i>reachable (T)</span>
+  <span><i style="background:#fff;border:1px solid #cbd5e1"></i>not reachable (F)</span>
+  <span><i style="background:var(--new)"></i>flipped from F to T this round</span>
+  <span><i style="background:var(--win)"></i>source cell <code>s&minus;x</code></span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">bool</span> canPartition(<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; nums) {
+        <span class="t">int</span> sum = <span class="n">0</span>;
+        <span class="k">for</span> (<span class="t">int</span> x : nums) sum += x;
+        <span class="k">if</span> (sum % <span class="n">2</span>) <span class="k">return</span> <span class="k">false</span>;
+        <span class="t">int</span> target = sum / <span class="n">2</span>;
+        <span class="t">vector</span>&lt;<span class="t">bool</span>&gt; dp(target + <span class="n">1</span>, <span class="k">false</span>);
+        dp[<span class="n">0</span>] = <span class="k">true</span>;                       <span class="c">// empty subset sums to 0</span>
+        <span class="k">for</span> (<span class="t">int</span> x : nums) {
+            <span class="k">for</span> (<span class="t">int</span> s = target; s &gt;= x; s--)  <span class="c">// right to left (0/1 knapsack)</span>
+                dp[s] = dp[s] || dp[s - x];
+            <span class="k">if</span> (dp[target]) <span class="k">return</span> <span class="k">true</span>;        <span class="c">// early exit</span>
+        }
+        <span class="k">return</span> dp[target];
+    }
+};</pre>
+
+<p><b>Complexity:</b> O(n &middot; S/2) time &mdash; one bit flip per (item, sum) pair. O(S/2) space for the 1-D array.
+LeetCode caps the sum at ~20000, so this is fast in practice.</p>
+
+<h2>5. The part interviewers ask about: why right to left</h2>
+
+<p>The invariant you want after processing item <code>x</code> is "<code>dp[s]</code> is true iff some subset of the
+items processed so far (<code>x</code> included) sums to <code>s</code>, using each item at most once." The update
+<code>dp[s] |= dp[s &minus; x]</code> adds exactly the "take <code>x</code>" option.</p>
+
+<div class="box insight">
+  Reading <code>dp[s &minus; x]</code> must give the state <b>before</b> this round, otherwise you are using
+  <code>x</code> twice. Sweeping sums <b>right to left</b> guarantees that: by the time you touch cell <code>s</code>,
+  cell <code>s &minus; x</code> (which is smaller) has not been written yet in this round. Left to right would already
+  have updated it and you would silently drift into unbounded knapsack.
+</div>
+
+<p>Mental shortcut: <b>0/1 knapsack &rarr; sum loop goes down</b>. <b>Unbounded (reusable items) &rarr; sum loop goes
+up</b>.</p>
+
+<h3>Alternative: bitset trick</h3>
+
+<pre><span class="k">bool</span> canPartition(<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; nums) {
+    <span class="t">int</span> sum = accumulate(nums.begin(), nums.end(), <span class="n">0</span>);
+    <span class="k">if</span> (sum % <span class="n">2</span>) <span class="k">return</span> <span class="k">false</span>;
+    bitset&lt;<span class="n">20001</span>&gt; bs; bs[<span class="n">0</span>] = <span class="n">1</span>;
+    <span class="k">for</span> (<span class="t">int</span> x : nums) bs |= bs &lt;&lt; x;    <span class="c">// shift adds x to every reachable sum</span>
+    <span class="k">return</span> bs[sum / <span class="n">2</span>];
+}</pre>
+
+<p>Same recurrence packed 64 bits per word. ~64x speedup. The right-to-left issue disappears because the shift reads
+the whole bitset atomically. Use it if the sum is up to ~20000 and the examiner is impressed by one-liners; otherwise
+the plain loop is clearer.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Looping left to right.</b> Turns 0/1 knapsack into unbounded knapsack. On <code>[2], target 4</code> you
+    would wrongly report true (using the 2 twice).</li>
+    <li><b>Forgetting the odd-sum shortcut.</b> If <code>sum % 2 == 1</code> you can return false immediately. Not a
+    bug, but <code>target = sum/2</code> would round down and you would get a wrong answer if you also drop the
+    odd check (e.g. <code>[1,1,1]</code>: sum=3, target=1 is reachable, but no equal partition exists).</li>
+    <li><b>Zero-sized input.</b> LeetCode guarantees non-empty, but <code>sum = 0</code> on empty would say "two
+    subsets of sum 0" &mdash; depends on your definition. The problem forbids this.</li>
+    <li><b>Signed overflow.</b> Values up to 100, length up to 200, so sum &le; 20000. Safe in <code>int</code>.</li>
+    <li><b>Using <code>vector&lt;bool&gt;</code> and expecting <code>&amp;</code> operator.</b> Use <code>||</code> on
+    the boolean, or <code>|=</code> on a <code>vector&lt;int&gt;</code>. The code above uses <code>||</code>, fine.</li>
+    <li><b>Skipping the early exit.</b> Not wrong, just slower on large inputs where <code>dp[target]</code> becomes
+    true halfway through.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "Two equal halves means a subset summing to <code>S/2</code>, which is 0/1 subset-sum. I keep a boolean
+  <code>dp[0..S/2]</code> where <code>dp[s]</code> is true if some subset so far sums to <code>s</code>. For each
+  number <code>x</code> I update <code>dp[s] |= dp[s&minus;x]</code> from <code>s = S/2</code> down to <code>x</code>.
+  Going <b>right to left</b> is what makes it 0/1: when I read <code>dp[s&minus;x]</code> it is still the pre-round
+  state, so <code>x</code> cannot be reused. Odd total returns false up front. Answer is <code>dp[S/2]</code>.
+  O(n &middot; S) time, O(S) space."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 494 Target Sum</td><td>Reduce to subset-sum with target <code>P = (sum + target)/2</code>, then count (not just detect) subsets.</td></tr>
+  <tr><td>LC 322 Coin Change</td><td>Unbounded knapsack: same shape but the sum loop goes <b>left to right</b> so a coin can be reused.</td></tr>
+  <tr><td>LC 474 Ones and Zeroes</td><td>2-D knapsack: two capacities (zeros, ones) with the same right-to-left trick on both dimensions.</td></tr>
+  <tr><td>LC 1049 Last Stone Weight II</td><td>Same subset-sum reframe: minimise <code>|S &minus; 2P|</code>, pick <code>P</code> as close to <code>S/2</code> as possible.</td></tr>
+</table>
+
+<script>
+/* Idea diagram: a tiny example [1,5,11,5]. sum=22, target=11. Show subset {1,5,5} summing to 11. */
+(function () {
+  const W = 760, H = 180;
+  let s = '';
+  const nums = [1, 5, 11, 5], chosen = [true, true, false, true];
+  const CW = 60, CH = 46, Y = 50, X0 = 160, DX = 90;
+  nums.forEach((v, i) => {
+    const x = X0 + i * DX;
+    const col = chosen[i] ? ['#bbf7d0', '#15803d'] : ['#fef3c7', '#d97706'];
+    s += `<rect x="${x}" y="${Y}" width="${CW}" height="${CH}" rx="6" fill="${col[0]}" stroke="${col[1]}" stroke-width="2"/>`;
+    s += `<text x="${x + CW / 2}" y="${Y + CH / 2 + 6}" text-anchor="middle" font-size="20" font-weight="700">${v}</text>`;
+  });
+  s += `<text x="${X0 - 10}" y="${Y + CH / 2 + 6}" text-anchor="end" font-size="14" fill="#616e7c">nums =</text>`;
+  s += `<text x="${X0 + nums.length * DX}" y="${Y + CH / 2 + 6}" font-size="14" fill="#616e7c">sum = 22</text>`;
+
+  s += `<text x="${W / 2}" y="${Y + CH + 36}" text-anchor="middle" font-size="14" font-weight="700" fill="#15803d">green: subset {1, 5, 5} = 11</text>`;
+  s += `<text x="${W / 2}" y="${Y + CH + 56}" text-anchor="middle" font-size="14" font-weight="700" fill="#d97706">yellow: complement {11} = 11</text>`;
+  s += `<text x="${W / 2}" y="${Y + CH + 80}" text-anchor="middle" font-size="13" fill="#616e7c">both sides sum to S/2 = 11 &rarr; return true</text>`;
+
+  document.getElementById('idea').innerHTML =
+    `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} 180">${s}</svg>`;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Check', lines: ['sum odd? return false', 'target = sum / 2'], color: 'green' },
+  { title: '2. For each x in nums', lines: ['for s from target down to x:', 'dp[s] = dp[s] || dp[s - x]'], color: 'yellow' },
+  { title: '3. Answer', lines: ['dp[target]'], color: 'blue' },
+]);
+
+/* Direction demo: fixing x=3, show what happens on dp[6] when sweeping R->L vs L->R.
+   Start row (before adding x=3): dp = [T,F,F,T,F,F,T]  (0, 3 reachable). target=6.
+   R->L correct: dp[6] |= dp[3]=T  -> dp[6]=T. dp[5] stays F (dp[2] still F). dp[4] stays F. dp[3] |= dp[0]=T -> T.
+                 Final: [T,F,F,T,F,F,T]. (3 was already T; 6 just flipped.)
+   L->R wrong: dp[3] |= dp[0] -> T (fine). dp[4] |= dp[1] -> F. dp[5] |= dp[2] -> F.
+                dp[6] |= dp[3] -> T. BUT dp[9]? Here target is 6 so stop.
+   Let's use a different example to make the bug visible: nums already [3], x=3 again (so unbounded would allow 6).
+   Row before: [T,F,F,T,F,F,F]. target=6.
+   R->L: dp[6]|=dp[3]=T -> T. dp[5]|=dp[2]=F. dp[4]|=dp[1]=F. dp[3]|=dp[0]=T (already T).
+         After: [T,F,F,T,F,F,T]. 6 reached using TWO threes (correct for unbounded? But our item was only one 3,
+         meaning we have already processed this 3 once in the "row before". So reaching 6 with another 3 is reusing.)
+   Rather than muddying this with a technicality, just show R->L sweep arrows and L->R sweep arrows on dp[0..6] with x=3.
+*/
+(function () {
+  const target = 6, x = 3;
+  const W = 780, H = 220;
+  const CW = 46, CH = 46, Y1 = 56, Y2 = 150, X0 = 90;
+  let s = '';
+  // left: R->L
+  s += `<text x="${X0 + (target * CW) / 2 + 10}" y="30" text-anchor="middle" font-size="14" font-weight="700" fill="#15803d">right to left (correct for 0/1)</text>`;
+  for (let i = 0; i <= target; i++) {
+    const xp = X0 + i * CW;
+    s += `<rect x="${xp}" y="${Y1}" width="${CW - 4}" height="${CH}" rx="6" fill="#fff" stroke="#475569" stroke-width="2"/>`;
+    s += `<text x="${xp + (CW - 4) / 2}" y="${Y1 + CH / 2 + 6}" text-anchor="middle" font-size="14" font-weight="700">dp[${i}]</text>`;
+  }
+  // highlight s=6 writing from s-x=3
+  s += `<rect x="${X0 + 6 * CW}" y="${Y1}" width="${CW - 4}" height="${CH}" rx="6" fill="#fde68a" stroke="#d97706" stroke-width="2"/>`;
+  s += `<text x="${X0 + 6 * CW + (CW - 4) / 2}" y="${Y1 + CH / 2 + 6}" text-anchor="middle" font-size="14" font-weight="700">dp[6]</text>`;
+  s += `<rect x="${X0 + 3 * CW}" y="${Y1}" width="${CW - 4}" height="${CH}" rx="6" fill="#dbeafe" stroke="#3b82f6" stroke-width="2"/>`;
+  s += `<text x="${X0 + 3 * CW + (CW - 4) / 2}" y="${Y1 + CH / 2 + 6}" text-anchor="middle" font-size="14" font-weight="700">dp[3]</text>`;
+  // arrow from dp[3] to dp[6] (reading)
+  s += `<path d="M${X0 + 3 * CW + (CW - 4) / 2} ${Y1 - 6} C ${X0 + 4.5 * CW} ${Y1 - 32}, ${X0 + 4.5 * CW} ${Y1 - 32}, ${X0 + 6 * CW + (CW - 4) / 2} ${Y1 - 6}" fill="none" stroke="#15803d" stroke-width="2.5" marker-end="url(#arA)"/>`;
+  s += `<text x="${X0 + 4.5 * CW}" y="${Y1 - 36}" text-anchor="middle" font-size="12" fill="#15803d">read "before this round" (still F or T from last row)</text>`;
+  // sweep arrow R->L along the bottom
+  s += `<path d="M${X0 + 7 * CW - 6} ${Y1 + CH + 10} L ${X0} ${Y1 + CH + 10}" fill="none" stroke="#15803d" stroke-width="3" marker-end="url(#arA)"/>`;
+  s += `<text x="${X0 + 3.5 * CW}" y="${Y1 + CH + 30}" text-anchor="middle" font-size="12" fill="#15803d">sweep direction (s = 6, 5, 4, 3)</text>`;
+
+  // right block: L->R (wrong)
+  s += `<text x="${X0 + (target * CW) / 2 + 10}" y="${Y2 - 24}" text-anchor="middle" font-size="14" font-weight="700" fill="#b91c1c">left to right (wrong: reuses x = ${x})</text>`;
+  for (let i = 0; i <= target; i++) {
+    const xp = X0 + i * CW;
+    s += `<rect x="${xp}" y="${Y2}" width="${CW - 4}" height="${CH}" rx="6" fill="#fff" stroke="#475569" stroke-width="2"/>`;
+    s += `<text x="${xp + (CW - 4) / 2}" y="${Y2 + CH / 2 + 6}" text-anchor="middle" font-size="14" font-weight="700">dp[${i}]</text>`;
+  }
+  s += `<rect x="${X0 + 3 * CW}" y="${Y2}" width="${CW - 4}" height="${CH}" rx="6" fill="#fde68a" stroke="#d97706" stroke-width="2"/>`;
+  s += `<text x="${X0 + 3 * CW + (CW - 4) / 2}" y="${Y2 + CH / 2 + 6}" text-anchor="middle" font-size="14" font-weight="700">dp[3]</text>`;
+  s += `<rect x="${X0 + 6 * CW}" y="${Y2}" width="${CW - 4}" height="${CH}" rx="6" fill="#fde68a" stroke="#d97706" stroke-width="2"/>`;
+  s += `<text x="${X0 + 6 * CW + (CW - 4) / 2}" y="${Y2 + CH / 2 + 6}" text-anchor="middle" font-size="14" font-weight="700">dp[6]</text>`;
+  s += `<path d="M${X0 + 3 * CW + (CW - 4) / 2} ${Y2 + CH + 6} C ${X0 + 4.5 * CW} ${Y2 + CH + 32}, ${X0 + 4.5 * CW} ${Y2 + CH + 32}, ${X0 + 6 * CW + (CW - 4) / 2} ${Y2 + CH + 6}" fill="none" stroke="#b91c1c" stroke-width="2.5" marker-end="url(#arB)"/>`;
+  s += `<text x="${X0 + 4.5 * CW}" y="${Y2 + CH + 48}" text-anchor="middle" font-size="12" fill="#b91c1c">dp[3] was just set TRUE using x; now dp[6] uses x again</text>`;
+
+  const defs = `<defs>
+    <marker id="arA" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#15803d"/></marker>
+    <marker id="arB" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#b91c1c"/></marker>
+  </defs>`;
+  document.getElementById('direction').innerHTML =
+    `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} 240">${defs}${s}</svg>`;
+})();
+
+/* Interactive trace. */
+VIZ.controls('trace', [
+  { id: 'nums', label: 'nums =', value: '[1,5,11,5]', size: 16 },
+], v => {
+  let nums;
+  try { nums = VIZ.parse.arr(v.nums); }
+  catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  if (!Array.isArray(nums) || !nums.length || nums.some(x => typeof x !== 'number' || x <= 0))
+    return '<div class="box trap">nums must be a non-empty list of positive integers.</div>';
+  const sum = nums.reduce((a, b) => a + b, 0);
+  if (sum > 60) return '<div class="box trap">Keep sum &le; 60 so the trace fits on screen.</div>';
+  if (sum % 2) {
+    document.getElementById('answer').innerHTML =
+      `<b>sum = ${sum} is odd</b> &rarr; no equal partition. Early return <code>false</code>.`;
+    return `<div class="step wide"><h4>Odd sum shortcut</h4><div class="text">sum = ${sum} is odd, so there is no way to split into two equal halves. Return <code>false</code> without touching the DP array.</div></div>`;
+  }
+  const target = sum / 2;
+  let dp = new Array(target + 1).fill(false);
+  dp[0] = true;
+
+  let html = '';
+  html += VIZ.step('Init', VIZ.strip(dp.map(b => b ? 'T' : 'F'), {
+    cls: i => dp[i] ? 'keep' : '',
+    labels: dp.map((_, i) => i),
+  }), `sum = ${sum}, target = sum / 2 = <b>${target}</b>. Only <code>dp[0]</code> is true (empty subset).`);
+
+  let found = false;
+  const MAX = 24;
+  let shown = 0;
+
+  for (let k = 0; k < nums.length && !found; k++) {
+    const x = nums[k];
+    const flipped = [];
+    const sources = [];
+    const prev = dp.slice();
+    for (let s = target; s >= x; s--) {
+      if (!dp[s] && dp[s - x]) {
+        dp[s] = true;
+        flipped.push(s);
+        sources.push(s - x);
+      }
+    }
+    if (shown < MAX) {
+      const cls = i => {
+        if (flipped.includes(i)) return 'new';
+        if (sources.includes(i)) return 'win-src';
+        if (dp[i]) return 'keep';
+        return '';
+      };
+      // VIZ.strip supports class string -> use cls fn; map win-src -> 'in' (blue).
+      const stripHtml = VIZ.strip(dp.map(b => b ? 'T' : 'F'), {
+        cls: i => flipped.includes(i) ? 'new' : (sources.includes(i) ? 'in' : (dp[i] ? 'keep' : '')),
+        labels: dp.map((_, i) => i),
+      });
+      const note = flipped.length
+        ? `Add <b>x = ${x}</b>. New reachable sums: ${flipped.map(s => `<code>${s}</code>`).join(', ')} (from source cells ${sources.map(s => `<code>${s}</code>`).join(', ')}).`
+        : `Add <b>x = ${x}</b>. No new sum became reachable this round.`;
+      html += VIZ.step(`Round ${k + 1}: x = ${x}`, stripHtml, note);
+      shown++;
+    }
+    if (dp[target]) { found = true; break; }
+  }
+  if (nums.length > MAX) html += `<p class="caption">... ${nums.length - shown} more rounds, same pattern.</p>`;
+
+  document.getElementById('answer').innerHTML = found
+    ? `<b>dp[${target}] reached true &rarr; return <code>true</code>.</b> Some subset of <code>[${nums.join(',')}]</code> sums to ${target}.`
+    : `<b>Finished all items, dp[${target}] = false &rarr; return <code>false</code>.</b>`;
+  return html;
+}, 'Change nums. Each round adds one number and flips every sum reachable right-to-left.');
+</script>
+
+</body>
+</html>

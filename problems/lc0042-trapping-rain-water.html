@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 42 - Trapping Rain Water</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#two-pointers">Pattern lesson</a><span>Pattern 1: Arrays &amp; Two Pointers</span></div>
+
+<h1>Trapping Rain Water</h1>
+<p class="sub">LeetCode 42 &middot; Hard &middot; Pattern: two pointers with running max from each side &middot; O(n) time, O(1) space</p>
+
+<div class="box">
+  <b>Problem.</b> <code>height[i]</code> is an elevation at index <code>i</code>, width 1 per bar. After rain, how much
+  water is trapped between the bars?
+  <br><code>[0,1,0,2,1,0,1,3,2,1,2,1] &rarr; 6</code> &nbsp;&nbsp; <code>[4,2,0,3,2,5] &rarr; 9</code>
+  <br>Link: <a href="https://leetcode.com/problems/trapping-rain-water/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Think column by column. The water on column <code>i</code> is</p>
+
+<div class="eq">water[i] = max(0, min(leftMax[i], rightMax[i]) &minus; height[i])</div>
+
+<p>where <code>leftMax[i]</code> is the tallest bar at or left of <code>i</code>, and <code>rightMax[i]</code> is the
+tallest bar at or right of <code>i</code>. The limiting wall is the shorter of the two.</p>
+
+<div id="idea"></div>
+
+<p>Precomputing both arrays is O(n) time and O(n) space. The two-pointer trick cuts the space to O(1): walk from both
+ends, keep running maxes <code>lmax</code> and <code>rmax</code>, and <b>always advance the side with the smaller height</b>.
+That side's water depends only on its own running max, so you can commit it right now.</p>
+
+<div class="box insight">
+  <b>Idea.</b> Two pointers <code>l</code> and <code>r</code>, running maxes <code>lmax</code> and <code>rmax</code>. If
+  <code>height[l] &lt; height[r]</code>, then <code>rmax</code> &ge; <code>height[r]</code> &gt; <code>height[l]</code>, so
+  <code>min(lmax, rmax) = lmax</code> on column <code>l</code>. Water there is <code>lmax &minus; height[l]</code>. Add it,
+  move <code>l</code> right. Symmetric when <code>height[r] &le; height[l]</code>.
+</div>
+
+<h3>Why the "smaller side" rule is safe</h3>
+
+<p>At <code>l</code>, we committed water using <code>lmax</code>. The real cap on column <code>l</code> is
+<code>min(trueLeftMax, trueRightMax)</code>. The left side is correct because <code>lmax</code> is the running max over
+exactly <code>[0..l]</code>. For the right side we do not know <code>trueRightMax</code> yet, but we know it is at least
+<code>height[r]</code>, which is already greater than <code>height[l]</code>. So <code>min(..., trueRightMax)</code> is
+pinned by <code>lmax</code> on this column. We never overcount.</p>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>The column chart below shows the bars (dark grey), the water already committed (light blue cells above the bars), and
+the two pointers. The yellow bar is the one being processed this step. Red bars have already been retired.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>column being processed</span>
+  <span><i style="background:var(--win)"></i>other pointer</span>
+  <span><i style="background:#bae6fd"></i>water</span>
+  <span><i style="background:var(--gone)"></i>already retired</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">int</span> trap(<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; height) {
+        <span class="t">int</span> l = <span class="n">0</span>, r = (<span class="t">int</span>)height.size() - <span class="n">1</span>;
+        <span class="t">int</span> lmax = <span class="n">0</span>, rmax = <span class="n">0</span>, water = <span class="n">0</span>;
+        <span class="k">while</span> (l &lt; r) {
+            <span class="k">if</span> (height[l] &lt; height[r]) {
+                lmax = max(lmax, height[l]);
+                water += lmax - height[l];          <span class="c">// commit left column</span>
+                l++;
+            } <span class="k">else</span> {
+                rmax = max(rmax, height[r]);
+                water += rmax - height[r];          <span class="c">// commit right column</span>
+                r--;
+            }
+        }
+        <span class="k">return</span> water;
+    }
+};</pre>
+
+<p><b>Complexity:</b> each pointer moves inward only, so at most <code>n - 1</code> moves total. O(n) time, O(1) space.</p>
+
+<h3>Alternative: precompute leftMax / rightMax arrays</h3>
+
+<pre><span class="t">int</span> n = height.size(), water = <span class="n">0</span>;
+<span class="t">vector</span>&lt;<span class="t">int</span>&gt; L(n), R(n);
+L[<span class="n">0</span>] = height[<span class="n">0</span>];
+<span class="k">for</span> (<span class="t">int</span> i = <span class="n">1</span>; i &lt; n; i++) L[i] = max(L[i-<span class="n">1</span>], height[i]);
+R[n-<span class="n">1</span>] = height[n-<span class="n">1</span>];
+<span class="k">for</span> (<span class="t">int</span> i = n-<span class="n">2</span>; i &gt;= <span class="n">0</span>; i--) R[i] = max(R[i+<span class="n">1</span>], height[i]);
+<span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt; n; i++) water += min(L[i], R[i]) - height[i];</pre>
+
+<p>Three passes, O(n) time, O(n) space. Easier to explain, so write it first in an interview if two pointers do not click.
+Then compress to the two-pointer version for the O(1)-space finish.</p>
+
+<h3>Stack-based alternative</h3>
+
+<p>A monotonic decreasing stack of indices also works: each time a taller bar arrives, pop until the stack is empty or the
+top is taller, adding water for the trapped region. Natural when you also want to answer "largest rectangle" style
+questions. Still O(n) time, but O(n) space and harder to code quickly.</p>
+
+<h2>5. The part interviewers ask about: why not <code>&le;</code> in the branch?</h2>
+
+<div class="box insight">
+  Compare <code>height[l] &lt; height[r]</code> vs <code>&le;</code>. Equal heights go to the <code>else</code> branch,
+  which commits the right column first using <code>rmax</code>. Both paths give the same answer because when
+  <code>height[l] == height[r]</code>, <code>lmax &ge; height[l] == height[r] &le; rmax</code>, so the water at
+  <i>either</i> column is <code>max(lmax, rmax) &minus; height[?]</code> wait, think again: it is <code>min(lmax, rmax) &minus; h</code>.
+  Here <code>lmax</code> &ge; <code>h[l]</code> and <code>rmax</code> &ge; <code>h[r] == h[l]</code>, so neither is below
+  <code>h</code>. Either side's commit is safe. Pick one convention and stick with it.
+</div>
+
+<p>A deeper correctness point: the invariant maintained each iteration is <b>water above every <i>retired</i> column is
+already added</b>. The step adds the water above the column it just retired, using a provably correct bound. Retired
+columns are never revisited, so the final sum is correct.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Using <code>height[l]</code> itself as the limit instead of <code>lmax</code>.</b> If the current column is
+    taller than the running max, <code>height[l] &minus; height[l] = 0</code>, which is fine, but the formula with
+    <code>lmax</code> is universal. Keep it as <code>lmax &minus; height[l]</code>.</li>
+    <li><b>Updating <code>lmax</code> after adding water.</b> Then the first column of a new rising section looks like it
+    is holding water above itself. Update <code>lmax</code> first, then add.</li>
+    <li><b>Moving the taller side.</b> You would commit water using a running max that is not actually a safe lower bound
+    on the opposite wall. Move the <i>shorter</i> side.</li>
+    <li><b>Comparing <code>lmax</code> and <code>rmax</code> instead of <code>height[l]</code> and <code>height[r]</code>.</b>
+    They match once the pointers have crossed every bar, but on step one, both <code>max</code> values start at 0 while
+    the real heights differ. Comparing the heights is what pins the correct side.</li>
+    <li><b>Monotone input.</b> <code>[1,2,3,4,5]</code> or <code>[5,4,3,2,1]</code> &rarr; <code>0</code>. The pointers walk
+    without ever recording water.</li>
+    <li><b>Empty / single bar.</b> Loop condition <code>l &lt; r</code> handles both, water = 0.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "Water at column i is <code>min(leftMax, rightMax) &minus; height[i]</code>. The two-pointer trick keeps running maxes
+  from each side and always moves the shorter side inward: on that side the limiting wall is pinned by the local running
+  max, so I can commit water right now. Each pointer walks at most n steps, so O(n) time and O(1) space. The alternative
+  is two prefix-max passes in O(n) space, easier to explain but less tight."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 11 Container With Most Water</td><td>Same L/R shape and "move the shorter side" invariant; the answer is one rectangle instead of a per-column sum.</td></tr>
+  <tr><td>LC 407 Trapping Rain Water II (2D)</td><td>Generalises to a grid: use a min-heap of the current boundary, expand inward from the lowest point.</td></tr>
+  <tr><td>LC 84 Largest Rectangle in Histogram</td><td>Also a bars problem, but solved by a monotonic stack rather than two pointers.</td></tr>
+  <tr><td>LC 238 Product of Array Except Self</td><td>Also uses prefix / suffix maxima (products here) to answer per-index questions in O(n).</td></tr>
+</table>
+
+<script>
+/* Idea diagram: show [0,1,0,2,1,0,1,3,2,1,2,1] with the water drawn as blue cells above the bars. */
+(function () {
+  const H = [0,1,0,2,1,0,1,3,2,1,2,1];
+  const n = H.length;
+  const L = new Array(n), R = new Array(n);
+  L[0] = H[0]; for (let i = 1; i < n; i++) L[i] = Math.max(L[i-1], H[i]);
+  R[n-1] = H[n-1]; for (let i = n-2; i >= 0; i--) R[i] = Math.max(R[i+1], H[i]);
+  const CW = 44, PAD = 20, BASE = 180, UNIT = 32;
+  const W = PAD * 2 + CW * n, HGT = BASE + 50;
+  let s = '';
+  // skyline (max height)
+  const maxH = Math.max(...H);
+  // bars + water
+  for (let i = 0; i < n; i++) {
+    const cap = Math.min(L[i], R[i]);
+    const barH = H[i] * UNIT;
+    const waterH = (cap - H[i]) * UNIT;
+    const x = PAD + i * CW;
+    // water
+    if (waterH > 0) {
+      s += `<rect x="${x + 2}" y="${BASE - cap * UNIT}" width="${CW - 4}" height="${waterH}" fill="#bae6fd" stroke="#0284c7" stroke-width="1"/>`;
+    }
+    // bar
+    s += `<rect x="${x + 2}" y="${BASE - barH}" width="${CW - 4}" height="${barH}" fill="#334155"/>`;
+    // index
+    s += `<text x="${x + CW/2}" y="${BASE + 16}" text-anchor="middle" font-size="11" fill="#616e7c">${i}</text>`;
+    // height label
+    s += `<text x="${x + CW/2}" y="${BASE - barH - 4}" text-anchor="middle" font-size="11" fill="#1f2933">${H[i]}</text>`;
+  }
+  s += `<text x="${PAD + CW/2}" y="${BASE + 36}" font-size="11" fill="#616e7c">i</text>`;
+  document.getElementById('idea').innerHTML =
+    `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${HGT}">${s}</svg>` +
+    `<div class="caption">Water (blue) sits above each bar up to <code>min(leftMax, rightMax)</code>. Total water = ${H.reduce((a,_,i)=> a + Math.min(L[i],R[i]) - H[i], 0)}.</div>`;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Shorter side?', lines: ['compare h[l] vs h[r]'], color: 'yellow' },
+  { title: '2. Bump its max', lines: ['lmax = max(lmax, h[l])', 'or rmax = max(rmax, h[r])'], color: 'blue' },
+  { title: '3. Add water, step', lines: ['water += localMax - h[?]', 'l++ or r--'], color: 'green' },
+], { loop: 'while l < r' });
+
+/* Column-chart renderer for the trace. */
+function colChart(H, lmax, rmax, l, r, retired, lastMoved, currentWater) {
+  const n = H.length;
+  if (!n) return '';
+  const CW = 36, PAD = 14, BASE = 170, UNIT = 24;
+  const maxH = Math.max(1, ...H, lmax, rmax);
+  const W = PAD * 2 + CW * n, HGT = BASE + 42;
+  let s = '';
+  for (let i = 0; i < n; i++) {
+    const barH = H[i] * UNIT;
+    const x = PAD + i * CW;
+    // commit water for every retired column (and the one being retired this step), based on cap seen so far.
+    let cap;
+    if (i < l) cap = lmax;             // left side already walked past; its running max at retirement was lmax
+    else if (i > r) cap = rmax;
+    else cap = Math.min(lmax, rmax);   // unknown yet, show nothing above
+    const effCap = Math.max(cap, H[i]);
+    const waterH = (i < l || i > r) ? (effCap - H[i]) * UNIT : 0;
+    // water
+    if (waterH > 0) {
+      s += `<rect x="${x + 2}" y="${BASE - effCap * UNIT}" width="${CW - 4}" height="${waterH}" fill="#bae6fd" stroke="#0284c7" stroke-width="1"/>`;
+    }
+    // bar colour
+    let fill = '#334155';
+    if (i === lastMoved) fill = '#d97706';         // yellow bar being processed this step (dark border fill)
+    else if (i === l || i === r) fill = '#3b82f6'; // blue pointer bar
+    else if (retired.has(i)) fill = '#b91c1c';     // red retired
+    s += `<rect x="${x + 2}" y="${BASE - barH}" width="${CW - 4}" height="${barH}" fill="${fill}" rx="2"/>`;
+    // index
+    let idxCls = '#616e7c';
+    if (i === l || i === r || i === lastMoved) idxCls = '#1f2933';
+    s += `<text x="${x + CW/2}" y="${BASE + 14}" text-anchor="middle" font-size="11" fill="${idxCls}">${i}</text>`;
+    // pointer letter
+    if (i === l || i === r) {
+      const letter = i === l ? 'L' : 'R';
+      s += `<text x="${x + CW/2}" y="${BASE + 28}" text-anchor="middle" font-size="12" font-weight="700" fill="#1d4ed8">${letter}</text>`;
+    }
+    // height label
+    s += `<text x="${x + CW/2}" y="${BASE - barH - 3}" text-anchor="middle" font-size="10" fill="#1f2933">${H[i]}</text>`;
+  }
+  return `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${HGT}">${s}</svg>`;
+}
+
+/* Interactive trace. */
+VIZ.controls('trace', [
+  { id: 'height', label: 'height =', value: '[0,1,0,2,1,0,1,3,2,1,2,1]', size: 32 },
+], v => {
+  let h;
+  try { h = VIZ.parse.arr(v.height); }
+  catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  if (!Array.isArray(h)) return '<div class="box trap">Expected an array.</div>';
+  if (h.length === 0) return '<div class="box trap">Empty array. Water = 0.</div>';
+  if (h.length > 16) return '<div class="box trap">Pick at most 16 bars to keep the trace readable.</div>';
+  if (h.some(x => typeof x !== 'number' || x < 0)) return '<div class="box trap">Heights must be non-negative integers.</div>';
+
+  let l = 0, r = h.length - 1, lmax = 0, rmax = 0, water = 0;
+  const retired = new Set();
+  const steps = [];
+  if (l >= r) {
+    steps.push({ l, r, lmax, rmax, water, moved: null, note: 'Only one column, no water possible.' });
+  }
+  while (l < r) {
+    if (h[l] < h[r]) {
+      lmax = Math.max(lmax, h[l]);
+      const add = lmax - h[l];
+      water += add;
+      steps.push({ l, r, lmax, rmax, water, side: 'L', moved: l, add, note: `h[l]=${h[l]} &lt; h[r]=${h[r]}. lmax &rarr; ${lmax}, add ${add} to water (now ${water}). L++.` });
+      retired.add(l);
+      l++;
+    } else {
+      rmax = Math.max(rmax, h[r]);
+      const add = rmax - h[r];
+      water += add;
+      steps.push({ l, r, lmax, rmax, water, side: 'R', moved: r, add, note: `h[r]=${h[r]} &le; h[l]=${h[l]}. rmax &rarr; ${rmax}, add ${add} to water (now ${water}). R--.` });
+      retired.add(r);
+      r--;
+    }
+  }
+
+  const MAX = 25;
+  const show = steps.slice(0, MAX);
+  let html = '';
+  // Walk the steps and compute what "retired at the time of this step" looks like.
+  const retiredSoFar = new Set();
+  show.forEach((st, k) => {
+    // Chart: show retired-so-far EXCLUDING the one just moved (so that bar is yellow in this step).
+    const retiredBefore = new Set(retiredSoFar);
+    const chart = colChart(h, st.lmax, st.rmax, st.side === 'L' ? st.l + 1 : st.l, st.side === 'R' ? st.r - 1 : st.r,
+                           retiredBefore, st.moved, st.water);
+    // After drawing, mark it retired for the next step.
+    if (st.moved !== null) retiredSoFar.add(st.moved);
+    const text = st.note + ` <span class="caption">(lmax=${st.lmax}, rmax=${st.rmax})</span>`;
+    html += VIZ.step(`Step ${k + 1}: l = ${st.side === 'L' ? st.l : st.l}, r = ${st.side === 'R' ? st.r : st.r}`, chart, text, true);
+  });
+  if (steps.length > MAX) html += `<p class="caption">... ${steps.length - MAX} more steps, same pattern.</p>`;
+
+  document.getElementById('answer').innerHTML =
+    `<b>Answer for height = [${h.join(',')}]: ${water}</b>`;
+  return html;
+}, 'Values are the bar heights, left to right.');
+</script>
+
+</body>
+</html>

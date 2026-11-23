@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 215 - Kth Largest Element in an Array</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#heaps">Pattern lesson</a><span>Pattern 7: Heaps / Priority Queue</span></div>
+
+<h1>Kth Largest Element in an Array</h1>
+<p class="sub">LeetCode 215 &middot; Medium &middot; Pattern: size-k min-heap &middot; O(n log k) time, O(k) space</p>
+
+<div class="box">
+  <b>Problem.</b> Return the <b>k</b>th largest element in an unsorted array <code>nums</code>. "<i>k</i>th largest" means
+  the one that would sit at position <code>n-k</code> after sorting ascending (not the <i>k</i>th distinct value).
+  <br><code>[3,2,1,5,6,4], k=2 &rarr; 5</code>. &nbsp;&nbsp; <code>[3,2,3,1,2,4,5,5,6], k=4 &rarr; 4</code>.
+  <br>Link: <a href="https://leetcode.com/problems/kth-largest-element-in-an-array/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>You do not need the whole sorted array. You only need to know what sits at rank <code>k</code> from the top. So
+keep a small bag of size <code>k</code> that always holds the <b>k largest numbers seen so far</b>. When a new number
+arrives, add it; if the bag exceeds <code>k</code>, throw away the <i>smallest</i> element of the bag. At the end,
+the bag holds the top <code>k</code>, and the one at the bottom (its minimum) is the answer.</p>
+
+<p>The "smallest of the bag" needs to be found and removed in O(log k). That is exactly what a <b>min-heap</b> does:
+<code>top()</code> is the smallest, <code>pop()</code> removes it. A max-heap of size <code>n</code> would also work
+but costs O(n) space; the min-heap trick keeps space to O(k).</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Keep a min-heap of the <code>k</code> largest numbers seen so far. Push every new number; whenever
+  <code>size &gt; k</code>, pop the smallest. The heap's <code>top()</code> at the end is the <i>k</i>th largest.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>A heap is a complete binary tree with the heap property. In a <b>min-heap</b> each parent is less than or equal to
+its children, so the root is the smallest. The array layout is level order: for a node at index <code>i</code>, its
+children are at <code>2i+1</code> and <code>2i+2</code>. Push bubbles up, pop swaps the root with the last leaf and
+sifts down.</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Enter an array and <code>k</code>. The trace shows the heap as a binary tree (level order of the heap array) after
+every push and after every pop. The root is always the smallest of what is currently in the heap.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>just pushed</span>
+  <span><i style="background:var(--gone)"></i>popped (smallest)</span>
+  <span><i style="background:var(--keep)"></i>final root = answer</span>
+  <span><i style="background:#fff;border:1px solid #cbd5e1"></i>sitting in the heap</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="t">int</span> findKthLargest(vector&lt;<span class="t">int</span>&gt;&amp; nums, <span class="t">int</span> k) {
+    priority_queue&lt;<span class="t">int</span>, vector&lt;<span class="t">int</span>&gt;, greater&lt;<span class="t">int</span>&gt;&gt; pq;   <span class="c">// min-heap</span>
+    <span class="k">for</span> (<span class="t">int</span> x : nums) {
+        pq.push(x);
+        <span class="k">if</span> ((<span class="t">int</span>)pq.size() &gt; k) pq.pop();              <span class="c">// drop the smallest; keep top-k</span>
+    }
+    <span class="k">return</span> pq.top();                                   <span class="c">// smallest of the top-k = k-th largest</span>
+}</pre>
+
+<p><b>Complexity:</b> each element does at most one push and one pop, each O(log k). Total O(n log k) time and O(k)
+space.</p>
+
+<p><b>About <code>greater&lt;int&gt;</code>.</b> <code>std::priority_queue</code> is a <i>max</i>-heap by default:
+the "top" is the element the comparator says is <i>largest</i>, and the default comparator is <code>less&lt;int&gt;</code>
+(a &lt; b). To get a min-heap you flip the comparator to <code>greater&lt;int&gt;</code>, so the "top" is now whatever
+<code>greater</code> ranks highest, which is the smallest number. The rule to remember: <b>top is the element the
+comparator deems the largest; pass <code>greater</code> to invert the order.</b></p>
+
+<h3>Alternative: quickselect (expected O(n))</h3>
+
+<pre><span class="t">int</span> findKthLargest(vector&lt;<span class="t">int</span>&gt;&amp; nums, <span class="t">int</span> k) {
+    <span class="t">int</span> target = (<span class="t">int</span>)nums.size() - k;                   <span class="c">// index in sorted ascending order</span>
+    <span class="t">int</span> lo = <span class="n">0</span>, hi = (<span class="t">int</span>)nums.size() - <span class="n">1</span>;
+    mt19937 rng(random_device{}());
+    <span class="k">while</span> (lo &lt;= hi) {
+        <span class="t">int</span> p = lo + rng() % (hi - lo + <span class="n">1</span>);              <span class="c">// random pivot avoids O(n^2)</span>
+        swap(nums[p], nums[hi]);
+        <span class="t">int</span> pivot = nums[hi], store = lo;
+        <span class="k">for</span> (<span class="t">int</span> i = lo; i &lt; hi; i++)
+            <span class="k">if</span> (nums[i] &lt; pivot) swap(nums[i], nums[store++]);
+        swap(nums[store], nums[hi]);                        <span class="c">// final pivot position</span>
+        <span class="k">if</span> (store == target) <span class="k">return</span> nums[store];
+        <span class="k">if</span> (store &lt; target) lo = store + <span class="n">1</span>;
+        <span class="k">else</span> hi = store - <span class="n">1</span>;
+    }
+    <span class="k">return</span> -<span class="n">1</span>;
+}</pre>
+
+<p>Quickselect is partition-based, like quicksort but it only recurses into the side that contains the target rank.
+<b>Expected O(n), worst case O(n<sup>2</sup>)</b>. Prefer it when the interviewer asks for linear-time average. The
+heap is the safer default: deterministic O(n log k), simpler code, friendlier to <i>streaming</i> input (you need not
+know <code>n</code> up front).</p>
+
+<h2>5. The part interviewers ask about: why a size-k min-heap, not a size-k max-heap</h2>
+
+<div class="box insight">
+  A beginner reads "<i>k</i>th <b>largest</b>" and reaches for a max-heap. A max-heap of all <code>n</code> elements
+  works &mdash; pop <code>k</code> times and the last pop is the answer &mdash; but it costs O(n) space and
+  O(n + k log n) time. The size-<b>k min-heap</b> is better: the heap holds exactly the top-k candidates. Its root is
+  the <i>smallest</i> number in that bag, which is the exact threshold a new number must beat to belong to the top-k.
+  So you compare the new number against the root and either skip it or evict the root.
+</div>
+
+<p>A second angle: the min-heap approach is naturally a <b>streaming algorithm</b>. If numbers arrive one by one and
+you cannot store them all, you can still maintain the top-k in O(k) memory. Quickselect needs the whole array in
+memory.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Default <code>priority_queue&lt;int&gt;</code> is a max-heap.</b> Omitting the <code>greater&lt;int&gt;</code>
+    template argument gives you a max-heap, and the whole algorithm breaks silently. Always spell out the comparator.</li>
+    <li><b>Order of <code>push</code> and <code>pop</code>.</b> Push <i>first</i>, then pop if <code>size &gt; k</code>.
+    If you pop before pushing, you drop one of the current top-k.</li>
+    <li><b>Returning <code>pq.top()</code> after draining the heap.</b> Only call <code>top()</code> while the heap is
+    non-empty. Here the final heap has exactly <code>k</code> elements, so it is fine.</li>
+    <li><b>Duplicates.</b> <i>k</i>th largest is not the <i>k</i>th distinct value. <code>[7,7,7,7], k=3 &rarr; 7</code>.
+    The heap approach handles this; naive "use a set" does not.</li>
+    <li><b>Negative numbers and all-equal arrays.</b> The algorithm is comparison-based and does not care about signs
+    or ties. Just make sure your test harness covers them.</li>
+    <li><b>Quickselect pivot choice.</b> A deterministic "always pick the last element" pivot is O(n<sup>2</sup>) on a
+    sorted input. Use a random pivot or median-of-three.</li>
+    <li><b>Quickselect on a copy.</b> Quickselect reorders <code>nums</code> in place. If the caller expects the array
+    unchanged, copy first.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I keep a min-heap of size <code>k</code>. I push every number; whenever the heap grows past <code>k</code>, I pop
+  the smallest. At the end the heap holds the top-<code>k</code> numbers, and its root is the smallest of those,
+  which is the <i>k</i>th largest overall. In C++ that is <code>priority_queue&lt;int, vector&lt;int&gt;,
+  greater&lt;int&gt;&gt;</code>: the default is a max-heap, so I pass <code>greater</code> to flip it. Time
+  O(n log k), space O(k). If the interviewer asks for linear time, I switch to quickselect with a random pivot,
+  average O(n), worst O(n<sup>2</sup>)."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 347 Top K Frequent Elements</td><td>Same size-k min-heap, keyed by frequency instead of value.</td></tr>
+  <tr><td>LC 973 K Closest Points to Origin</td><td>Size-k max-heap on squared distance (we want the <i>smallest</i> k, so a max-heap keeps the worst candidate on top).</td></tr>
+  <tr><td>LC 703 Kth Largest in a Stream</td><td>Exactly the min-heap-of-size-k, with elements arriving online.</td></tr>
+  <tr><td>LC 295 Find Median from Data Stream</td><td>Two heaps instead of one; the median sits at both roots.</td></tr>
+  <tr><td>LC 23 Merge k Sorted Lists</td><td>Min-heap of list heads; pop the smallest and advance.</td></tr>
+</table>
+
+<script>
+const V = VIZ;
+
+/* 1. Idea diagram: a min-heap of size k=2 as a tree. */
+(function () {
+  // After seeing [3,2,1,5,6] with k=2 the heap is {5,6}. Show it as a tree in level order [5,6].
+  const t = V.tree([5, 6], { cls: { 0: 'keep' }, notes: { 0: 'top = 5' } });
+  document.getElementById('idea').innerHTML =
+    '<div class="figure">' + t + '</div>' +
+    '<p class="caption">After scanning <code>[3,2,1,5,6]</code> with <code>k=2</code>, the size-2 min-heap holds the top-2 numbers. Its root is 5 &mdash; the smaller of the two &mdash; which is the current 2nd largest.</p>';
+})();
+
+/* 2. Flow */
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Push x', lines: ['pq.push(x)', 'bubbles up'], color: 'yellow' },
+  { title: '2. Over size?', lines: ['size > k ?', 'yes: pop top', 'drops the smallest'], color: 'red' },
+  { title: '3. Loop', lines: ['next x'], color: 'blue' },
+  { title: '4. Done', lines: ['return pq.top()', '= k-th largest'], color: 'green' },
+], { loop: 'for each x in nums' });
+
+/* 3. Interactive trace. */
+VIZ.controls('trace', [
+  { id: 'nums', label: 'nums =', value: '[3,2,1,5,6,4]', size: 24 },
+  { id: 'k', label: 'k =', value: '2', size: 3 },
+], v => {
+  const nums = V.parse.arr(v.nums);
+  const k = V.parse.int(v.k);
+  if (k < 1 || k > nums.length) throw new Error('need 1 <= k <= nums.length');
+  if (nums.length > 12) throw new Error('keep nums.length <= 12');
+
+  // Min-heap implementation on an array (level order).
+  const heap = [];
+  const less = (a, b) => a < b;
+  const siftUp = i => {
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (less(heap[i], heap[p])) { [heap[i], heap[p]] = [heap[p], heap[i]]; i = p; }
+      else break;
+    }
+  };
+  const siftDown = i => {
+    const n = heap.length;
+    while (true) {
+      const l = 2 * i + 1, r = 2 * i + 2;
+      let s = i;
+      if (l < n && less(heap[l], heap[s])) s = l;
+      if (r < n && less(heap[r], heap[s])) s = r;
+      if (s === i) break;
+      [heap[i], heap[s]] = [heap[s], heap[i]];
+      i = s;
+    }
+  };
+  const push = x => { heap.push(x); siftUp(heap.length - 1); };
+  const pop = () => {
+    const top = heap[0];
+    const last = heap.pop();
+    if (heap.length) { heap[0] = last; siftDown(0); }
+    return top;
+  };
+
+  const legend = () => '<div class="caption">heap array (level order): [' + heap.join(', ') + '],  size = ' + heap.length + '</div>';
+
+  const render = (title, note, hiNode, extraTree) => {
+    const cls = {};
+    if (hiNode !== undefined && hiNode !== null) cls[hiNode] = 'new';
+    const treeHtml = heap.length ? V.tree(heap, { cls }) : '<div class="caption">(empty heap)</div>';
+    const vis = '<div class="figure">' + treeHtml + (extraTree || '') + '</div>' + legend();
+    return V.step(title, vis, note, true);
+  };
+
+  let html = render('Init', `Empty min-heap. We will keep its size &le; ${k}.`, null);
+  let steps = 1;
+  const cap = 24;
+
+  for (let i = 0; i < nums.length; i++) {
+    if (steps >= cap) {
+      html += '<p class="caption">... ' + (nums.length - i) + ' more input numbers to process.</p>';
+      // Finish silently so the final answer is still correct.
+      for (let j = i; j < nums.length; j++) {
+        push(nums[j]);
+        if (heap.length > k) pop();
+      }
+      break;
+    }
+    push(nums[i]);
+    html += render(
+      `Push ${nums[i]}`,
+      `Push <b>${nums[i]}</b> into the heap. Size is now ${heap.length}.` +
+      (heap.length <= k ? ' Under the cap, nothing to drop.' : ' Over the cap &rarr; we will pop the root next.'),
+      heap.indexOf(nums[i])
+    );
+    steps++;
+    if (heap.length > k) {
+      if (steps >= cap) break;
+      const popped = pop();
+      html += render(
+        `Pop ${popped} (smallest)`,
+        `Heap exceeded <code>k=${k}</code>. Popping the root <b>${popped}</b> keeps only the top-${k} seen so far.`,
+        null
+      );
+      steps++;
+    }
+  }
+
+  // Final highlight
+  const finalCls = { 0: 'keep' };
+  const finalTree = V.tree(heap, { cls: finalCls, notes: { 0: 'answer' } });
+  html += V.step(
+    'Final heap',
+    '<div class="figure">' + finalTree + '</div><div class="caption">heap array: [' + heap.join(', ') + ']</div>',
+    `The heap holds the top-${k} numbers. Its root <b>${heap[0]}</b> is the smallest of them, which is the <i>${k}</i>th largest overall.`,
+    true
+  );
+
+  document.getElementById('answer').innerHTML = '<b>Answer:</b> ' + heap[0];
+  return html;
+}, 'Enter nums and k. Each push and each over-cap pop is a step.');
+</script>
+
+</body>
+</html>

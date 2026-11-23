@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 140 - Word Break II</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#advanced">Pattern lesson</a><span>Pattern 20: Advanced</span></div>
+
+<h1>Word Break II</h1>
+<p class="sub">LeetCode 140 &middot; Hard &middot; Pattern: memoised DFS over suffixes &middot; O(n &middot; 2<sup>n</sup>) output in the worst case, O(n &middot; max&nbsp;answers) memo space</p>
+
+<div class="box">
+  <b>Problem.</b> Given string <code>s</code> and dictionary <code>wordDict</code>, return <b>all</b> ways to split
+  <code>s</code> into dictionary words, each joined by a single space.
+  <br><code>s = "catsanddog", dict = ["cat","cats","and","sand","dog"] &rarr; ["cats and dog","cat sand dog"]</code>
+  <br><code>s = "pineapplepenapple", dict = ["apple","pen","applepen","pine","pineapple"] &rarr; 3 splits</code>
+  <br><code>s = "catsandog", dict = ["cats","dog","sand","and","cat"] &rarr; []</code>
+  <br>Link: <a href="https://leetcode.com/problems/word-break-ii/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Think about the <b>first</b> word of the answer. It is some prefix <code>s[0..i)</code> of <code>s</code> that happens
+to be in the dictionary. The rest of the answer is "all splits of the suffix <code>s[i..n)</code>". So the whole thing
+is recursive:</p>
+
+<div class="eq">splits(s) = &bigcup; <sub>i : s[0..i) &isin; dict</sub> &nbsp; prefix &oplus; splits(s[i..n))</div>
+
+<p>Without memoisation this is exponential: <code>"aaaaab"</code> with <code>dict = {"a","aa"}</code> recomputes
+<code>splits("aaaab")</code>, <code>splits("aaab")</code>, &hellip; many times. Each suffix is a reusable sub-problem,
+so <b>memoise by suffix</b>: <code>memo[suffix] &rarr; all its splits</code>.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Pick the first word, recurse on the rest, cache by suffix. The same suffix is reached by many different
+  prefix choices higher up, and the memo collapses them all into one computation. If LC 139 asks "is a split
+  possible?", LC 140 asks "list them all" &mdash; the shape is the same, we just return a list of strings instead of a
+  boolean.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>Why memoising the suffix is enough: the set of splits of <code>s[i..n)</code> depends only on <code>i</code>, not on
+how we reached <code>i</code> from the top. Two different callers who both land on the suffix starting at index
+<code>i</code> see the same answer, so one computation serves both.</p>
+
+<p>Output size matters here. The number of splits can be exponential in <code>n</code> (e.g. all-<code>a</code> string
+with dict <code>{"a","aa"}</code> grows like Fibonacci). Memoisation makes the <i>work per distinct suffix</i>
+polynomial, but we still spend time proportional to the number of answers because we have to list them.</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>The tree below is drawn by running the real algorithm. Each node is a suffix. A yellow node is a fresh call. A
+purple node is a <b>memo hit</b>: we already know its splits, we just paste them in. Leaves show the splits returned
+by that call.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>fresh call (compute splits of this suffix)</span>
+  <span><i style="background:#e9d5ff"></i>memo hit (reuse cached splits)</span>
+  <span><i style="background:var(--keep)"></i>final answer</span>
+  <span><i style="background:#f8fafc;border:1px solid #cbd5e1"></i>dead branch (no splits)</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+    <span class="t">unordered_set</span>&lt;<span class="t">string</span>&gt; dict;
+    <span class="t">unordered_map</span>&lt;<span class="t">string</span>, <span class="t">vector</span>&lt;<span class="t">string</span>&gt;&gt; memo;
+
+    <span class="t">vector</span>&lt;<span class="t">string</span>&gt; dfs(<span class="k">const</span> <span class="t">string</span>&amp; s) {
+        <span class="k">auto</span> it = memo.find(s);
+        <span class="k">if</span> (it != memo.end()) <span class="k">return</span> it-&gt;second;    <span class="c">// memo hit</span>
+
+        <span class="t">vector</span>&lt;<span class="t">string</span>&gt; result;
+        <span class="k">if</span> (dict.count(s)) result.push_back(s);           <span class="c">// whole suffix is a word</span>
+
+        <span class="k">for</span> (<span class="t">int</span> i = <span class="n">1</span>; i &lt; (<span class="t">int</span>)s.size(); i++) {
+            <span class="t">string</span> prefix = s.substr(<span class="n">0</span>, i);
+            <span class="k">if</span> (dict.count(prefix)) {
+                <span class="k">auto</span> rest = dfs(s.substr(i));
+                <span class="k">for</span> (<span class="k">auto</span>&amp; r : rest)
+                    result.push_back(prefix + <span class="n">" "</span> + r);
+            }
+        }
+        <span class="k">return</span> memo[s] = result;
+    }
+<span class="k">public</span>:
+    <span class="t">vector</span>&lt;<span class="t">string</span>&gt; wordBreak(<span class="t">string</span> s, <span class="t">vector</span>&lt;<span class="t">string</span>&gt;&amp; wordDict) {
+        dict = <span class="t">unordered_set</span>&lt;<span class="t">string</span>&gt;(wordDict.begin(), wordDict.end());
+        memo.clear();
+        <span class="k">return</span> dfs(s);
+    }
+};</pre>
+
+<p><b>Complexity.</b> Each distinct suffix is computed once; there are at most <code>n</code> of them. Per suffix we
+try <code>O(n)</code> prefix cuts (each a substring and a hash probe, O(L) where L is the prefix length), plus we
+concatenate every returned split. The output can be exponential, so the total time is
+<code>O(n<sup>2</sup> &middot; L + n &middot; total&nbsp;answer&nbsp;length)</code>. Space is the memo, bounded by the
+total length of all stored splits plus the recursion depth <code>O(n)</code>.</p>
+
+<h3>Alternative: do LC 139 first, then recurse</h3>
+
+<pre><span class="t">bool</span> reachable[n + <span class="n">1</span>];                         <span class="c">// LC 139 style</span>
+<span class="c">// Fill reachable[i] = can s[i..n) be split? Then DFS only enters</span>
+<span class="c">// a branch where reachable[i] is true. Avoids wasted recursion</span>
+<span class="c">// on suffixes that cannot be split at all.</span></pre>
+
+<p>Prefer this when the dictionary rarely matches and you'd otherwise walk long dead branches. The direct memoised
+version is fine when most suffixes do split.</p>
+
+<h2>5. The part interviewers ask about: why memoise the suffix, not the index?</h2>
+
+<div class="box insight">
+  Memoising by <b>index</b> <code>i</code> and by <b>suffix</b> <code>s.substr(i)</code> are equivalent: the suffix is a
+  function of <code>i</code> and the fixed <code>s</code>. Suffix is clearer in interviews because it exposes
+  <i>what</i> the sub-problem is; index is faster in code because the hash key is cheaper. Either answer is fine; be
+  ready to switch if the interviewer pushes on cost.
+</div>
+
+<p>A second subtle point: the stored answer is <b>the splits of the suffix on its own</b>, not pre-pended with any
+prefix. That is what makes caching valid &mdash; two callers reuse the same list because it says nothing about where
+they came from. If you store <code>fullAnswer = prefix + " " + rest</code> in the cache, you lose reusability.</p>
+
+<p>Third thing people ask: can we build this bottom-up with 1-D DP like LC 139? Yes, with
+<code>dp[i] = list of splits of s[i..n)</code>, filled from <code>i = n</code> downwards. It's the same algorithm
+in a different direction; most people find top-down + memo easier to write under pressure.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Forgetting to catch the "whole suffix is a word" case.</b> If <code>s</code> itself is in the dictionary,
+    <code>s</code> is a valid split of length one. Easy to miss when the loop starts at <code>i = 1</code> and ends at
+    <code>i &lt; s.size()</code>.</li>
+    <li><b>Caching the pre-pended answer.</b> Cache <i>only</i> the splits of the suffix on its own. Prepending a
+    prefix at cache time poisons the entry for other callers.</li>
+    <li><b>Returning <code>result</code> without storing it.</b> The <code>memo[s] = result</code> assignment is what
+    gives the next identical call its O(1) exit. Without it the algorithm regresses to exponential.</li>
+    <li><b>Treating <code>wordDict</code> as a <code>vector</code>.</b> O(|dict|) lookup per prefix wrecks the running
+    time. Use <code>unordered_set</code>.</li>
+    <li><b>Blow-up inputs.</b> <code>s = "aaaaaaaaaaaaaaaaaaaaab"</code> with <code>dict = {"a","aa","aaa",...}</code>
+    has no split (the <code>b</code> doesn't match), but naive DFS explores every partition of the <code>a</code>'s.
+    Memoisation on the suffix returns immediately on the second visit; LC 139-style reachability as a filter is better
+    still.</li>
+    <li><b>Empty dictionary.</b> If no word matches any prefix, return <code>[]</code>. The code handles it: the loop
+    adds nothing and the suffix is not in <code>dict</code>.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I pick the first word: any dictionary prefix of <code>s</code>. The rest of the answer is all splits of the
+  remaining suffix, which is a sub-problem of the same shape. I DFS on suffixes and memoise by suffix, so each distinct
+  suffix is solved once. If the whole suffix is itself in the dictionary, that counts as a split too. Time is
+  <code>O(n<sup>2</sup>)</code> per distinct suffix, plus the total length of the output, which is intrinsic because we
+  have to list every split. If dead branches hurt, I first run LC 139 to mark which suffixes split at all and only
+  recurse into those."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 139 Word Break</td><td>Same recurrence, boolean answer. Natural filter for LC 140.</td></tr>
+  <tr><td>LC 131 Palindrome Partitioning</td><td>Partition into palindromes instead of dictionary words; same prefix + recurse shape.</td></tr>
+  <tr><td>LC 282 Expression Add Operators</td><td>Partition into number tokens with operators; still "pick a prefix, recurse on suffix".</td></tr>
+  <tr><td>LC 472 Concatenated Words</td><td>Run LC 139 on each word with the dictionary minus itself; LC 140's reusable-suffix trick is handy for building the test.</td></tr>
+</table>
+
+<script>
+/* 1. Idea diagram: recursion tree for "cats" + "and" + "dog". Draw a tiny tree showing memo reuse. */
+(function () {
+  // We draw a simplified recursion tree for s="catsanddog", dict={cat,cats,and,sand,dog}.
+  // Root: "catsanddog". Children at i=3 (cat->"sanddog"), i=4 (cats->"anddog").
+  //   "sanddog" has child i=4 (sand->"dog"). "dog" is in dict -> returns ["dog"].
+  //   "anddog"  has child i=3 (and->"dog"). "dog" MEMO HIT the second time.
+  const W = 820, H = 300;
+  const nodes = [
+    { id: 'r', x: 410, y: 40, label: '"catsanddog"', cls: 'new' },
+    { id: 'a', x: 230, y: 130, label: '"sanddog"', cls: 'new' },
+    { id: 'b', x: 590, y: 130, label: '"anddog"', cls: 'new' },
+    { id: 'c', x: 230, y: 220, label: '"dog"', cls: 'new' },
+    { id: 'd', x: 590, y: 220, label: '"dog"', cls: 'hit' },
+  ];
+  const edges = [
+    ['r', 'a', 'cat'], ['r', 'b', 'cats'],
+    ['a', 'c', 'sand'], ['b', 'd', 'and'],
+  ];
+  const col = { new: ['#fde68a', '#d97706'], hit: ['#e9d5ff', '#7c3aed'] };
+  let s = '';
+  edges.forEach(([u, v, lab]) => {
+    const A = nodes.find(n => n.id === u), B = nodes.find(n => n.id === v);
+    s += `<line x1="${A.x}" y1="${A.y + 18}" x2="${B.x}" y2="${B.y - 18}" stroke="#94a3b8" stroke-width="2"/>`;
+    s += `<text x="${(A.x + B.x) / 2 + 14}" y="${(A.y + B.y) / 2 + 4}" font-size="12" font-weight="700" fill="#d97706">${lab}</text>`;
+  });
+  nodes.forEach(n => {
+    const [f, st] = col[n.cls];
+    const w = Math.max(84, n.label.length * 8);
+    s += `<rect x="${n.x - w / 2}" y="${n.y - 18}" width="${w}" height="36" rx="8" fill="${f}" stroke="${st}" stroke-width="2"/>`;
+    s += `<text x="${n.x}" y="${n.y + 5}" text-anchor="middle" font-size="14" font-weight="700">${n.label}</text>`;
+  });
+  s += `<text x="590" y="270" text-anchor="middle" font-size="12" fill="#7c3aed" font-weight="700">memo hit: splits of "dog" are already known</text>`;
+  document.getElementById('idea').innerHTML =
+    `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${H}">${s}</svg>`;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Check memo', lines: ['if s in memo:', 'return memo[s]'], color: 'purple' },
+  { title: '2. Try every prefix', lines: ['for i = 1..n-1:', 'if s[0..i) in dict:', 'rest = dfs(s[i..n))', 'append prefix + " " + r'], color: 'yellow' },
+  { title: '3. Whole suffix in dict', lines: ['if s in dict:', 'result.push_back(s)'], color: 'green' },
+  { title: '4. Cache and return', lines: ['memo[s] = result', 'return result'], color: 'blue' },
+]);
+
+/* Interactive trace: run memoised DFS, record a recursion tree. */
+VIZ.controls('trace', [
+  { id: 's', label: 's =', value: 'catsanddog', size: 16 },
+  { id: 'dict', label: 'dict =', value: '["cat","cats","and","sand","dog"]', size: 36 },
+], v => {
+  let s = v.s.trim();
+  let dict;
+  try { dict = JSON.parse(v.dict.trim()); }
+  catch (e) { return '<div class="box trap">Could not parse dict as JSON. Example: ["cat","cats","and","sand","dog"].</div>'; }
+  if (!Array.isArray(dict) || dict.some(w => typeof w !== 'string'))
+    return '<div class="box trap">dict must be a JSON array of strings.</div>';
+  if (s.length > 18) return '<div class="box trap">Pick a string of length at most 18 to keep the tree readable.</div>';
+
+  const words = new Set(dict);
+
+  // Build tree while running the memoised DFS.
+  // Each tree node: { suffix, status: 'fresh'|'hit'|'dead', children: [], returned: [] }
+  const memo = new Map();
+  function dfs(suffix) {
+    const node = { suffix, status: 'fresh', children: [], returned: null, calls: [] };
+    if (memo.has(suffix)) {
+      node.status = 'hit';
+      node.returned = memo.get(suffix);
+      return node;
+    }
+    const result = [];
+    if (words.has(suffix)) result.push(suffix);
+    for (let i = 1; i < suffix.length; i++) {
+      const prefix = suffix.substring(0, i);
+      if (words.has(prefix)) {
+        const rest = dfs(suffix.substring(i));
+        node.children.push({ prefix, rest });
+        for (const r of rest.returned) result.push(prefix + ' ' + r);
+      }
+    }
+    node.returned = result;
+    memo.set(suffix, result);
+    if (result.length === 0 && node.children.length === 0) node.status = 'dead';
+    return node;
+  }
+  const root = dfs(s);
+  const finalAnswer = root.returned;
+
+  // Layout the tree. Depth-first assign x positions by in-order traversal.
+  const flat = [];
+  (function layout(node, depth) {
+    node.depth = depth;
+    if (node.children.length === 0) { node.x = flat.length; flat.push(node); return; }
+    node.children.forEach(ch => layout(ch.rest, depth + 1));
+    const xs = node.children.map(ch => ch.rest.x);
+    node.x = (Math.min(...xs) + Math.max(...xs)) / 2;
+    flat.push(node);
+  })(root, 0);
+
+  const maxDepth = Math.max(...flat.map(n => n.depth));
+  const DX = 150, DY = 85, PAD = 30;
+  const W = PAD * 2 + Math.max(1, Math.max(...flat.map(n => n.x))) * DX + 160;
+  const H = PAD * 2 + maxDepth * DY + 40;
+
+  function labelFor(n) {
+    const q = `"${n.suffix}"`;
+    const annot = n.status === 'hit' ? ' hit' : (n.status === 'dead' ? ' dead' : '');
+    return q + annot;
+  }
+  function colFor(n) {
+    if (n.status === 'hit') return ['#e9d5ff', '#7c3aed'];
+    if (n.status === 'dead') return ['#f8fafc', '#cbd5e1'];
+    return ['#fde68a', '#d97706'];
+  }
+
+  let svg = '';
+  (function drawEdges(n) {
+    const px = PAD + n.x * DX, py = PAD + n.depth * DY;
+    n.children.forEach(ch => {
+      const b = ch.rest;
+      const cx = PAD + b.x * DX, cy = PAD + b.depth * DY;
+      svg += `<line x1="${px}" y1="${py + 20}" x2="${cx}" y2="${cy - 20}" stroke="#94a3b8" stroke-width="2"/>`;
+      svg += `<text x="${(px + cx) / 2 + 10}" y="${(py + cy) / 2 + 4}" font-size="11" font-weight="700" fill="#d97706">${ch.prefix}</text>`;
+      drawEdges(b);
+    });
+  })(root);
+  flat.forEach(n => {
+    const [f, st] = colFor(n);
+    const lab = labelFor(n);
+    const w = Math.max(90, lab.length * 8);
+    const x = PAD + n.x * DX, y = PAD + n.depth * DY;
+    svg += `<rect x="${x - w / 2}" y="${y - 20}" width="${w}" height="40" rx="8" fill="${f}" stroke="${st}" stroke-width="2"/>`;
+    svg += `<text x="${x}" y="${y + 2}" text-anchor="middle" font-size="13" font-weight="700">${lab}</text>`;
+    // Count under the box
+    const cnt = n.returned ? n.returned.length : 0;
+    svg += `<text x="${x}" y="${y + 32}" text-anchor="middle" font-size="11" fill="#616e7c">returns ${cnt} split${cnt === 1 ? '' : 's'}</text>`;
+  });
+
+  const tree = `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${H}">${svg}</svg>`;
+
+  // Summary cards: list every memo entry.
+  let memCards = '';
+  memo.forEach((splits, suf) => {
+    memCards += VIZ.step(`memo["${suf}"]`,
+      `<div class="caption">${splits.length} split${splits.length === 1 ? '' : 's'}</div>` +
+      (splits.length ? '<pre style="margin:4px 0;padding:8px 10px;font-size:12px;background:#0f172a">' + splits.map(x => '  ' + x).join('\n') + '</pre>' : '<div class="caption">(no splits)</div>'),
+      '', true);
+  });
+
+  document.getElementById('answer').innerHTML =
+    `<b>${finalAnswer.length} split${finalAnswer.length === 1 ? '' : 's'}</b>` +
+    (finalAnswer.length ? ': ' + finalAnswer.map(x => `<code>"${x}"</code>`).join(', ') : '.');
+
+  return VIZ.step('Recursion tree (yellow = computed, purple = memo hit, dim = dead)', tree, '', true) + memCards;
+}, 'Edit s or dict. Keep s short so the recursion tree fits.');
+</script>
+
+</body>
+</html>

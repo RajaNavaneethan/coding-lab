@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 371 - Sum of Two Integers</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#bit-manipulation">Pattern lesson</a><span>Pattern 18: Bit Manipulation</span></div>
+
+<h1>Sum of Two Integers</h1>
+<p class="sub">LeetCode 371 &middot; Medium &middot; Pattern: XOR for sum, AND&lt;&lt;1 for carry &middot; O(1) time (at most 32 iterations), O(1) space</p>
+
+<div class="box">
+  <b>Problem.</b> Compute <code>a + b</code> without using <code>+</code> or <code>&minus;</code>.
+  <br><code>a = 1, b = 2 &rarr; 3</code> &nbsp;&nbsp;
+  <code>a = 2, b = 3 &rarr; 5</code> &nbsp;&nbsp;
+  <code>a = -1, b = 1 &rarr; 0</code>
+  <br>Link: <a href="https://leetcode.com/problems/sum-of-two-integers/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Binary addition splits into two independent pieces at every bit:</p>
+<ul>
+  <li><b>Sum without carry.</b> Column-wise addition mod 2. That is exactly <code>a ^ b</code>: 0+0 = 0, 0+1 = 1,
+  1+0 = 1, 1+1 = 0 (the carry escaped).</li>
+  <li><b>Carry.</b> A carry is produced wherever both bits are 1, and it goes into the next column up. That is
+  <code>(a &amp; b) &lt;&lt; 1</code>.</li>
+</ul>
+
+<p>Add those two together and you have <code>a + b</code>. But you cannot use <code>+</code>, so you call the same
+function on <code>(a ^ b)</code> and <code>(a &amp; b) &lt;&lt; 1</code>. The carry eventually becomes 0 (there is nowhere
+left to carry), and the loop stops.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Separate addition into two parallel bit operations: XOR captures the sum, AND-and-shift captures the
+  carry. Keep combining them until the carry is 0.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>Two's complement makes negative numbers work for free: subtraction is just addition with the right bit pattern. The
+same loop handles <code>5 + 3</code> and <code>&minus;5 + 3</code> because at the bit level they look identical.</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>Each card shows <code>a</code> and <code>b</code> as 8-bit strips, then the two outputs of this step:
+<code>a ^ b</code> (new <code>a</code>) and <code>(a &amp; b) &lt;&lt; 1</code> (new <code>b</code>, the carry). The loop
+ends when the carry becomes 0.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>a (updated to a ^ b)</span>
+  <span><i style="background:var(--win)"></i>b (updated to the carry)</span>
+  <span><i style="background:var(--keep)"></i>final answer (b = 0)</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">int</span> getSum(<span class="t">int</span> a, <span class="t">int</span> b) {
+        <span class="k">while</span> (b != <span class="n">0</span>) {
+            <span class="t">unsigned</span> carry = <span class="k">static_cast</span>&lt;<span class="t">unsigned</span>&gt;(a &amp; b) &lt;&lt; <span class="n">1</span>;
+            a = a ^ b;
+            b = <span class="k">static_cast</span>&lt;<span class="t">int</span>&gt;(carry);
+        }
+        <span class="k">return</span> a;
+    }
+};</pre>
+
+<p><b>Complexity:</b> each iteration moves the lowest active carry bit up by one. The carry can only propagate past the
+top bit at most 32 times, so the loop runs at most 32 times: O(1) time, O(1) space.</p>
+
+<p>Why the <code>unsigned</code> cast on the shift? In C++, left-shifting a <strong>signed</strong> value whose result
+does not fit in the sign bit is undefined behaviour. For example, when <code>a &amp; b</code> has bit 30 set,
+<code>&lt;&lt; 1</code> would land in the sign bit of a signed <code>int</code>. Casting to <code>unsigned</code> first
+makes the shift well-defined (modular wrap-around), and the final cast back to <code>int</code> re-interprets the bits
+as two's complement.</p>
+
+<h2>5. The part interviewers ask about: why this works for negative inputs</h2>
+
+<div class="box insight">
+  Negative integers are stored in two's complement, which is exactly the representation that makes
+  <code>a + b</code> fall out of the "XOR for sum, AND&lt;&lt;1 for carry" loop without any sign handling. There is no
+  separate "subtract" code path: <code>5 + (&minus;5)</code> is <code>0x00000005 + 0xFFFFFFFB</code>, and after enough
+  rounds the carry chain settles at 0, leaving <code>a = 0</code>.
+</div>
+
+<p>If the interviewer asks why the loop terminates: every iteration shifts the carry one bit to the left. After 32
+shifts the carry has moved past the top bit, becomes 0 (because <code>unsigned &lt;&lt; 1</code> drops the bit that
+falls off), and the loop ends. So the worst case is bounded by the width of <code>int</code>, not by the magnitude of
+the inputs.</p>
+
+<p>Expect a follow-up on <strong>why not recursion</strong>:
+<code>return b == 0 ? a : getSum(a ^ b, (a &amp; b) &lt;&lt; 1);</code> is the same algorithm. Iterative is preferred
+because the recursion goes 32 deep in the worst case and overflow-prone compilers may not tail-call-optimise it.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Left-shifting a signed <code>int</code> into the sign bit.</b> This is undefined behaviour in C++. The example
+    <code>a = INT_MAX, b = 1</code> makes <code>a &amp; b = 1</code>, which is harmless &mdash; but <code>a = 1 &lt;&lt; 30,
+    b = 1 &lt;&lt; 30</code> would produce a shift that touches the sign bit. Compute the carry in <code>unsigned</code>
+    to avoid UB. Our code does this.</li>
+    <li><b>Both inputs zero.</b> The <code>while</code> condition is false on entry, so the function returns 0
+    immediately.</li>
+    <li><b>One input zero.</b> First iteration computes <code>carry = (a &amp; 0) &lt;&lt; 1 = 0</code>, so <code>a</code>
+    becomes <code>a ^ 0 = a</code>, <code>b</code> becomes 0, and we exit. Correct.</li>
+    <li><b>Mixing signs.</b> No special case needed; two's complement handles <code>5 + (&minus;3)</code>, <code>
+    &minus;5 + &minus;3</code>, and <code>5 + 3</code> with the same code.</li>
+    <li><b>Using <code>+</code> somewhere by habit</b> (e.g., in a <code>size_t</code> index). The problem bans it only
+    for the arithmetic; indexing <code>vector[i]</code> is fine, but <code>a + 1</code> is not. Review every operator
+    before submitting.</li>
+    <li><b>Infinite loop on bare signed shift.</b> Some compilers do an arithmetic left-shift that keeps the sign bit;
+    with <code>b</code> never becoming 0 you spin forever. The <code>unsigned</code> cast is the fix.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "Binary addition is XOR for the sum of each column, plus a carry that lives one column to the left. XOR gives me
+  <code>a + b</code> if I ignore carries, and <code>(a &amp; b) &lt;&lt; 1</code> gives me those carries. I feed those
+  two back into the same operation until the carry is 0. I compute the shift as <code>unsigned</code> to avoid signed
+  shift UB when the top bit flips. Two's complement makes negatives work with the exact same code; the loop runs at
+  most 32 times."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 29 Divide Two Integers</td><td>Build subtraction and division from bit ops; same no-arithmetic constraint.</td></tr>
+  <tr><td>LC 190 Reverse Bits</td><td>Same uint32 setting, different bit choreography.</td></tr>
+  <tr><td>LC 67 Add Binary</td><td>Same XOR + carry idea but on binary <em>strings</em>, carry propagated by index.</td></tr>
+  <tr><td>LC 989 Add to Array-Form of Integer</td><td>Carry propagation on digits (base 10) instead of bits.</td></tr>
+</table>
+
+<script>
+/* Idea diagram: show one step of 5 + 3 using XOR for sum-without-carry and AND<<1 for carry.
+   5 = 0101, 3 = 0011, 5 ^ 3 = 0110 (6), 5 & 3 = 0001, (5 & 3) << 1 = 0010 (2). Then 6 + 2 next loop. */
+(function () {
+  const WIDTH = 5;
+  const bits = v => {
+    const u = v & ((1 << WIDTH) - 1);
+    const out = []; for (let i = WIDTH - 1; i >= 0; i--) out.push((u >> i) & 1); return out;
+  };
+  const labels = (() => { const a = []; for (let i = WIDTH - 1; i >= 0; i--) a.push('b' + i); return a; })();
+
+  const host = document.getElementById('idea');
+  host.innerHTML =
+    `<div style="margin-top:10px;font-size:13px;color:#616e7c">a = 5 = 00101<sub>2</sub></div>` +
+    VIZ.strip(bits(5), { labels, cls: i => bits(5)[i] === 1 ? 'in' : '', small: true }) +
+    `<div style="margin-top:8px;font-size:13px;color:#616e7c">b = 3 = 00011<sub>2</sub></div>` +
+    VIZ.strip(bits(3), { labels, cls: i => bits(3)[i] === 1 ? 'in' : '', small: true }) +
+    `<div style="margin-top:8px;font-size:13px;color:#616e7c">a ^ b = 00110<sub>2</sub> = 6 &nbsp; (sum without carry)</div>` +
+    VIZ.strip(bits(5 ^ 3), { labels, cls: i => bits(5 ^ 3)[i] === 1 ? 'new' : '', small: true }) +
+    `<div style="margin-top:8px;font-size:13px;color:#616e7c">(a &amp; b) &lt;&lt; 1 = 00010<sub>2</sub> = 2 &nbsp; (the carry)</div>` +
+    VIZ.strip(bits((5 & 3) << 1), { labels, cls: i => bits((5 & 3) << 1)[i] === 1 ? 'hit' : '', small: true }) +
+    `<div style="margin-top:10px;font-size:13px;color:#616e7c">Next round: a = 6, b = 2. a ^ b = 4, (a &amp; b) &lt;&lt; 1 = 4. One more round: a = 0, b = 8. One more: a = 8, b = 0 &rarr; stop, answer = 8.</div>`;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. While b != 0', lines: ['loop while carry remains'], color: 'purple' },
+  { title: '2. Carry', lines: ['carry = (a & b) << 1', '(unsigned shift)'], color: 'yellow' },
+  { title: '3. Sum', lines: ['a = a ^ b', 'b = carry'], color: 'blue' },
+  { title: '4. Return', lines: ['return a'], color: 'green' },
+], { loop: 'keep looping while b != 0' });
+
+/* Interactive trace: show each iteration in bit strips. Use a 32-bit-safe JS impl via BigInt-free masking. */
+VIZ.controls('trace', [
+  { id: 'a', label: 'a =', value: '5', size: 8 },
+  { id: 'b', label: 'b =', value: '3', size: 8 },
+], v => {
+  let a, b;
+  try { a = VIZ.parse.int(v.a); b = VIZ.parse.int(v.b); }
+  catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  // JS bitwise is 32-bit signed on numbers, matching the C++ semantics well enough for display.
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    return '<div class="box trap">Need two integers.</div>';
+  }
+  const RANGE = (1 << 29); // keep within safe bit-display width
+  if (Math.abs(a) >= RANGE || Math.abs(b) >= RANGE) {
+    return '<div class="box trap">Keep |a|, |b| &lt; 2<sup>29</sup> for the strips. Algorithm itself works at any size.</div>';
+  }
+
+  // Pick strip width to show both values legibly.
+  const magnitude = Math.max(Math.abs(a), Math.abs(b), 1);
+  const WIDTH = (a < 0 || b < 0) ? 16 : (magnitude < 256 ? 8 : (magnitude < 65536 ? 16 : 32));
+  const bits = v => {
+    const u = (v >>> 0) & (WIDTH === 32 ? 0xFFFFFFFF : ((1 << WIDTH) - 1));
+    const out = []; for (let i = WIDTH - 1; i >= 0; i--) out.push((u >> i) & 1); return out;
+  };
+  const labels = (() => { const arr = []; for (let i = WIDTH - 1; i >= 0; i--) arr.push('b' + i); return arr; })();
+
+  // Record start
+  const steps = [{ kind: 'start', a, b }];
+  let i = 0;
+  const MAX_ITERS = 40;
+  while (b !== 0 && i < MAX_ITERS) {
+    // Compute carry as unsigned, matching C++.
+    const carry = ((a & b) << 1) | 0; // shift in JS is already 32-bit signed; carry equal to C++ int.
+    const newA = (a ^ b) | 0;
+    const newB = carry;
+    steps.push({ kind: 'iter', before_a: a, before_b: b, newA, newB, carry });
+    a = newA; b = newB;
+    i++;
+  }
+
+  const MAX = 25;
+  const show = steps.length <= MAX ? steps : steps.slice(0, MAX);
+  let html = '';
+
+  show.forEach((st, k) => {
+    if (st.kind === 'start') {
+      const visual =
+        `<div style="font-size:12px;color:#616e7c">a = ${st.a}</div>` + VIZ.strip(bits(st.a), { labels, cls: () => 'new', small: true }) +
+        `<div style="font-size:12px;color:#616e7c;margin-top:6px">b = ${st.b}</div>` + VIZ.strip(bits(st.b), { labels, cls: () => 'in', small: true });
+      html += VIZ.step(`Step ${k + 1}: start`, visual, `Initial values. The loop runs while <code>b != 0</code>.`, true);
+      return;
+    }
+
+    const done = (st.newB === 0);
+    const aCls = done ? 'keep' : 'new';
+    const visual =
+      `<div style="font-size:12px;color:#616e7c">a (before) = ${st.before_a}</div>` + VIZ.strip(bits(st.before_a), { labels, cls: () => '', small: true }) +
+      `<div style="font-size:12px;color:#616e7c;margin-top:6px">b (before) = ${st.before_b}</div>` + VIZ.strip(bits(st.before_b), { labels, cls: () => '', small: true }) +
+      `<div style="font-size:12px;color:#616e7c;margin-top:8px">new a = a ^ b = ${st.newA}</div>` + VIZ.strip(bits(st.newA), { labels, cls: () => aCls, small: true }) +
+      `<div style="font-size:12px;color:#616e7c;margin-top:6px">new b = (a &amp; b) &lt;&lt; 1 = ${st.newB}</div>` + VIZ.strip(bits(st.newB), { labels, cls: () => 'in', small: true });
+
+    const text = done
+      ? `Carry is 0. The loop stops. The answer is <b>a = ${st.newA}</b>.`
+      : `XOR gives the sum ignoring carries. The carry <code>(a &amp; b) &lt;&lt; 1</code> becomes the next <code>b</code>.`;
+    html += VIZ.step(`Step ${k + 1}: iterate`, visual, text, true);
+  });
+  if (steps.length > MAX) html += `<p class="caption">... ${steps.length - MAX} more rounds, same pattern.</p>`;
+
+  document.getElementById('answer').innerHTML = `<b>Answer: ${a}</b>`;
+  return html;
+}, 'Try positive and negative mixes. The algorithm converges in at most 32 rounds.');
+</script>
+
+</body>
+</html>

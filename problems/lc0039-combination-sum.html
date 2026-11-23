@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 39 - Combination Sum</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#backtracking">Pattern lesson</a><span>Pattern 12: Backtracking</span></div>
+
+<h1>Combination Sum</h1>
+<p class="sub">LeetCode 39 &middot; Medium &middot; Pattern: backtracking (choose with reuse / skip) &middot; O(N<sup>T/min</sup>) rough bound, O(T/min) extra space</p>
+
+<div class="box">
+  <b>Problem.</b> Given a list of distinct positive integers <code>candidates</code> and a target <code>target</code>,
+  return every unique multiset of candidates that sums to <code>target</code>. Each number may be reused any number of
+  times. Two multisets are the same if the counts of each number match (order inside a combination does not matter).
+  <br><code>candidates = [2,3,6,7], target = 7 &rarr; [[2,2,3],[7]]</code>
+  <br><code>candidates = [2,3,5], target = 8 &rarr; [[2,2,2,2],[2,3,3],[3,5]]</code>
+  <br>Link: <a href="https://leetcode.com/problems/combination-sum/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Keep the candidates in a fixed order and sweep an index <code>i</code> from left to right. At each index make two
+decisions: <b>take candidates[i]</b> (and stay at <code>i</code> because reuse is allowed) or <b>skip to <code>i + 1</code></b>
+and never look at <code>candidates[i]</code> again. Track a <code>remain</code> that drops by <code>candidates[i]</code>
+every time you take.</p>
+
+<p>Two base cases: <code>remain == 0</code> emits <code>cur</code>; <code>remain &lt; 0</code> or <code>i == n</code>
+prunes the branch. Because once you move past <code>i</code> you never come back, no two leaves can describe the same
+multiset in a different order. That is how uniqueness is enforced without any <code>set</code>.</p>
+
+<div id="idea-tree"></div>
+
+<div class="box insight">
+  <b>Idea.</b> Choose/skip over an ordered candidate list, with "choose" keeping <code>i</code> the same so reuse works.
+  Moving the index forward (and never backward) guarantees each multiset is produced in exactly one order, which is
+  how duplicates are avoided.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<p>The recursion at <code>(i, remain)</code> has three outcomes: a hit (<code>remain == 0</code>), a dead end
+(<code>remain &lt; 0</code> or ran out of candidates), or branch into two children: take (stay at <code>i</code>) and
+skip (move to <code>i + 1</code>).</p>
+
+<div id="algo-flow"></div>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>The tree below is the full recursion. Each node is a call <code>(i, remain)</code> with the current <code>cur</code>
+written on top. Left edge = <b>take <code>candidates[i]</code></b> (<code>cur</code> grows, <code>remain</code> drops,
+<code>i</code> stays), right edge = <b>skip</b> (<code>i</code> moves on, <code>remain</code> unchanged). Green leaves
+are hits; red leaves are dead ends.</p>
+
+<div class="legend">
+  <span><i style="background:#dbeafe"></i>recursive call</span>
+  <span><i style="background:#bbf7d0"></i>hit (remain = 0): combination emitted</span>
+  <span><i style="background:#fecaca"></i>dead end (remain &lt; 0 or ran out of candidates)</span>
+  <span><i style="background:#f8fafc;border:1px solid #cbd5e1"></i>edge: take (left) / skip (right)</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt; combinationSum(<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; candidates, <span class="t">int</span> target) {
+        <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt; ans;
+        <span class="t">vector</span>&lt;<span class="t">int</span>&gt; cur;
+        <span class="t">function</span>&lt;<span class="t">void</span>(<span class="t">int</span>, <span class="t">int</span>)&gt; dfs = [&amp;](<span class="t">int</span> i, <span class="t">int</span> remain) {
+            <span class="k">if</span> (remain == <span class="n">0</span>) { ans.push_back(cur); <span class="k">return</span>; }
+            <span class="k">if</span> (i == (<span class="t">int</span>)candidates.size() || remain &lt; <span class="n">0</span>) <span class="k">return</span>;
+            cur.push_back(candidates[i]);                 <span class="c">// take, stay at i (reuse)</span>
+            dfs(i, remain - candidates[i]);
+            cur.pop_back();                               <span class="c">// unchoose</span>
+            dfs(i + <span class="n">1</span>, remain);                        <span class="c">// skip to next candidate</span>
+        };
+        dfs(<span class="n">0</span>, target);
+        <span class="k">return</span> ans;
+    }
+};</pre>
+
+<p><b>Complexity:</b> hard to pin exactly; a common bound is O(N<sup>T/min</sup>) where N is the number of candidates
+and <code>min</code> is the smallest one, because the deepest "all smallest" chain has <code>T/min</code> takes.
+Space is O(T/min) for the recursion depth and <code>cur</code>.</p>
+
+<h3>Alternative: for-loop form with a start index</h3>
+
+<pre><span class="t">void</span> dfs(<span class="t">int</span> start, <span class="t">int</span> remain, <span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; c,
+         <span class="t">vector</span>&lt;<span class="t">int</span>&gt;&amp; cur, <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">int</span>&gt;&gt;&amp; ans) {
+    <span class="k">if</span> (remain == <span class="n">0</span>) { ans.push_back(cur); <span class="k">return</span>; }
+    <span class="k">for</span> (<span class="t">int</span> i = start; i &lt; (<span class="t">int</span>)c.size(); i++) {
+        <span class="k">if</span> (c[i] &gt; remain) <span class="k">continue</span>;         <span class="c">// prune (sort first and break for a tighter cut)</span>
+        cur.push_back(c[i]);
+        dfs(i, remain - c[i], c, cur, ans);  <span class="c">// still allow reuse of c[i]</span>
+        cur.pop_back();
+    }
+}</pre>
+
+<p>Same recursion tree with the "skip to <code>i + 1</code>" child baked into the loop's increment. Prefer the for-loop
+form when you want the natural pruning <code>sort(candidates); if (c[i] &gt; remain) break;</code>, which cuts the tree
+by an order of magnitude on realistic inputs.</p>
+
+<h2>5. The part interviewers ask about: why no duplicates and why "stay at i"</h2>
+
+<p>Two subtle points that come up almost every time:</p>
+
+<div class="box insight">
+  <b>Why uniqueness falls out for free.</b> A combination like <code>[2,2,3]</code> could in theory be built as
+  <code>2 &rarr; 2 &rarr; 3</code> or <code>3 &rarr; 2 &rarr; 2</code>. The index <code>i</code> only moves right or
+  stays, so once the recursion has moved past index "2" it will never add another 2. Only the ordered-non-decreasing
+  way of writing a multiset is reachable, so each multiset shows up exactly once.
+</div>
+
+<div class="box insight">
+  <b>Why "take" keeps <code>i</code> the same.</b> The problem lets you reuse a number as many times as you want.
+  Keeping <code>i</code> means the <i>next</i> decision is still allowed to take <code>candidates[i]</code> again.
+  Moving to <code>i + 1</code> after a take would make the algorithm emit combinations with each candidate used at
+  most once (that is actually LC 40 Combination Sum II).
+</div>
+
+<p>What if there were a <b>duplicate</b> in <code>candidates</code> (LC 40)? You now have both the "no reuse" rule and
+the risk of two equal candidates producing the same multiset twice. The fix is: sort the array, use the for-loop form,
+recurse to <code>i + 1</code> after taking, and at each level
+<code>if (i &gt; start &amp;&amp; c[i] == c[i-1]) continue;</code> to skip equal siblings.</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Recursing to <code>i + 1</code> after a take.</b> That is LC 40 (no reuse). For LC 39 the recurse must stay
+    at <code>i</code>.</li>
+    <li><b>Allowing both children at <code>i</code> without an index.</b> If you fan out "pick any candidate" at every
+    level, you will generate every ordering of each multiset and the output will have duplicates.</li>
+    <li><b>Infinite recursion.</b> If a candidate is 0 and you keep taking, <code>remain</code> never changes. The
+    problem rules out this input (positive candidates), but mention it.</li>
+    <li><b>Missing the <code>remain &lt; 0</code> prune.</b> Without <code>sort</code>, you need this check or the
+    recursion will keep adding past the target. With <code>sort</code> plus <code>break</code>, you don't need the
+    explicit check but you still return nothing on that branch.</li>
+    <li><b>Target already 0.</b> The problem guarantees <code>target &ge; 1</code>, but the base case handles it: emit
+    the empty combination <code>[]</code> and return.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I use a start index to force each combination into a non-decreasing order of candidate indices. That gives
+  uniqueness for free. At each call I either take the current candidate and recurse at the same index because reuse
+  is allowed, or skip to the next index. The base cases are remain hits zero (emit <code>cur</code>) or remain goes
+  negative / I'm out of candidates (prune). Sorting first lets me break out of the loop as soon as a candidate
+  overshoots, which is the main pruning trick on top of the recursion."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 40 Combination Sum II</td><td>Duplicates in input, no reuse: sort, recurse to <code>i + 1</code>, skip equal siblings.</td></tr>
+  <tr><td>LC 216 Combination Sum III</td><td>Fixed <code>k</code> picks, candidates 1..9, no reuse: for-loop form with a size prune.</td></tr>
+  <tr><td>LC 377 Combination Sum IV</td><td>Order matters, so it's permutations really: DP on <code>remain</code>, not backtracking.</td></tr>
+  <tr><td>LC 78 Subsets</td><td>Same choose/skip tree, no reuse, no target. This is the plain binary-tree form.</td></tr>
+</table>
+
+<script>
+/* Static tree for candidates=[2,3,6,7], target=7, drawn just for the "idea" picture.
+   We draw the first few interesting layers rather than every call, else it's huge.
+   Show: (0,7) -> take 2 -> (0,5) -> take 2 -> (0,3) -> take 2 -> (0,1) dead ...
+   and the branch -> skip to (1,7) -> ... -> (3,7) take 7 -> hit [7].
+   Then skip ... down to leaves.
+   For readability we show two paths that both finish: [2,2,3] and [7]. */
+(function () {
+  const W = 900, H = 320;
+  // We'll lay out a smaller "shape" tree, not the exact recursion. The interactive tree below is the real one.
+  const nodes = [
+    [0, 450, 30,  '(0, 7)',  'in'],
+    [1, 180, 110, '(0, 5)',  'in'],
+    [2, 720, 110, '(1, 7)',  'in'],
+    [3, 100, 190, '(0, 3)',  'in'],
+    [4, 280, 190, '(1, 5)',  'in'],
+    [5, 640, 190, '(2, 7)',  'in'],
+    [6, 820, 190, '(3, 7)',  'in'],
+    [7,  60, 270, 'hit [2,2,3]', 'keep'],
+    [8, 140, 270, 'dead end',    'gone'],
+    [9, 820, 270, 'hit [7]',     'keep'],
+  ];
+  const edges = [
+    [0, 1, 'take 2'],
+    [0, 2, 'skip'],
+    [1, 3, 'take 2'],
+    [1, 4, 'skip'],
+    [2, 5, 'skip'],
+    [2, 6, 'skip'],
+    [3, 7, 'take 3 (via skip)'],
+    [3, 8, 'take 2 (overshoots)'],
+    [6, 9, 'take 7'],
+  ];
+  const col = { in: ['#dbeafe','#3b82f6'], keep: ['#bbf7d0','#15803d'], gone: ['#fecaca','#b91c1c'] };
+  let s = '';
+  edges.forEach(([a, b, lab]) => {
+    const A = nodes[a], B = nodes[b];
+    s += `<line x1="${A[1]}" y1="${A[2]+14}" x2="${B[1]}" y2="${B[2]-14}" stroke="#94a3b8" stroke-width="2"/>`;
+    const mx = (A[1] + B[1]) / 2, my = (A[2] + B[2]) / 2 + 2;
+    s += `<text x="${mx}" y="${my}" text-anchor="middle" font-size="11" fill="#475569" font-weight="700">${lab}</text>`;
+  });
+  nodes.forEach(([id, x, y, lab, cls]) => {
+    const [fill, stroke] = col[cls];
+    const w = Math.max(72, lab.length * 7 + 10);
+    s += `<rect x="${x - w/2}" y="${y-14}" width="${w}" height="28" rx="6" fill="${fill}" stroke="${stroke}" stroke-width="2"/>`;
+    s += `<text x="${x}" y="${y+5}" text-anchor="middle" font-size="12" font-weight="700">${lab}</text>`;
+  });
+  s += `<text x="20" y="310" font-size="12" fill="#616e7c">
+    Sketch of the recursion for candidates=[2,3,6,7], target=7 (showing only the two paths that reach a hit).</text>`;
+  document.getElementById('idea-tree').innerHTML =
+    `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${H}">${s}</svg>`;
+})();
+
+document.getElementById('algo-flow').innerHTML = VIZ.flow([
+  { title: '1. Hit', lines: ['if remain == 0', 'push cur into ans', 'return'], color: 'green' },
+  { title: '2. Dead end', lines: ['if i == n', 'or remain < 0', 'return'], color: 'red' },
+  { title: '3. Take', lines: ['push candidates[i]', 'dfs(i, remain - c[i])', 'pop'], color: 'yellow' },
+  { title: '4. Skip', lines: ['dfs(i + 1, remain)'], color: 'blue' },
+]);
+
+/* Interactive recursion tree. */
+VIZ.controls('trace', [
+  { id: 'cands', label: 'candidates =', value: '[2,3,6,7]', size: 14 },
+  { id: 'target', label: 'target =', value: '7', size: 4 },
+], v => {
+  let cands, target;
+  try {
+    cands = VIZ.parse.arr(v.cands);
+    target = VIZ.parse.int(v.target);
+  } catch (e) { return '<div class="box trap">Could not parse input: ' + e.message + '</div>'; }
+  if (!Array.isArray(cands) || !cands.length) return '<div class="box trap">Please provide a non-empty candidates array.</div>';
+  if (cands.some(x => !Number.isInteger(x) || x <= 0)) return '<div class="box trap">Candidates must be positive integers.</div>';
+  if (target < 0) return '<div class="box trap">Target must be &ge; 0.</div>';
+
+  // Count nodes first; cap to avoid giant trees.
+  const CAP = 180;
+  let count = 0; let over = false;
+  (function dry(i, remain) {
+    if (over) return;
+    count++;
+    if (count > CAP) { over = true; return; }
+    if (remain === 0) return;
+    if (i === cands.length || remain < 0) return;
+    dry(i, remain - cands[i]);
+    dry(i + 1, remain);
+  })(0, target);
+  if (over) return '<div class="box trap">That input generates more than ' + CAP + ' recursion nodes. Try a smaller target or fewer candidates (e.g. the LeetCode examples).</div>';
+
+  // Build the real tree with layout: leaves get x by order of appearance.
+  const DY = 70;
+  let leafCounter = 0;
+  const nodes = [];
+  const edges = [];
+  const emitted = [];
+
+  function dfs(i, remain, depth, cur) {
+    if (remain === 0) {
+      const x = leafCounter;
+      const id = nodes.length;
+      nodes.push({ id, _x: x, y: 20 + depth * DY, label: '[' + cur.join(',') + ']', cls: 'keep', isLeaf: true });
+      emitted.push([...cur]);
+      leafCounter++;
+      return { id, x };
+    }
+    if (i === cands.length || remain < 0) {
+      const x = leafCounter;
+      const id = nodes.length;
+      const lab = remain < 0 ? 'overshot' : 'no cands';
+      nodes.push({ id, _x: x, y: 20 + depth * DY, label: lab, cls: 'gone', isLeaf: true });
+      leafCounter++;
+      return { id, x };
+    }
+    const childIds = [];
+    const childXs = [];
+    // take (left)
+    cur.push(cands[i]);
+    const l = dfs(i, remain - cands[i], depth + 1, cur);
+    cur.pop();
+    childIds.push({ cid: l.id, label: 'take ' + cands[i] });
+    childXs.push(l.x);
+    // skip (right)
+    const r = dfs(i + 1, remain, depth + 1, cur);
+    childIds.push({ cid: r.id, label: 'skip' });
+    childXs.push(r.x);
+
+    const x = (childXs[0] + childXs[childXs.length - 1]) / 2;
+    const id = nodes.length;
+    const lab = cur.length ? '(' + i + ', r=' + remain + ') cur=[' + cur.join(',') + ']' : '(' + i + ', r=' + remain + ')';
+    nodes.push({ id, _x: x, y: 20 + depth * DY, label: lab, cls: 'in', isLeaf: false });
+    childIds.forEach(c => edges.push({ from: id, to: c.cid, label: c.label }));
+    return { id, x };
+  }
+  dfs(0, target, 0, []);
+
+  const DX = Math.max(44, Math.min(100, Math.floor(880 / Math.max(1, leafCounter))));
+  const W = Math.max(500, leafCounter * DX + 60);
+  const H = Math.max(...nodes.map(n => n.y)) + 50;
+  nodes.forEach(n => { n.x = 30 + (n._x + 0.5) * DX; });
+
+  const col = { in: ['#dbeafe', '#3b82f6'], keep: ['#bbf7d0', '#15803d'], gone: ['#fecaca', '#b91c1c'] };
+  let s = '';
+  edges.forEach(e => {
+    const A = nodes[e.from], B = nodes[e.to];
+    s += `<line x1="${A.x}" y1="${A.y + 14}" x2="${B.x}" y2="${B.y - 14}" stroke="#94a3b8" stroke-width="2"/>`;
+    const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2 + 3;
+    s += `<text x="${mx}" y="${my}" text-anchor="middle" font-size="10" fill="#475569" font-weight="700">${VIZ.esc(e.label)}</text>`;
+  });
+  nodes.forEach(nd => {
+    const [fill, stroke] = col[nd.cls];
+    const w = Math.max(42, nd.label.length * 6.2 + 8);
+    s += `<rect x="${nd.x - w / 2}" y="${nd.y - 14}" width="${w}" height="28" rx="6" fill="${fill}" stroke="${stroke}" stroke-width="2"/>`;
+    s += `<text x="${nd.x}" y="${nd.y + 5}" text-anchor="middle" font-size="11" font-weight="700">${VIZ.esc(nd.label)}</text>`;
+  });
+
+  const treeSvg = `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${H}">${s}</svg>`;
+  const list = emitted.map((p, k) => `<code>ans[${k}] = [${p.join(',')}]</code>`).join(', ');
+  document.getElementById('answer').innerHTML = emitted.length === 0
+    ? '<b>No combinations</b> for <code>candidates=[' + cands.join(',') + '], target=' + target + '</code>.'
+    : '<b>' + emitted.length + ' combinations</b> for <code>candidates=[' + cands.join(',') + '], target=' + target +
+      '</code>: ' + list;
+
+  return VIZ.step('Full recursion tree',
+    treeSvg,
+    'Each internal node is a call <code>(i, remain)</code>; the label also shows the current <code>cur</code>. ' +
+    'Left child = take <code>candidates[i]</code> (<code>i</code> stays the same so it can be taken again); ' +
+    'right child = skip (<code>i</code> moves to <code>i + 1</code>). ' +
+    'Green leaves are hits (<code>remain = 0</code>); red leaves are dead ends. ' +
+    'Hit count: <b>' + emitted.length + '</b>.',
+    true);
+}, 'Try the LeetCode examples. Larger inputs are rejected to keep the tree readable.');
+</script>
+
+</body>
+</html>

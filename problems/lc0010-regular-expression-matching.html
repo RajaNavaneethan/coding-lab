@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LC 10 - Regular Expression Matching</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/viz.js"></script>
+</head>
+<body>
+<div class="nav"><a href="../problems.html">&larr; All problems</a><a href="../index.html#dp-2d">Pattern lesson</a><span>Pattern 14: DP - 2D / Grids</span></div>
+
+<h1>Regular Expression Matching</h1>
+<p class="sub">LeetCode 10 &middot; Hard &middot; Pattern: 2-D DP on text &times; pattern &middot; O(m &middot; n) time, O(m &middot; n) space</p>
+
+<div class="box">
+  <b>Problem.</b> Match a string <code>s</code> against a pattern <code>p</code> where:
+  <ul style="margin:6px 0">
+    <li><code>.</code> matches <b>any single character</b>.</li>
+    <li><code>*</code> matches <b>zero or more</b> of the <b>element preceding it</b> (a letter or <code>.</code>).</li>
+  </ul>
+  Return true if the pattern matches the <b>entire</b> string.
+  <br><code>s="aa", p="a" &rarr; false</code>
+  &nbsp;&nbsp; <code>s="aa", p="a*" &rarr; true</code>
+  &nbsp;&nbsp; <code>s="ab", p=".*" &rarr; true</code>
+  &nbsp;&nbsp; <code>s="aab", p="c*a*b" &rarr; true</code>
+  <br>Link: <a href="https://leetcode.com/problems/regular-expression-matching/">LeetCode</a>
+</div>
+
+<h2>1. The one idea that solves it</h2>
+
+<p>Define <code>dp[i][j] = true</code> if <code>s[0..i)</code> matches <code>p[0..j)</code>. Look at the last pattern
+token:</p>
+
+<ul>
+  <li><b>Letter or <code>.</code> at <code>p[j&minus;1]</code></b> (and no following <code>*</code>): one character
+  of pattern consumes one character of text. True iff the characters match and the previous prefixes matched.
+  <br><code>dp[i][j] = (p[j&minus;1] == '.' || p[j&minus;1] == s[i&minus;1]) && dp[i&minus;1][j&minus;1]</code>.</li>
+  <li><b><code>*</code> at <code>p[j&minus;1]</code></b>: the token is <code>p[j&minus;2]*</code>, which stands for
+  <b>zero or more</b> copies. Two sub-cases, OR them together:
+    <ul>
+      <li><b>Zero copies.</b> Delete <code>p[j&minus;2]*</code> from the pattern:
+      <code>dp[i][j] = dp[i][j&minus;2]</code>.</li>
+      <li><b>One or more copies.</b> If <code>p[j&minus;2]</code> matches <code>s[i&minus;1]</code>, we may consume
+      one more character of <code>s</code> under the same <code>*</code>: <code>dp[i][j] |= dp[i&minus;1][j]</code>.</li>
+    </ul>
+  </li>
+</ul>
+
+<p>Base: <code>dp[0][0] = true</code>. For <code>dp[0][j]</code>, the pattern can still match the empty string if it is
+all <code>x*</code> pairs: whenever <code>p[j&minus;1] == '*'</code>, <code>dp[0][j] = dp[0][j&minus;2]</code>.</p>
+
+<div id="idea"></div>
+
+<div class="box insight">
+  <b>Idea.</b> The <code>*</code> turns a single pattern cell into "take zero or many". So <code>dp[i][j]</code> either
+  skips the whole <code>x*</code> group (jump left by 2 in the pattern) or consumes one more <code>s</code> character
+  under the same <code>*</code> (jump up by 1 in the text and stay in the same pattern cell). Everything else is
+  classic single-character matching.
+</div>
+
+<h2>2. Picture of the algorithm</h2>
+
+<div id="flow"></div>
+
+<p>Row <code>i</code> represents using <code>i</code> characters of <code>s</code>; column <code>j</code> represents
+using <code>j</code> characters of <code>p</code>. A <code>*</code> cell reads two neighbours (left-by-two and above)
+instead of one, so the recurrence is "almost 1-D" with a special two-step hop for star columns.</p>
+
+<h2>3. Step-by-step trace</h2>
+
+<p>The row header is the text <code>s</code>; the column header is the pattern <code>p</code>. Yellow is the current
+cell. Blue cells are the ones it reads: either the diagonal (letter / <code>.</code>) or the two <code>*</code>
+predecessors (two-left for the zero-copy branch, above for the many-copy branch). Each cell shows <code>T</code> or
+<code>F</code>.</p>
+
+<div class="legend">
+  <span><i style="background:var(--new)"></i>cell being filled</span>
+  <span><i style="background:var(--win)"></i>cells being read</span>
+  <span><i style="background:var(--keep)"></i>already filled</span>
+  <span><i style="background:#f8fafc;border:1px solid #cbd5e1"></i>not filled yet</span>
+</div>
+
+<div id="trace"></div>
+<div id="answer" class="box good"></div>
+
+<h2>4. Code (C++)</h2>
+
+<pre><span class="k">class</span> Solution {
+<span class="k">public</span>:
+    <span class="t">bool</span> isMatch(<span class="t">string</span> s, <span class="t">string</span> p) {
+        <span class="t">int</span> m = s.size(), n = p.size();
+        <span class="t">vector</span>&lt;<span class="t">vector</span>&lt;<span class="t">bool</span>&gt;&gt; dp(m + <span class="n">1</span>, <span class="t">vector</span>&lt;<span class="t">bool</span>&gt;(n + <span class="n">1</span>, <span class="k">false</span>));
+        dp[<span class="n">0</span>][<span class="n">0</span>] = <span class="k">true</span>;
+        <span class="k">for</span> (<span class="t">int</span> j = <span class="n">2</span>; j &lt;= n; j++) {           <span class="c">// x* can match empty</span>
+            <span class="k">if</span> (p[j-<span class="n">1</span>] == <span class="n">'*'</span>) dp[<span class="n">0</span>][j] = dp[<span class="n">0</span>][j-<span class="n">2</span>];
+        }
+        <span class="k">for</span> (<span class="t">int</span> i = <span class="n">1</span>; i &lt;= m; i++) {
+            <span class="k">for</span> (<span class="t">int</span> j = <span class="n">1</span>; j &lt;= n; j++) {
+                <span class="k">if</span> (p[j-<span class="n">1</span>] == <span class="n">'*'</span>) {
+                    dp[i][j] = dp[i][j-<span class="n">2</span>];                            <span class="c">// zero copies of x</span>
+                    <span class="k">if</span> (p[j-<span class="n">2</span>] == <span class="n">'.'</span> || p[j-<span class="n">2</span>] == s[i-<span class="n">1</span>])
+                        dp[i][j] = dp[i][j] || dp[i-<span class="n">1</span>][j];              <span class="c">// one more x</span>
+                } <span class="k">else</span> <span class="k">if</span> (p[j-<span class="n">1</span>] == <span class="n">'.'</span> || p[j-<span class="n">1</span>] == s[i-<span class="n">1</span>]) {
+                    dp[i][j] = dp[i-<span class="n">1</span>][j-<span class="n">1</span>];                          <span class="c">// one letter matches</span>
+                }
+            }
+        }
+        <span class="k">return</span> dp[m][n];
+    }
+};</pre>
+
+<p><b>Complexity:</b> O(m &middot; n) time &mdash; at most two neighbour reads per cell. O(m &middot; n) space,
+reducible to O(n) with a rolling previous row.</p>
+
+<h2>5. The part interviewers ask about: why "star eats one more" is <code>dp[i&minus;1][j]</code></h2>
+
+<p>The <code>*</code> is attached to <code>p[j&minus;2]</code>. When we say "consume one more
+<code>s</code> character under the same <code>*</code>", we eat <code>s[i&minus;1]</code> and keep
+<code>p[j&minus;2]*</code> active for the next consumption. That means the pattern column <b>does not move</b>: we stay
+at column <code>j</code> and shrink <code>s</code> by one, hence <code>dp[i&minus;1][j]</code>.</p>
+
+<p>The symmetric trap is "I should read <code>dp[i&minus;1][j&minus;1]</code> because the character matched". No:
+<code>dp[i&minus;1][j&minus;1]</code> uses up the pattern character too, which would be the correct read for a plain
+letter but not when there's a <code>*</code> after it. The <code>*</code> lets you reuse <code>p[j&minus;2]</code>
+indefinitely, so the column stays put.</p>
+
+<div class="box insight">
+  <b>Equivalent recursion.</b> <code>match(s, p)</code>:
+  <ul>
+    <li>If <code>p</code> is empty, return <code>s.empty()</code>.</li>
+    <li>Let <code>first = !s.empty() && (p[0] == '.' || p[0] == s[0])</code>.</li>
+    <li>If <code>p[1] == '*'</code>: return <code>match(s, p.substr(2))</code> (zero copies) <code>|| (first && match(s.substr(1), p))</code> (one more copy).</li>
+    <li>Else: return <code>first && match(s.substr(1), p.substr(1))</code>.</li>
+  </ul>
+  Memoise on <code>(i, j)</code> and you get the DP table above with the recursion flipped from top-down to bottom-up.
+</div>
+
+<h3>Why greedy fails here</h3>
+
+<p>Naive "scan left to right and consume as much as <code>*</code> allows" fails because sometimes consuming fewer
+characters leaves the right amount for a later part of the pattern. Example: <code>s = "aaa", p = "a*a"</code>.
+A greedy <code>a*</code> gobbles all three <code>a</code>s, leaving no room for the trailing <code>a</code>. DP tries
+all consumption counts, so it finds "<code>a*</code> matches two <code>a</code>s, trailing <code>a</code> matches the
+last one".</p>
+
+<h2>6. Traps and edge cases</h2>
+
+<div class="box trap">
+  <ul>
+    <li><b>Treating <code>*</code> as "one or more" (regex-ish) instead of "zero or more".</b> Classic bug. Without
+    the zero-copy branch, <code>"a*"</code> cannot match the empty string.</li>
+    <li><b>Not initialising <code>dp[0][j]</code> for star patterns.</b> A pattern like <code>"a*b*c*"</code> matches
+    the empty string, but you only get that if you walk the first row and set <code>dp[0][j] = dp[0][j&minus;2]</code>
+    whenever <code>p[j&minus;1] == '*'</code>.</li>
+    <li><b>Pattern starting with <code>*</code>.</b> LC says this can't happen (every <code>*</code> has a preceding
+    element), but your code shouldn't index <code>p[j&minus;2]</code> when <code>j &lt; 2</code>.</li>
+    <li><b>Partial match.</b> The function requires the <b>whole</b> string to match, not a substring. Check
+    <code>dp[m][n]</code>, not any <code>dp[i][j]</code>.</li>
+    <li><b>Wrong "same cell" read.</b> On the many-copy branch you must read <code>dp[i&minus;1][j]</code> (same
+    column, one row up), not <code>dp[i&minus;1][j&minus;1]</code> or <code>dp[i&minus;1][j&minus;2]</code>.</li>
+    <li><b>Supporting <code>+</code> or <code>?</code>.</b> They aren't in this problem's grammar. Don't add them.</li>
+  </ul>
+</div>
+
+<h2>7. How to say it in the interview (30 seconds)</h2>
+
+<div class="box good">
+  "I define <code>dp[i][j] = true</code> iff <code>s[0..i)</code> matches <code>p[0..j)</code>. Base: <code>dp[0][0] = true</code>,
+  and I walk the first row to set <code>dp[0][j] = dp[0][j&minus;2]</code> whenever <code>p[j&minus;1] = '*'</code> so
+  patterns like <code>a*b*c*</code> match empty. For each cell: if <code>p[j&minus;1]</code> is <code>*</code>, the
+  pattern token is <code>p[j&minus;2]*</code>, and <code>dp[i][j]</code> is <code>dp[i][j&minus;2]</code> (zero copies)
+  OR, if <code>p[j&minus;2]</code> matches <code>s[i&minus;1]</code>, <code>dp[i&minus;1][j]</code> (one more copy).
+  Otherwise, if <code>p[j&minus;1]</code> is a letter or <code>.</code> and matches <code>s[i&minus;1]</code>,
+  <code>dp[i][j] = dp[i&minus;1][j&minus;1]</code>. Return <code>dp[m][n]</code>. O(m &middot; n) time and space."
+</div>
+
+<h3>Same pattern, other problems</h3>
+<table>
+  <tr><th>Problem</th><th>How it relates</th></tr>
+  <tr><td>LC 44 Wildcard Matching</td><td>Same table shape; <code>*</code> matches any sequence (no preceding char), <code>?</code> matches one. Simpler recurrence.</td></tr>
+  <tr><td>LC 72 Edit Distance</td><td>Same 2-D table of (text prefix, pattern prefix). Different transitions but same filling order.</td></tr>
+  <tr><td>LC 139 Word Break</td><td>Reduce an entire string by consuming "tokens" (words) &mdash; conceptually a one-dimensional slice of this problem.</td></tr>
+</table>
+
+<script>
+/* Idea diagram: show dp table for s="aab", p="c*a*b" with the matching path. */
+(function () {
+  const s = 'aab', p = 'c*a*b';
+  const m = s.length, n = p.length;
+  const CW = 42, X0 = 100, Y0 = 50;
+  // Pre-filled dp table.
+  // dp[i][j]
+  // j: 0  1  2  3  4  5
+  //    _  c  *  a  *  b
+  // 0: T  F  T  F  T  F
+  // 1: F  F  F  T  T  F
+  // 2: F  F  F  F  T  F
+  // 3: F  F  F  F  F  T
+  const dp = [
+    [true, false, true, false, true, false],
+    [false, false, false, true, true, false],
+    [false, false, false, false, true, false],
+    [false, false, false, false, false, true],
+  ];
+  const colLabels = ['""', 'c', '*', 'a', '*', 'b'];
+  const rowLabels = ['""', 'a', 'a', 'b'];
+  const highlight = new Set(['0,0', '0,2', '0,4', '1,3', '1,4', '2,4', '3,5']);
+  let out = '';
+  for (let j = 0; j <= n; j++) out += `<text x="${X0 + j * CW + CW/2}" y="${Y0 - 10}" text-anchor="middle" font-size="13" font-weight="700" fill="#616e7c">${colLabels[j]}</text>`;
+  for (let i = 0; i <= m; i++) out += `<text x="${X0 - 16}" y="${Y0 + i * CW + CW/2 + 5}" text-anchor="middle" font-size="13" font-weight="700" fill="#616e7c">${rowLabels[i]}</text>`;
+  for (let i = 0; i <= m; i++) {
+    for (let j = 0; j <= n; j++) {
+      const x = X0 + j * CW, y = Y0 + i * CW;
+      let fill = '#ffffff', stroke = '#475569';
+      if (highlight.has(i + ',' + j)) { fill = '#bbf7d0'; stroke = '#15803d'; }
+      out += `<rect x="${x}" y="${y}" width="${CW}" height="${CW}" fill="${fill}" stroke="${stroke}" stroke-width="2"/>`;
+      out += `<text x="${x + CW/2}" y="${y + CW/2 + 5}" text-anchor="middle" font-size="15" font-weight="700">${dp[i][j] ? 'T' : 'F'}</text>`;
+    }
+  }
+  out += `<text x="${X0 + (n+1) * CW / 2}" y="${Y0 + (m+1) * CW + 24}" text-anchor="middle" font-size="13">Green cells trace: <code>c*</code> matches empty, then <code>a*</code> matches "aa", then <code>b</code> matches "b".</text>`;
+  const W = X0 + (n + 1) * CW + 40, H = Y0 + (m + 1) * CW + 40;
+  document.getElementById('idea').innerHTML =
+    `<svg class="figure" width="100%" style="max-width:${W}px" viewBox="0 0 ${W} ${H}">${out}</svg>`;
+})();
+
+document.getElementById('flow').innerHTML = VIZ.flow([
+  { title: '1. Base', lines: ['dp[0][0] = true', 'dp[0][j] = dp[0][j-2]', '  if p[j-1] = *'], color: 'green' },
+  { title: '2. If p[j-1] = *', lines: ['zero: dp[i][j-2]', 'OR many: dp[i-1][j]', '  if p[j-2] matches s[i-1]'], color: 'yellow' },
+  { title: '3. Else (letter/.)', lines: ['dp[i-1][j-1]', 'if p[j-1] matches s[i-1]'], color: 'purple' },
+  { title: '4. Answer', lines: ['return dp[m][n]'], color: 'blue' },
+]);
+
+/* Interactive trace. */
+VIZ.controls('trace', [
+  { id: 's', label: 's =', value: 'aab', size: 10 },
+  { id: 'p', label: 'p =', value: 'c*a*b', size: 10 },
+], v => {
+  const s = v.s, p = v.p;
+  if (s.length > 6 || p.length > 7) return '<div class="box trap">Keep s under 7 and p under 8 characters for a readable trace.</div>';
+  // Light validation of pattern: no leading *, no **.
+  if (p.length > 0 && p[0] === '*') return '<div class="box trap">Pattern cannot start with "*".</div>';
+  for (let k = 1; k < p.length; k++) if (p[k] === '*' && p[k-1] === '*') return '<div class="box trap">Pattern cannot have consecutive "*".</div>';
+
+  const m = s.length, n = p.length;
+  const dp = Array.from({length: m + 1}, () => new Array(n + 1).fill(false));
+  dp[0][0] = true;
+  const firstRowFills = [];
+  for (let j = 2; j <= n; j++) {
+    if (p[j-1] === '*') { dp[0][j] = dp[0][j-2]; firstRowFills.push({ j, val: dp[0][j] }); }
+  }
+
+  const steps = [];
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      let kind, reads = [], val = false;
+      if (p[j-1] === '*') {
+        kind = 'star';
+        val = dp[i][j-2];
+        reads.push({ r: i, c: j - 2 });
+        const prev = p[j-2];
+        const canExtend = (prev === '.' || prev === s[i-1]);
+        if (canExtend) { reads.push({ r: i - 1, c: j }); val = val || dp[i-1][j]; }
+        dp[i][j] = val;
+        steps.push({ i, j, kind, reads, val, prev, extend: canExtend, zero: dp[i][j-2], many: canExtend ? dp[i-1][j] : null, pat: p[j-1], pat2: p[j-2], sc: s[i-1] });
+      } else {
+        kind = 'letter';
+        const canMatch = (p[j-1] === '.' || p[j-1] === s[i-1]);
+        if (canMatch) { reads.push({ r: i - 1, c: j - 1 }); val = dp[i-1][j-1]; }
+        dp[i][j] = val;
+        steps.push({ i, j, kind, reads, val, canMatch, diag: canMatch ? dp[i-1][j-1] : null, pat: p[j-1], sc: s[i-1] });
+      }
+    }
+  }
+
+  const colLabels = ['""', ...p.split('')];
+  const rowLabels = ['""', ...s.split('')];
+
+  const renderGrid = (filled, cur) => {
+    const R = m + 1, C = n + 1;
+    const show = Array.from({length: R}, () => new Array(C).fill('.'));
+    const clsMap = Array.from({length: R}, () => new Array(C).fill('dim'));
+    // Base row: dp[0][0] always true; dp[0][j] from firstRowFills (and false otherwise).
+    show[0][0] = 'T'; clsMap[0][0] = 'keep';
+    for (let j = 1; j <= n; j++) { show[0][j] = dp[0][j] ? 'T' : 'F'; clsMap[0][j] = 'keep'; }
+    for (let i = 1; i <= m; i++) { show[i][0] = 'F'; clsMap[i][0] = 'keep'; }
+    for (const st of filled) { show[st.i][st.j] = st.val ? 'T' : 'F'; clsMap[st.i][st.j] = 'keep'; }
+    if (cur) {
+      show[cur.i][cur.j] = cur.val ? 'T' : 'F';
+      clsMap[cur.i][cur.j] = 'new';
+      for (const rd of cur.reads) if (rd.r >= 0 && rd.c >= 0) clsMap[rd.r][rd.c] = 'in';
+    }
+    const w = Math.max(m, n) > 5 ? 30 : 36;
+    let h = `<div class="grid" style="grid-template-columns:30px repeat(${C}, ${w}px)">`;
+    h += '<span></span>';
+    for (let j = 0; j < C; j++) h += `<span style="font-size:13px;color:#616e7c;text-align:center;font-weight:700">${colLabels[j]}</span>`;
+    for (let i = 0; i < R; i++) {
+      h += `<span style="font-size:13px;color:#616e7c;align-self:center;text-align:center;font-weight:700">${rowLabels[i]}</span>`;
+      for (let j = 0; j < C; j++) {
+        const cls = clsMap[i][j];
+        const small = Math.max(m, n) > 5 ? ' small' : '';
+        h += `<div class="cell ${cls}${small}">${show[i][j]}</div>`;
+      }
+    }
+    h += '</div>';
+    return `<div class="figure">${h}</div>`;
+  };
+
+  let html = '';
+  const firstRowNote = firstRowFills.length === 0
+    ? `<code>dp[0][0] = true</code>. No <code>*</code> pattern in <code>p</code> that could match empty.`
+    : `<code>dp[0][0] = true</code>. First row: ${firstRowFills.map(f => `<code>dp[0][${f.j}] = ${f.val ? 'T' : 'F'}</code>`).join(', ')} because the <code>*</code> allows zero copies.`;
+  html += VIZ.step('Init', renderGrid([], null), firstRowNote);
+
+  const MAX = 20;
+  const shown = steps.length <= MAX ? steps : steps.slice(0, MAX);
+  const prior = [];
+  shown.forEach((st, k) => {
+    const vis = renderGrid(prior, st);
+    let note;
+    if (st.kind === 'star') {
+      const zeroPart = `zero copies &rarr; <code>dp[${st.i}][${st.j - 2}] = ${st.zero ? 'T' : 'F'}</code>`;
+      const manyPart = st.extend
+        ? `; many copies (<code>"${st.pat2}"</code> matches <code>"${st.sc}"</code>) &rarr; <code>dp[${st.i - 1}][${st.j}] = ${st.many ? 'T' : 'F'}</code>`
+        : `; many-copies branch skipped (<code>"${st.pat2}"</code> does not match <code>"${st.sc}"</code>)`;
+      note = `Pattern ends in <code>${st.pat2}*</code>. ${zeroPart}${manyPart}. Result: <b>${st.val ? 'T' : 'F'}</b>.`;
+    } else {
+      note = st.canMatch
+        ? `<code>"${st.pat}"</code> matches <code>"${st.sc}"</code> &rarr; <code>dp[${st.i}][${st.j}] = dp[${st.i - 1}][${st.j - 1}] = ${st.diag ? 'T' : 'F'}</code>.`
+        : `<code>"${st.pat}"</code> does not match <code>"${st.sc}"</code> &rarr; <code>dp[${st.i}][${st.j}] = F</code>.`;
+    }
+    html += VIZ.step(`Step ${k + 1}: fill (${st.i}, ${st.j})`, vis, note);
+    prior.push(st);
+  });
+  if (steps.length > MAX) html += `<p class="caption">... ${steps.length - MAX} more cells, same pattern.</p>`;
+
+  document.getElementById('answer').innerHTML =
+    `<b>Match for s = "${s}", p = "${p}": ${dp[m][n] ? 'true' : 'false'}.</b>`;
+  return html;
+}, 'Edit s or p (short inputs). The pattern supports "." and "*".');
+</script>
+
+</body>
+</html>
